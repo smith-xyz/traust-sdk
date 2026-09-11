@@ -476,6 +476,36 @@ func TestSubmitCountersign_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestStampEventIdentities_RoundTrip(t *testing.T) {
+	path := "/v1/ledger/layers/repo-a/stamp"
+	root := "root-abc"
+	provider := ingesttest.NewStaticProvider().
+		WithPostResponse(path, ingest.StampResponse{MerkleRoot: &root, LayerID: "repo-a", Stamped: 1})
+	client := ingest.NewClient(provider)
+
+	resp, err := client.StampEventIdentities(context.Background(), "repo-a", ingest.StampInput{
+		Fingerprints: map[string]string{"FIND-001": testFingerprint},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Stamped != 1 || resp.MerkleRoot == nil || *resp.MerkleRoot != root {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+
+	calls := provider.PostCalls()
+	if len(calls) != 1 || calls[0].Path != path {
+		t.Fatalf("unexpected post calls: %+v", calls)
+	}
+	var body ingest.StampInput
+	if err := json.Unmarshal(calls[0].Payload, &body); err != nil {
+		t.Fatalf("decode stamp body: %v", err)
+	}
+	if body.Fingerprints["FIND-001"] != testFingerprint {
+		t.Fatalf("fingerprint not sent: %v", body.Fingerprints)
+	}
+}
+
 func TestBatchSubmit_DecodeError(t *testing.T) {
 	provider := &badSubmitProvider{data: []byte(`not json`)}
 	client := ingest.NewClient(provider)

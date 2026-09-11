@@ -56,6 +56,13 @@ type ResolveInput struct {
 	Note     string `json:"note,omitempty"`
 }
 
+// StampInput is the body for POST /v1/ledger/layers/{layer_id}/stamp.
+// Fingerprints maps finding_ref -> fingerprint; the ledger backfills each
+// matching event's fingerprint (never overwriting) and re-signs the layer.
+type StampInput struct {
+	Fingerprints map[string]string `json:"fingerprints"`
+}
+
 // FingerprintInput is the body for POST /v1/ledger/fingerprint.
 type FingerprintInput struct {
 	Findings   []map[string]interface{} `json:"findings"`
