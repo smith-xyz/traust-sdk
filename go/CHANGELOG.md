@@ -2,6 +2,20 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.2.0]
+
+## Changes
+
+- **Two write-path verbs the Python client already had are now on the Go
+  client**, reaching the ledger's new REST endpoints (traust-ledger >= 0.3.0):
+  - `ingest.Client.StampEventIdentities(ctx, layerID, StampInput{Fingerprints})`
+    — POST `/v1/ledger/layers/{layer_id}/stamp`. Backfills event fingerprints
+    from a `finding_ref -> fingerprint` map and re-signs the layer; the ledger
+    never overwrites an existing fingerprint. Returns the new Merkle root and
+    the count stamped.
+  - `query.Client.Whoami(ctx)` — GET `/v1/ledger/whoami`. Returns the
+    token-verified `types.Actor` without recording anything.
+
 ## [0.1.1]
 
 ## Changes

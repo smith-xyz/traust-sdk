@@ -143,6 +143,22 @@ func (c *Client) VerifyLayer(ctx context.Context, layerID string, opts VerifyOpt
 	return out, nil
 }
 
+// Whoami returns the verified actor derived from the caller's auth token.
+// The ledger records nothing — this resolves signer identity for callers that
+// need to attribute a non-event write.
+func (c *Client) Whoami(ctx context.Context) (types.Actor, error) {
+	body, err := c.p.Query(ctx, http.MethodGet, "/v1/ledger/whoami")
+	if err != nil {
+		return types.Actor{}, fmt.Errorf("query: whoami: %w", err)
+	}
+
+	var out types.Actor
+	if err := json.Unmarshal(body, &out); err != nil {
+		return types.Actor{}, fmt.Errorf("query: decode whoami response: %w", err)
+	}
+	return out, nil
+}
+
 // ListLayers returns all layer IDs known to the ledger service.
 func (c *Client) ListLayers(ctx context.Context) (LayerListResponse, error) {
 	body, err := c.p.Query(ctx, http.MethodGet, "/v1/ledger/layers")

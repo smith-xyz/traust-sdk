@@ -45,6 +45,11 @@ func (c *Client) SignLayer(ctx context.Context, layerID string, opts SignOpts) (
 	return SignLayer(ctx, c.p, layerID, opts)
 }
 
+// StampEventIdentities backfills event fingerprints on a layer and re-signs it.
+func (c *Client) StampEventIdentities(ctx context.Context, layerID string, input StampInput) (StampResponse, error) {
+	return StampEventIdentities(ctx, c.p, layerID, input)
+}
+
 // SubmitCountersign submits a human countersign decision for a finding.
 func (c *Client) SubmitCountersign(ctx context.Context, in CountersignInput) (SubmitResponse, error) {
 	return countersignOp.Submit(ctx, c.p, in)

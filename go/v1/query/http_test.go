@@ -260,6 +260,37 @@ func TestHTTPClient_Health(t *testing.T) {
 	}
 }
 
+func TestHTTPClient_Whoami(t *testing.T) {
+	var gotPath, gotAuth string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"kind":"human","identity":"alice","identity_verified":true}`))
+	}))
+	defer srv.Close()
+
+	client := query.NewHTTPClient(srv.URL, query.WithBearerToken("tok-123"))
+
+	actor, err := client.Whoami(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if gotPath != "/v1/ledger/whoami" {
+		t.Fatalf("expected /v1/ledger/whoami, got %s", gotPath)
+	}
+	if gotAuth != "Bearer tok-123" {
+		t.Fatalf("expected Bearer tok-123, got %s", gotAuth)
+	}
+	if actor.Identity == nil || *actor.Identity != "alice" {
+		t.Fatalf("expected identity alice, got %v", actor.Identity)
+	}
+	if actor.IdentityVerified == nil || !*actor.IdentityVerified {
+		t.Fatalf("expected identity_verified true, got %v", actor.IdentityVerified)
+	}
+}
+
 func TestHTTPClient_StatusError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)

@@ -22,6 +22,13 @@ type FingerprintResponse struct {
 	StampedCount int                      `json:"stamped_count"`
 }
 
+// StampResponse is the ledger service response for event-identity stamping.
+type StampResponse struct {
+	MerkleRoot *string `json:"merkle_root,omitempty"`
+	LayerID    string  `json:"layer_id"`
+	Stamped    int     `json:"stamped"`
+}
+
 // SignResponse is the ledger service response for layer signing.
 type SignResponse struct {
 	Status  string `json:"status"`

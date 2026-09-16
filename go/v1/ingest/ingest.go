@@ -117,6 +117,18 @@ func decodeFingerprintResponse(resp []byte, err error) (FingerprintResponse, err
 	return out, nil
 }
 
+func decodeStampResponse(resp []byte, err error) (StampResponse, error) {
+	var zero StampResponse
+	if err != nil {
+		return zero, fmt.Errorf("ingest stamp: %w", err)
+	}
+	var out StampResponse
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return zero, fmt.Errorf("ingest stamp decode: %w", err)
+	}
+	return out, nil
+}
+
 func decodeSignResponse(resp []byte, err error) (SignResponse, error) {
 	var zero SignResponse
 	if err != nil {
@@ -171,6 +183,20 @@ func ComputeFingerprints(ctx context.Context, p Provider, input FingerprintInput
 	}
 	resp, err := p.Post(ctx, "/v1/ledger/fingerprint", raw)
 	return decodeFingerprintResponse(resp, err)
+}
+
+// StampEventIdentities backfills event fingerprints on a layer via
+// POST /v1/ledger/layers/{layer_id}/stamp. The ledger stamps each event whose
+// finding_ref appears in input.Fingerprints (never overwriting an existing
+// fingerprint) and re-signs the layer, returning the new root and count stamped.
+func StampEventIdentities(ctx context.Context, p Provider, layerID string, input StampInput) (StampResponse, error) {
+	raw, err := json.Marshal(input)
+	if err != nil {
+		return StampResponse{}, fmt.Errorf("ingest stamp marshal: %w", err)
+	}
+	path := fmt.Sprintf("/v1/ledger/layers/%s/stamp", layerID)
+	resp, err := p.Post(ctx, path, raw)
+	return decodeStampResponse(resp, err)
 }
 
 // SignLayer requests the ledger service to sign a layer's merkle tree.
