@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 0.1.0. DO NOT EDIT.
+// Code generated from traust-contracts 0.4.0. DO NOT EDIT.
 
 package validate
 
@@ -4457,6 +4457,13 @@ var Schemas = map[string]string{
         "$ref": "#/$defs/check"
       }
     },
+    "evidence": {
+      "description": "Typed base-versus-patch evidence. Each item states what kind of claim it makes and what was observed on the unpatched and patched revisions; an item may only claim 'proves' or 'fails_to_prove' if it recorded both observations, so a check that never ran cannot count as evidence. Distinct from 'checks' (local pass/fail with no before/after) and from 'revalidation' (which stays the live-validation channel). What each kind may legitimately conclude is bounded by the per-path evidence ceilings in the harness's docs/disposition-ledger.md \u00a78a.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/patch_evidence"
+      }
+    },
     "revalidation": {
       "$ref": "#/$defs/revalidation"
     },
@@ -4832,6 +4839,81 @@ var Schemas = map[string]string{
           "type": "string"
         }
       }
+    },
+    "patch_evidence_kind": {
+      "type": "string",
+      "enum": [
+        "regression",
+        "mutation",
+        "property",
+        "scanner_differential",
+        "exploit"
+      ]
+    },
+    "patch_evidence": {
+      "type": "object",
+      "required": [
+        "kind",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/patch_evidence_kind"
+        },
+        "outcome": {
+          "type": "string",
+          "pattern": "^(proves|fails_to_prove|not_attempted: .+)$",
+          "description": "'proves' / 'fails_to_prove' require both observations (enforced below). 'not_attempted: <reason>' carries its reason inline, the same shape as deterministic_steps."
+        },
+        "base_observation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What was observed on the UNPATCHED revision, e.g. 'test_auth_bypass fails', 'mutant 7 survives at oauth.go:212'."
+        },
+        "patched_observation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What was observed on the PATCHED revision, at the same revision-pair and by the same command as base_observation."
+        },
+        "tool": {
+          "type": "string",
+          "description": "Tool and version that produced the observations, e.g. 'mewt 4.0.0', 'go test'."
+        },
+        "command": {
+          "type": "string",
+          "description": "Command actually executed, so a reader can re-run it."
+        },
+        "log_path": {
+          "type": "string"
+        },
+        "deterministic_steps": {
+          "type": "string",
+          "pattern": "^(ran|skipped: .+)$",
+          "description": "'ran' or 'skipped: <reason>' \u2014 the harness's existing answer to 'prove it ran'."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "A claim of proves/fails_to_prove requires both sides of the comparison. This is the rule that keeps an unexecuted check from being recorded as evidence.",
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "pattern": "^(proves|fails_to_prove)$"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "base_observation",
+              "patched_observation"
+            ]
+          }
+        }
+      ]
     },
     "revalidation": {
       "type": "object",
@@ -6756,566 +6838,7 @@ var Schemas = map[string]string{
   }
 }
 `,
-	"verification": `{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.com/traust-contracts/schemas/v1/verification.schema.json",
-  "title": "Remediation Verification Report Schema",
-  "description": "Schema for *-remediation-verification.json reports produced by the verify-remediation harness. Records the per-finding verdict of a targeted re-audit of a previous secure-code-audit report against a patched version of the repository, commit-level attribution of each fix, and any regressions introduced by the patch.",
-  "type": "object",
-  "required": [
-    "title",
-    "metadata",
-    "summary",
-    "verified_findings",
-    "regressions",
-    "commit_timeline"
-  ],
-  "additionalProperties": false,
-  "properties": {
-    "title": {
-      "type": "string",
-      "minLength": 5,
-      "pattern": "(?i)(verif|remediat)"
-    },
-    "metadata": {
-      "$ref": "#/$defs/verification_metadata"
-    },
-    "summary": {
-      "$ref": "#/$defs/summary"
-    },
-    "verified_findings": {
-      "description": "One entry per finding in the original audit report \u2014 findings are never silently skipped.",
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "$ref": "#/$defs/verified_finding"
-      }
-    },
-    "regressions": {
-      "description": "New vulnerabilities introduced by the patch. Empty array when none were found.",
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/regression"
-      }
-    },
-    "commit_timeline": {
-      "description": "Chronological list of all remediation commits across all findings.",
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/timeline_entry"
-      }
-    },
-    "recommendations": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 10
-      }
-    },
-    "notes": {
-      "type": "string",
-      "description": "Free-form auditor/agent notes \u2014 attribution caveats (force-pushed history, squash merges), scoping decisions for the regression scan, anything a human reviewer should know."
-    },
-    "footer": {
-      "type": "string"
-    }
-  },
-  "$defs": {
-    "verdict": {
-      "type": "string",
-      "enum": [
-        "resolved",
-        "partially_resolved",
-        "unresolved",
-        "new_approach",
-        "regression",
-        "false_positive",
-        "risk_accepted"
-      ]
-    },
-    "verification_metadata": {
-      "type": "object",
-      "required": [
-        "date",
-        "harness_version",
-        "original_report",
-        "original_commit",
-        "patched_commit",
-        "repository"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "date": {
-          "type": "string",
-          "format": "date"
-        },
-        "harness_version": {
-          "type": "string",
-          "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9a-f]{7,40})?$"
-        },
-        "original_report": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Path to the original *-security-audit.{json,md} report this verification is based on."
-        },
-        "original_commit": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$",
-          "description": "Full SHA of the commit the original audit findings were identified against."
-        },
-        "patched_commit": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$",
-          "description": "Full SHA of the patched HEAD that was verified (branch head, PR/MR head, or default-branch tip)."
-        },
-        "patched_ref": {
-          "type": "string",
-          "description": "Human-readable ref the patched commit came from, e.g. 'fix-branch', 'pull/42/head', 'merge-requests/17/head', or 'main'."
-        },
-        "ref": {
-          "type": "string",
-          "minLength": 1,
-          "$comment": "Optional (harness >= 0.122.0, branch-awareness Phase 0): the ORIGINAL audit's metadata.ref, restated verbatim so ref provenance survives into verification roll-ups. Not the patched ref \u2014 that is patched_ref. Omit when the original report declares no ref."
-        },
-        "ref_kind": {
-          "type": "string",
-          "enum": [
-            "branch",
-            "tag",
-            "default",
-            "stream"
-          ],
-          "$comment": "Optional (harness >= 0.122.0): the ORIGINAL audit's metadata.ref_kind, restated verbatim alongside ref. 'stream' (harness >= 0.140.0) = dist-git release stream, rpm profile."
-        },
-        "repository": {
-          "type": "string",
-          "format": "uri",
-          "description": "Repository URL the patched code was obtained from."
-        },
-        "scope": {
-          "type": "string"
-        },
-        "framework": {
-          "type": "string",
-          "description": "Framework list, same as the original audit."
-        },
-        "auditor": {
-          "type": "string"
-        },
-        "additional": {
-          "type": "object"
-        },
-        "fix_repository": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "When the whole verification ran against a fix repo (--fix-repo), its URL."
-        },
-        "fix_ref": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Ref verified in fix_repository."
-        }
-      }
-    },
-    "summary": {
-      "type": "object",
-      "required": [
-        "total_findings",
-        "by_verdict",
-        "regressions"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "total_findings": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "by_verdict": {
-          "type": "object",
-          "required": [
-            "resolved",
-            "partially_resolved",
-            "unresolved",
-            "new_approach",
-            "regression",
-            "false_positive",
-            "risk_accepted"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "resolved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "partially_resolved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "unresolved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "new_approach": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "regression": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "false_positive": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "risk_accepted": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
-        },
-        "regressions": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Count of entries in the top-level regressions[] array."
-        },
-        "prose": {
-          "type": "string"
-        }
-      }
-    },
-    "remediation_commit": {
-      "type": "object",
-      "required": [
-        "sha",
-        "short_sha",
-        "date",
-        "author",
-        "subject",
-        "relevance"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "sha": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
-        },
-        "short_sha": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{7,12}$"
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "author": {
-          "type": "string",
-          "minLength": 1
-        },
-        "subject": {
-          "type": "string",
-          "minLength": 1
-        },
-        "pr_number": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1,
-          "description": "GitHub PR number (#NN) or GitLab MR number (!NN) extracted from the commit message, null if none."
-        },
-        "relevance": {
-          "type": "string",
-          "enum": [
-            "direct",
-            "supporting",
-            "partial"
-          ]
-        }
-      }
-    },
-    "verified_finding": {
-      "type": "object",
-      "required": [
-        "original_id",
-        "original_title",
-        "original_severity",
-        "verdict",
-        "remediation_commits",
-        "unattributed",
-        "evidence"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "original_id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Finding ID from the original audit report."
-        },
-        "original_title": {
-          "type": "string",
-          "minLength": 5
-        },
-        "original_severity": {
-          "$ref": "report.schema.json#/$defs/severity_level"
-        },
-        "verdict": {
-          "$ref": "#/$defs/verdict"
-        },
-        "remediation_commits": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/remediation_commit"
-          }
-        },
-        "unattributed": {
-          "type": "boolean",
-          "description": "True when no commit could be identified that addresses this finding (unresolved, fix predates the audit, disposition without code change, or commit history unavailable)."
-        },
-        "evidence": {
-          "type": "object",
-          "required": [
-            "explanation",
-            "framework_reference"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "original_code": {
-              "type": "string",
-              "description": "Code at the finding location in the original commit."
-            },
-            "patched_code": {
-              "type": "string",
-              "description": "Code at the finding location in the patched commit, or confirmation the file/section was removed."
-            },
-            "explanation": {
-              "type": "string",
-              "minLength": 30,
-              "description": "How the change addresses (or fails to address) the root cause."
-            },
-            "framework_reference": {
-              "type": "string",
-              "minLength": 3,
-              "description": "Same CWE, K-ID, CIS section, STIG ID, SLSA level, or PEACH parameter as the original finding."
-            }
-          }
-        },
-        "disposition_rationale": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Required for false_positive and risk_accepted verdicts: who made the determination and why (link to the triage record, MR discussion, or risk-acceptance decision)."
-        },
-        "residual_risk": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Remaining risk when partially_resolved or new_approach, null otherwise."
-        },
-        "residual_severity": {
-          "anyOf": [
-            {
-              "$ref": "report.schema.json#/$defs/severity_level"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "description": "Recalculated severity when partially_resolved, null otherwise."
-        },
-        "cross_repo": {
-          "$ref": "#/$defs/cross_repo"
-        }
-      }
-    },
-    "regression": {
-      "type": "object",
-      "required": [
-        "id",
-        "title",
-        "severity",
-        "cwes",
-        "locations",
-        "description",
-        "remediation",
-        "introduced_by"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,23}-[a-f0-9]{7}-REG-\\d{3}$",
-          "description": "Canonical regression ID: {REPO_SLUG}-{PATCHED_SHORTSHA}-REG-{NNN}."
-        },
-        "title": {
-          "type": "string",
-          "minLength": 5
-        },
-        "severity": {
-          "$ref": "report.schema.json#/$defs/severity_level"
-        },
-        "cwes": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "pattern": "^CWE-\\d{1,5}$"
-          }
-        },
-        "cvss": {
-          "type": "object",
-          "required": [
-            "score",
-            "vector"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "score": {
-              "type": "number",
-              "minimum": 0.0,
-              "maximum": 10.0
-            },
-            "vector": {
-              "type": "string"
-            }
-          }
-        },
-        "locations": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "$ref": "report.schema.json#/$defs/location"
-          }
-        },
-        "description": {
-          "type": "string",
-          "minLength": 50
-        },
-        "remediation": {
-          "type": "string",
-          "minLength": 10
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "report.schema.json#/$defs/evidence_block"
-          }
-        },
-        "attack_pattern": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string"
-        },
-        "introduced_by": {
-          "type": "string",
-          "minLength": 7,
-          "description": "Commit SHA or PR/MR reference that introduced this regression."
-        },
-        "routed_id": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{0,23}-[a-f0-9]{7}-\\d{3}$",
-          "description": "Campaign finding ID this regression was routed to in the repo's baseline audit report (harness >= 0.196.0, the regression router): {REPO_SLUG}-{PATCHED_SHORTSHA}-{NNN}, numbering continuing where the repo's existing findings at that sha leave off. The REG id stays here as provenance; the routed finding carries the REG id in its source_findings. Absent on regressions not yet routed."
-        }
-      }
-    },
-    "timeline_entry": {
-      "type": "object",
-      "required": [
-        "sha",
-        "full_sha",
-        "date",
-        "author",
-        "subject",
-        "addresses"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "sha": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{7,12}$"
-        },
-        "full_sha": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "author": {
-          "type": "string",
-          "minLength": 1
-        },
-        "subject": {
-          "type": "string",
-          "minLength": 1
-        },
-        "pr_number": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 1
-        },
-        "addresses": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string"
-          },
-          "description": "Original finding IDs this commit addresses."
-        }
-      }
-    },
-    "cross_repo": {
-      "type": "object",
-      "required": [
-        "fix_repo",
-        "propagation"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "fix_repo": {
-          "type": "string",
-          "minLength": 8,
-          "description": "URL of the repository the fix landed in (differs from metadata.repository)."
-        },
-        "fix_ref": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Commit SHA or ref of the fix in fix_repo."
-        },
-        "propagation": {
-          "type": "string",
-          "enum": [
-            "consumed",
-            "pending",
-            "module_absent",
-            "not_applicable"
-          ],
-          "description": "Whether the ORIGINAL repo has consumed the fix: consumed = lockfile/vendor/SBOM at or past the fixed version; pending = still on a vulnerable version; module_absent = dependency no longer present (removal is also a fix \u2014 verifier judges); not_applicable = Shape 2/3 (fix legitimately lives only in fix_repo, e.g. config/policy repo)."
-        },
-        "propagation_evidence": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "What was checked: file + pinned version, vendor/modules.txt line, SBOM component version (from the fix-propagation checker)."
-        }
-      },
-      "description": "Present when the fix lives in a DIFFERENT repository than the finding. The finding's identity stays in the original repo; this block is evidence attached to it. Hard rule (validator-enforced): propagation 'pending' forbids verdict 'resolved' \u2014 upstream merging a fix does not resolve a finding the product still ships vulnerable."
-    }
-  }
-}
-`,
+	"verification": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"$id\": \"https://example.com/traust-contracts/schemas/v1/verification.schema.json\",\n  \"title\": \"Remediation Verification Report Schema\",\n  \"description\": \"Schema for *-remediation-verification.json reports produced by the verify-remediation harness. Records the per-finding verdict of a targeted re-audit of a previous secure-code-audit report against a patched version of the repository, commit-level attribution of each fix, and any regressions introduced by the patch.\",\n  \"type\": \"object\",\n  \"required\": [\n    \"title\",\n    \"metadata\",\n    \"summary\",\n    \"verified_findings\",\n    \"regressions\",\n    \"commit_timeline\"\n  ],\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"title\": {\n      \"type\": \"string\",\n      \"minLength\": 5,\n      \"pattern\": \"(?i)(verif|remediat)\"\n    },\n    \"metadata\": {\n      \"$ref\": \"#/$defs/verification_metadata\"\n    },\n    \"summary\": {\n      \"$ref\": \"#/$defs/summary\"\n    },\n    \"verified_findings\": {\n      \"description\": \"One entry per finding in the original audit report \\u2014 findings are never silently skipped.\",\n      \"type\": \"array\",\n      \"minItems\": 1,\n      \"items\": {\n        \"$ref\": \"#/$defs/verified_finding\"\n      }\n    },\n    \"regressions\": {\n      \"description\": \"New vulnerabilities introduced by the patch. Empty array when none were found.\",\n      \"type\": \"array\",\n      \"items\": {\n        \"$ref\": \"#/$defs/regression\"\n      }\n    },\n    \"commit_timeline\": {\n      \"description\": \"Chronological list of all remediation commits across all findings.\",\n      \"type\": \"array\",\n      \"items\": {\n        \"$ref\": \"#/$defs/timeline_entry\"\n      }\n    },\n    \"evidence\": {\n      \"description\": \"Typed base-versus-patch evidence gathered by this verification run, or carried forward from the remediation report that produced the patch. Shares one definition with the remediation family (remediation.schema.json#/$defs/patch_evidence) so a `proves` claim means the same thing on both sides and neither can drift. A targeted re-audit is analysis: it reads the two revisions but executes neither, so a verification report that carries no evidence item is making an analysis-only claim \\u2014 which is the honest default, not a defect. See the per-path evidence ceilings in the harness's docs/disposition-ledger.md \\u00a78a.\",\n      \"type\": \"array\",\n      \"items\": {\n        \"$ref\": \"remediation.schema.json#/$defs/patch_evidence\"\n      }\n    },\n    \"recommendations\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\",\n        \"minLength\": 10\n      }\n    },\n    \"notes\": {\n      \"type\": \"string\",\n      \"description\": \"Free-form auditor/agent notes \\u2014 attribution caveats (force-pushed history, squash merges), scoping decisions for the regression scan, anything a human reviewer should know.\"\n    },\n    \"footer\": {\n      \"type\": \"string\"\n    }\n  },\n  \"$defs\": {\n    \"verdict\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"resolved\",\n        \"partially_resolved\",\n        \"unresolved\",\n        \"new_approach\",\n        \"regression\",\n        \"false_positive\",\n        \"risk_accepted\"\n      ]\n    },\n    \"verification_metadata\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"date\",\n        \"harness_version\",\n        \"original_report\",\n        \"original_commit\",\n        \"patched_commit\",\n        \"repository\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"date\": {\n          \"type\": \"string\",\n          \"format\": \"date\"\n        },\n        \"harness_version\": {\n          \"type\": \"string\",\n          \"pattern\": \"^\\\\d+\\\\.\\\\d+\\\\.\\\\d+(-[0-9a-f]{7,40})?$\"\n        },\n        \"original_report\": {\n          \"type\": \"string\",\n          \"minLength\": 1,\n          \"description\": \"Path to the original *-security-audit.{json,md} report this verification is based on.\"\n        },\n        \"original_commit\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[0-9a-f]{40}$\",\n          \"description\": \"Full SHA of the commit the original audit findings were identified against.\"\n        },\n        \"patched_commit\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[0-9a-f]{40}$\",\n          \"description\": \"Full SHA of the patched HEAD that was verified (branch head, PR/MR head, or default-branch tip).\"\n        },\n        \"patched_ref\": {\n          \"type\": \"string\",\n          \"description\": \"Human-readable ref the patched commit came from, e.g. 'fix-branch', 'pull/42/head', 'merge-requests/17/head', or 'main'.\"\n        },\n        \"ref\": {\n          \"type\": \"string\",\n          \"minLength\": 1,\n          \"$comment\": \"Optional (harness >= 0.122.0, branch-awareness Phase 0): the ORIGINAL audit's metadata.ref, restated verbatim so ref provenance survives into verification roll-ups. Not the patched ref \\u2014 that is patched_ref. Omit when the original report declares no ref.\"\n        },\n        \"ref_kind\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \"branch\",\n            \"tag\",\n            \"default\",\n            \"stream\"\n          ],\n          \"$comment\": \"Optional (harness >= 0.122.0): the ORIGINAL audit's metadata.ref_kind, restated verbatim alongside ref. 'stream' (harness >= 0.140.0) = dist-git release stream, rpm profile.\"\n        },\n        \"repository\": {\n          \"type\": \"string\",\n          \"format\": \"uri\",\n          \"description\": \"Repository URL the patched code was obtained from.\"\n        },\n        \"scope\": {\n          \"type\": \"string\"\n        },\n        \"framework\": {\n          \"type\": \"string\",\n          \"description\": \"Framework list, same as the original audit.\"\n        },\n        \"auditor\": {\n          \"type\": \"string\"\n        },\n        \"additional\": {\n          \"type\": \"object\"\n        },\n        \"fix_repository\": {\n          \"type\": [\n            \"string\",\n            \"null\"\n          ],\n          \"description\": \"When the whole verification ran against a fix repo (--fix-repo), its URL.\"\n        },\n        \"fix_ref\": {\n          \"type\": [\n            \"string\",\n            \"null\"\n          ],\n          \"description\": \"Ref verified in fix_repository.\"\n        }\n      }\n    },\n    \"summary\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"total_findings\",\n        \"by_verdict\",\n        \"regressions\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"total_findings\": {\n          \"type\": \"integer\",\n          \"minimum\": 1\n        },\n        \"by_verdict\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"resolved\",\n            \"partially_resolved\",\n            \"unresolved\",\n            \"new_approach\",\n            \"regression\",\n            \"false_positive\",\n            \"risk_accepted\"\n          ],\n          \"additionalProperties\": false,\n          \"properties\": {\n            \"resolved\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            },\n            \"partially_resolved\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            },\n            \"unresolved\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            },\n            \"new_approach\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            },\n            \"regression\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            },\n            \"false_positive\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            },\n            \"risk_accepted\": {\n              \"type\": \"integer\",\n              \"minimum\": 0\n            }\n          }\n        },\n        \"regressions\": {\n          \"type\": \"integer\",\n          \"minimum\": 0,\n          \"description\": \"Count of entries in the top-level regressions[] array.\"\n        },\n        \"prose\": {\n          \"type\": \"string\"\n        }\n      }\n    },\n    \"remediation_commit\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"sha\",\n        \"short_sha\",\n        \"date\",\n        \"author\",\n        \"subject\",\n        \"relevance\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"sha\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[0-9a-f]{40}$\"\n        },\n        \"short_sha\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[0-9a-f]{7,12}$\"\n        },\n        \"date\": {\n          \"type\": \"string\",\n          \"format\": \"date-time\"\n        },\n        \"author\": {\n          \"type\": \"string\",\n          \"minLength\": 1\n        },\n        \"subject\": {\n          \"type\": \"string\",\n          \"minLength\": 1\n        },\n        \"pr_number\": {\n          \"type\": [\n            \"integer\",\n            \"null\"\n          ],\n          \"minimum\": 1,\n          \"description\": \"GitHub PR number (#NN) or GitLab MR number (!NN) extracted from the commit message, null if none.\"\n        },\n        \"relevance\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \"direct\",\n            \"supporting\",\n            \"partial\"\n          ]\n        }\n      }\n    },\n    \"verified_finding\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"original_id\",\n        \"original_title\",\n        \"original_severity\",\n        \"verdict\",\n        \"remediation_commits\",\n        \"unattributed\",\n        \"evidence\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"original_id\": {\n          \"type\": \"string\",\n          \"minLength\": 1,\n          \"description\": \"Finding ID from the original audit report.\"\n        },\n        \"original_title\": {\n          \"type\": \"string\",\n          \"minLength\": 5\n        },\n        \"original_severity\": {\n          \"$ref\": \"report.schema.json#/$defs/severity_level\"\n        },\n        \"verdict\": {\n          \"$ref\": \"#/$defs/verdict\"\n        },\n        \"remediation_commits\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"$ref\": \"#/$defs/remediation_commit\"\n          }\n        },\n        \"unattributed\": {\n          \"type\": \"boolean\",\n          \"description\": \"True when no commit could be identified that addresses this finding (unresolved, fix predates the audit, disposition without code change, or commit history unavailable).\"\n        },\n        \"evidence\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"explanation\",\n            \"framework_reference\"\n          ],\n          \"additionalProperties\": false,\n          \"properties\": {\n            \"original_code\": {\n              \"type\": \"string\",\n              \"description\": \"Code at the finding location in the original commit.\"\n            },\n            \"patched_code\": {\n              \"type\": \"string\",\n              \"description\": \"Code at the finding location in the patched commit, or confirmation the file/section was removed.\"\n            },\n            \"explanation\": {\n              \"type\": \"string\",\n              \"minLength\": 30,\n              \"description\": \"How the change addresses (or fails to address) the root cause.\"\n            },\n            \"framework_reference\": {\n              \"type\": \"string\",\n              \"minLength\": 3,\n              \"description\": \"Same CWE, K-ID, CIS section, STIG ID, SLSA level, or PEACH parameter as the original finding.\"\n            }\n          }\n        },\n        \"disposition_rationale\": {\n          \"type\": [\n            \"string\",\n            \"null\"\n          ],\n          \"description\": \"Required for false_positive and risk_accepted verdicts: who made the determination and why (link to the triage record, MR discussion, or risk-acceptance decision).\"\n        },\n        \"residual_risk\": {\n          \"type\": [\n            \"string\",\n            \"null\"\n          ],\n          \"description\": \"Remaining risk when partially_resolved or new_approach, null otherwise.\"\n        },\n        \"residual_severity\": {\n          \"anyOf\": [\n            {\n              \"$ref\": \"report.schema.json#/$defs/severity_level\"\n            },\n            {\n              \"type\": \"null\"\n            }\n          ],\n          \"description\": \"Recalculated severity when partially_resolved, null otherwise.\"\n        },\n        \"cross_repo\": {\n          \"$ref\": \"#/$defs/cross_repo\"\n        }\n      }\n    },\n    \"regression\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"id\",\n        \"title\",\n        \"severity\",\n        \"cwes\",\n        \"locations\",\n        \"description\",\n        \"remediation\",\n        \"introduced_by\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"id\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[A-Z][A-Z0-9_]{0,23}-[a-f0-9]{7}-REG-\\\\d{3}$\",\n          \"description\": \"Canonical regression ID: {REPO_SLUG}-{PATCHED_SHORTSHA}-REG-{NNN}.\"\n        },\n        \"title\": {\n          \"type\": \"string\",\n          \"minLength\": 5\n        },\n        \"severity\": {\n          \"$ref\": \"report.schema.json#/$defs/severity_level\"\n        },\n        \"cwes\": {\n          \"type\": \"array\",\n          \"minItems\": 1,\n          \"items\": {\n            \"type\": \"string\",\n            \"pattern\": \"^CWE-\\\\d{1,5}$\"\n          }\n        },\n        \"cvss\": {\n          \"type\": \"object\",\n          \"required\": [\n            \"score\",\n            \"vector\"\n          ],\n          \"additionalProperties\": false,\n          \"properties\": {\n            \"score\": {\n              \"type\": \"number\",\n              \"minimum\": 0.0,\n              \"maximum\": 10.0\n            },\n            \"vector\": {\n              \"type\": \"string\"\n            }\n          }\n        },\n        \"locations\": {\n          \"type\": \"array\",\n          \"minItems\": 1,\n          \"items\": {\n            \"$ref\": \"report.schema.json#/$defs/location\"\n          }\n        },\n        \"description\": {\n          \"type\": \"string\",\n          \"minLength\": 50\n        },\n        \"remediation\": {\n          \"type\": \"string\",\n          \"minLength\": 10\n        },\n        \"evidence\": {\n          \"type\": \"array\",\n          \"items\": {\n            \"$ref\": \"report.schema.json#/$defs/evidence_block\"\n          }\n        },\n        \"attack_pattern\": {\n          \"type\": \"string\"\n        },\n        \"category\": {\n          \"type\": \"string\"\n        },\n        \"introduced_by\": {\n          \"type\": \"string\",\n          \"minLength\": 7,\n          \"description\": \"Commit SHA or PR/MR reference that introduced this regression.\"\n        },\n        \"routed_id\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[A-Z][A-Z0-9_]{0,23}-[a-f0-9]{7}-\\\\d{3}$\",\n          \"description\": \"Campaign finding ID this regression was routed to in the repo's baseline audit report (harness >= 0.196.0, the regression router): {REPO_SLUG}-{PATCHED_SHORTSHA}-{NNN}, numbering continuing where the repo's existing findings at that sha leave off. The REG id stays here as provenance; the routed finding carries the REG id in its source_findings. Absent on regressions not yet routed.\"\n        }\n      }\n    },\n    \"timeline_entry\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"sha\",\n        \"full_sha\",\n        \"date\",\n        \"author\",\n        \"subject\",\n        \"addresses\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"sha\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[0-9a-f]{7,12}$\"\n        },\n        \"full_sha\": {\n          \"type\": \"string\",\n          \"pattern\": \"^[0-9a-f]{40}$\"\n        },\n        \"date\": {\n          \"type\": \"string\",\n          \"format\": \"date-time\"\n        },\n        \"author\": {\n          \"type\": \"string\",\n          \"minLength\": 1\n        },\n        \"subject\": {\n          \"type\": \"string\",\n          \"minLength\": 1\n        },\n        \"pr_number\": {\n          \"type\": [\n            \"integer\",\n            \"null\"\n          ],\n          \"minimum\": 1\n        },\n        \"addresses\": {\n          \"type\": \"array\",\n          \"minItems\": 1,\n          \"items\": {\n            \"type\": \"string\"\n          },\n          \"description\": \"Original finding IDs this commit addresses.\"\n        }\n      }\n    },\n    \"cross_repo\": {\n      \"type\": \"object\",\n      \"required\": [\n        \"fix_repo\",\n        \"propagation\"\n      ],\n      \"additionalProperties\": false,\n      \"properties\": {\n        \"fix_repo\": {\n          \"type\": \"string\",\n          \"minLength\": 8,\n          \"description\": \"URL of the repository the fix landed in (differs from metadata.repository).\"\n        },\n        \"fix_ref\": {\n          \"type\": [\n            \"string\",\n            \"null\"\n          ],\n          \"description\": \"Commit SHA or ref of the fix in fix_repo.\"\n        },\n        \"propagation\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \"consumed\",\n            \"pending\",\n            \"module_absent\",\n            \"not_applicable\"\n          ],\n          \"description\": \"Whether the ORIGINAL repo has consumed the fix: consumed = lockfile/vendor/SBOM at or past the fixed version; pending = still on a vulnerable version; module_absent = dependency no longer present (removal is also a fix \\u2014 verifier judges); not_applicable = Shape 2/3 (fix legitimately lives only in fix_repo, e.g. config/policy repo).\"\n        },\n        \"propagation_evidence\": {\n          \"type\": [\n            \"string\",\n            \"null\"\n          ],\n          \"description\": \"What was checked: file + pinned version, vendor/modules.txt line, SBOM component version (from the fix-propagation checker).\"\n        }\n      },\n      \"description\": \"Present when the fix lives in a DIFFERENT repository than the finding. The finding's identity stays in the original repo; this block is evidence attached to it. Hard rule (validator-enforced): propagation 'pending' forbids verdict 'resolved' \\u2014 upstream merging a fix does not resolve a finding the product still ships vulnerable.\"\n    }\n  }\n}\n",
 	"vuln-findings": `{
   "$id": "https://example.com/traust-contracts/schemas/v1/vuln-findings.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -19,6 +19,11 @@ func main() {
 	schemasDir := flag.String("schemas", "", "path to schemas/ directory (optional; enables type generation)")
 	typesDir := flag.String("types", "", "output directory for generated type files")
 	validateFile := flag.String("validate", "", "output path for generated schemas_gen.go (e.g. ./validate/schemas_gen.go)")
+	storageSourceDir := flag.String("storage", "", "path to the contracts storage/v1 source directory")
+	storageOutDir := flag.String("storage-out", "", "output directory for the storage package")
+	fixtureDir := flag.String("storage-fixtures", "", "path to storage JSON fixtures")
+	storageSamples := flag.String("storage-samples", "", "path to authored storage_samples.py")
+	contractsRef := flag.String("contracts-ref", "unknown", "pinned traust-contracts git revision")
 	flag.Parse()
 
 	entries, err := os.ReadDir(*enumsDir)
@@ -72,6 +77,13 @@ func main() {
 			log.Fatalf("generating schemas embed: %v", err)
 		}
 		fmt.Printf("generated schemas map in %s\n", *validateFile)
+	}
+
+	if *storageSourceDir != "" && *storageOutDir != "" && *schemasDir != "" {
+		if err := GenerateStorage(*storageSourceDir, *schemasDir, *storageOutDir, *fixtureDir, *storageSamples, *contractsRef); err != nil {
+			log.Fatalf("generating storage assets: %v", err)
+		}
+		fmt.Printf("generated storage assets in %s\n", *storageOutDir)
 	}
 }
 

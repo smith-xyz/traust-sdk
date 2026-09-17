@@ -4,7 +4,7 @@ GO_DIR := go
 LANGS := go
 BUMP_PARTS := patch minor major
 
-.PHONY: help setup hooks lint lint-fix test security check-release status bump $(LANGS) $(BUMP_PARTS)
+.PHONY: help setup hooks lint lint-fix test test-integration security check-release status bump $(LANGS) $(BUMP_PARTS)
 
 help:
 	@echo "Targets ($(notdir $(CURDIR))):"
@@ -13,6 +13,7 @@ help:
 	@echo "  make lint           — go vet + gofmt check (go/)"
 	@echo "  make lint-fix       — gofmt -w (go/)"
 	@echo "  make test           — go test ./... (go/)"
+	@echo "  make test-integration — storage tests: SQLite + optional local PostgreSQL"
 	@echo "  make security       — govulncheck + gosec (go/)"
 	@echo "  make check-release  — per-language VERSION + CHANGELOG gate vs main"
 	@echo "  make status         — per-language version and tag state"
@@ -33,6 +34,9 @@ lint-fix:
 
 test:
 	$(MAKE) -C $(GO_DIR) test
+
+test-integration:
+	$(MAKE) -C $(GO_DIR) test-integration
 
 security:
 	$(MAKE) -C $(GO_DIR) security

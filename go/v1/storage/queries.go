@@ -1,0 +1,837 @@
+// Code generated from traust-contracts 9bef178a9a68a8640bdd98356bacb7c6fe367edd SQL queries. DO NOT EDIT.
+
+package storage
+
+import (
+	"context"
+	"database/sql"
+)
+
+type queries struct{ dialect dialect }
+
+const adapterResultUpsertPostgres = "INSERT INTO traust_storage.adapter_result (\n    binding_id,\n    artifact_digest,\n    target,\n    scanned_at,\n    metadata,\n    findings,\n    summary,\n    focus_areas\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const adapterResultUpsertSQLite = "INSERT INTO adapter_result (\n    binding_id,\n    artifact_digest,\n    target,\n    scanned_at,\n    metadata,\n    findings,\n    summary,\n    focus_areas\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type adapterResultUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	target         string
+	scannedAt      string
+	metadata       string
+	findings       string
+	summary        *string
+	focusAreas     *string
+}
+
+func (q queries) adapterResultUpsert(ctx context.Context, conn *sql.Conn, p adapterResultUpsertParams) error {
+	statement := adapterResultUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = adapterResultUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.target, p.scannedAt, p.metadata, p.findings, p.summary, p.focusAreas)
+	return err
+}
+
+const adrRegistryUpsertPostgres = "INSERT INTO traust_storage.adr_registry (\n    binding_id,\n    artifact_digest,\n    version,\n    note,\n    registers\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const adrRegistryUpsertSQLite = "INSERT INTO adr_registry (\n    binding_id,\n    artifact_digest,\n    version,\n    note,\n    registers\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type adrRegistryUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	version        int64
+	note           *string
+	registers      string
+}
+
+func (q queries) adrRegistryUpsert(ctx context.Context, conn *sql.Conn, p adrRegistryUpsertParams) error {
+	statement := adrRegistryUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = adrRegistryUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.note, p.registers)
+	return err
+}
+
+const artifactLockPostgres = "-- Serialize a digest: first eight SHA-256 bytes interpreted as signed big-endian int64.\nSELECT pg_advisory_xact_lock($1);"
+const artifactLockSQLite = ""
+
+type artifactLockParams struct {
+	lockKey int64
+}
+
+func (q queries) artifactLock(ctx context.Context, conn *sql.Conn, p artifactLockParams) error {
+	statement := artifactLockSQLite
+	if q.dialect == dialectPostgres {
+		statement = artifactLockPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.lockKey)
+	return err
+}
+
+const artifactBindingGetPostgres = "SELECT artifact_digest,\n       artifact_name,\n       scope_id,\n       subject_id,\n       run_id,\n       layer_id,\n       supersedes_binding_id,\n       bound_at\nFROM traust_storage.artifact_binding\nWHERE binding_id = $1;"
+const artifactBindingGetSQLite = "SELECT artifact_digest,\n       artifact_name,\n       scope_id,\n       subject_id,\n       run_id,\n       layer_id,\n       supersedes_binding_id,\n       bound_at\nFROM artifact_binding\nWHERE binding_id = ?;"
+
+type artifactBindingGetParams struct {
+	bindingId string
+}
+
+func (q queries) artifactBindingGet(ctx context.Context, conn *sql.Conn, p artifactBindingGetParams) *sql.Row {
+	statement := artifactBindingGetSQLite
+	if q.dialect == dialectPostgres {
+		statement = artifactBindingGetPostgres
+	}
+	return conn.QueryRowContext(ctx, statement, p.bindingId)
+}
+
+const artifactBindingUpsertPostgres = "INSERT INTO traust_storage.artifact_binding (\n    binding_id,\n    artifact_digest,\n    artifact_name,\n    scope_id,\n    subject_id,\n    run_id,\n    layer_id,\n    supersedes_binding_id,\n    bound_at\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const artifactBindingUpsertSQLite = "INSERT INTO artifact_binding (\n    binding_id,\n    artifact_digest,\n    artifact_name,\n    scope_id,\n    subject_id,\n    run_id,\n    layer_id,\n    supersedes_binding_id,\n    bound_at\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type artifactBindingUpsertParams struct {
+	bindingId           string
+	artifactDigest      string
+	artifactName        string
+	scopeId             string
+	subjectId           *string
+	runId               *string
+	layerId             *string
+	supersedesBindingId *string
+	boundAt             string
+}
+
+func (q queries) artifactBindingUpsert(ctx context.Context, conn *sql.Conn, p artifactBindingUpsertParams) error {
+	statement := artifactBindingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = artifactBindingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.artifactName, p.scopeId, p.subjectId, p.runId, p.layerId, p.supersedesBindingId, p.boundAt)
+	return err
+}
+
+const artifactEvidenceGetPostgres = "SELECT payload\nFROM traust_storage.artifact_evidence\nWHERE digest = $1;"
+const artifactEvidenceGetSQLite = "SELECT payload\nFROM artifact_evidence\nWHERE digest = ?;"
+
+type artifactEvidenceGetParams struct {
+	digest string
+}
+
+func (q queries) artifactEvidenceGet(ctx context.Context, conn *sql.Conn, p artifactEvidenceGetParams) *sql.Row {
+	statement := artifactEvidenceGetSQLite
+	if q.dialect == dialectPostgres {
+		statement = artifactEvidenceGetPostgres
+	}
+	return conn.QueryRowContext(ctx, statement, p.digest)
+}
+
+const artifactEvidenceUpsertPostgres = "INSERT INTO traust_storage.artifact_evidence (\n    digest,\n    payload,\n    first_ingested_at\n)\nVALUES (\n    $1,\n    $2,\n    $3\n)\nON CONFLICT (digest) DO NOTHING;"
+const artifactEvidenceUpsertSQLite = "INSERT INTO artifact_evidence (\n    digest,\n    payload,\n    first_ingested_at\n)\nVALUES (\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (digest) DO NOTHING;"
+
+type artifactEvidenceUpsertParams struct {
+	digest          string
+	payload         []byte
+	firstIngestedAt string
+}
+
+func (q queries) artifactEvidenceUpsert(ctx context.Context, conn *sql.Conn, p artifactEvidenceUpsertParams) error {
+	statement := artifactEvidenceUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = artifactEvidenceUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.digest, p.payload, p.firstIngestedAt)
+	return err
+}
+
+const attackMappingUpsertPostgres = "INSERT INTO traust_storage.attack_mapping (\n    binding_id,\n    artifact_digest,\n    mapping_version,\n    attack_version,\n    source,\n    documentation,\n    schema,\n    attribution,\n    capability_map,\n    category_map\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const attackMappingUpsertSQLite = "INSERT INTO attack_mapping (\n    binding_id,\n    artifact_digest,\n    mapping_version,\n    attack_version,\n    source,\n    documentation,\n    schema,\n    attribution,\n    capability_map,\n    category_map\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type attackMappingUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	mappingVersion string
+	attackVersion  string
+	source         string
+	documentation  *string
+	schema         *string
+	attribution    string
+	capabilityMap  string
+	categoryMap    string
+}
+
+func (q queries) attackMappingUpsert(ctx context.Context, conn *sql.Conn, p attackMappingUpsertParams) error {
+	statement := attackMappingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = attackMappingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.mappingVersion, p.attackVersion, p.source, p.documentation, p.schema, p.attribution, p.capabilityMap, p.categoryMap)
+	return err
+}
+
+const benchmarkTargetUpsertPostgres = "INSERT INTO traust_storage.benchmark_target (\n    binding_id,\n    artifact_digest,\n    version,\n    updated,\n    targets\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const benchmarkTargetUpsertSQLite = "INSERT INTO benchmark_target (\n    binding_id,\n    artifact_digest,\n    version,\n    updated,\n    targets\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type benchmarkTargetUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	version        int64
+	updated        string
+	targets        string
+}
+
+func (q queries) benchmarkTargetUpsert(ctx context.Context, conn *sql.Conn, p benchmarkTargetUpsertParams) error {
+	statement := benchmarkTargetUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = benchmarkTargetUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.updated, p.targets)
+	return err
+}
+
+const cloudConfigAuditUpsertPostgres = "INSERT INTO traust_storage.cloud_config_audit (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const cloudConfigAuditUpsertSQLite = "INSERT INTO cloud_config_audit (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type cloudConfigAuditUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	title          string
+	metadata       string
+	summary        string
+	findings       string
+	gaps           *string
+}
+
+func (q queries) cloudConfigAuditUpsert(ctx context.Context, conn *sql.Conn, p cloudConfigAuditUpsertParams) error {
+	statement := cloudConfigAuditUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = cloudConfigAuditUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.summary, p.findings, p.gaps)
+	return err
+}
+
+const cloudConfigFindingsCurrentUpsertPostgres = "INSERT INTO traust_storage.cloud_config_findings_current (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps,\n    disposition_summary\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const cloudConfigFindingsCurrentUpsertSQLite = "INSERT INTO cloud_config_findings_current (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps,\n    disposition_summary\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type cloudConfigFindingsCurrentUpsertParams struct {
+	bindingId          string
+	artifactDigest     string
+	title              string
+	metadata           string
+	summary            string
+	findings           string
+	gaps               *string
+	dispositionSummary string
+}
+
+func (q queries) cloudConfigFindingsCurrentUpsert(ctx context.Context, conn *sql.Conn, p cloudConfigFindingsCurrentUpsertParams) error {
+	statement := cloudConfigFindingsCurrentUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = cloudConfigFindingsCurrentUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.summary, p.findings, p.gaps, p.dispositionSummary)
+	return err
+}
+
+const complianceAssessmentUpsertPostgres = "INSERT INTO traust_storage.compliance_assessment (\n    binding_id,\n    artifact_digest,\n    metadata,\n    coverage,\n    results\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const complianceAssessmentUpsertSQLite = "INSERT INTO compliance_assessment (\n    binding_id,\n    artifact_digest,\n    metadata,\n    coverage,\n    results\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type complianceAssessmentUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	metadata       string
+	coverage       string
+	results        string
+}
+
+func (q queries) complianceAssessmentUpsert(ctx context.Context, conn *sql.Conn, p complianceAssessmentUpsertParams) error {
+	statement := complianceAssessmentUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = complianceAssessmentUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.metadata, p.coverage, p.results)
+	return err
+}
+
+const complianceMappingUpsertPostgres = "INSERT INTO traust_storage.compliance_mapping (\n    binding_id,\n    artifact_digest,\n    version,\n    note,\n    controls,\n    checks\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const complianceMappingUpsertSQLite = "INSERT INTO compliance_mapping (\n    binding_id,\n    artifact_digest,\n    version,\n    note,\n    controls,\n    checks\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type complianceMappingUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	version        int64
+	note           *string
+	controls       string
+	checks         string
+}
+
+func (q queries) complianceMappingUpsert(ctx context.Context, conn *sql.Conn, p complianceMappingUpsertParams) error {
+	statement := complianceMappingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = complianceMappingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.note, p.controls, p.checks)
+	return err
+}
+
+const complianceScopeUpsertPostgres = "INSERT INTO traust_storage.compliance_scope (\n    binding_id,\n    artifact_digest,\n    version,\n    updated,\n    boundaries\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const complianceScopeUpsertSQLite = "INSERT INTO compliance_scope (\n    binding_id,\n    artifact_digest,\n    version,\n    updated,\n    boundaries\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type complianceScopeUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	version        int64
+	updated        string
+	boundaries     string
+}
+
+func (q queries) complianceScopeUpsert(ctx context.Context, conn *sql.Conn, p complianceScopeUpsertParams) error {
+	statement := complianceScopeUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = complianceScopeUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.updated, p.boundaries)
+	return err
+}
+
+const docVarianceUpsertPostgres = "INSERT INTO traust_storage.doc_variance (\n    binding_id,\n    artifact_digest,\n    metadata,\n    records\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const docVarianceUpsertSQLite = "INSERT INTO doc_variance (\n    binding_id,\n    artifact_digest,\n    metadata,\n    records\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type docVarianceUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	metadata       string
+	records        string
+}
+
+func (q queries) docVarianceUpsert(ctx context.Context, conn *sql.Conn, p docVarianceUpsertParams) error {
+	statement := docVarianceUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = docVarianceUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.metadata, p.records)
+	return err
+}
+
+const findingUpsertPostgres = "INSERT INTO traust_storage.finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    target,\n    scanned_at,\n    title,\n    severity,\n    description,\n    category,\n    file,\n    line,\n    cwe,\n    recommendation,\n    confidence\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+const findingUpsertSQLite = "INSERT INTO finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    target,\n    scanned_at,\n    title,\n    severity,\n    description,\n    category,\n    file,\n    line,\n    cwe,\n    recommendation,\n    confidence\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+
+type findingUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	findingId      string
+	target         string
+	scannedAt      string
+	title          string
+	severity       string
+	description    string
+	category       *string
+	file           string
+	line           *int64
+	cwe            *string
+	recommendation string
+	confidence     float64
+}
+
+func (q queries) findingUpsert(ctx context.Context, conn *sql.Conn, p findingUpsertParams) error {
+	statement := findingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = findingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.findingId, p.target, p.scannedAt, p.title, p.severity, p.description, p.category, p.file, p.line, p.cwe, p.recommendation, p.confidence)
+	return err
+}
+
+const findingsSummaryListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       layer_id,\n       repo,\n       severity,\n       verdict,\n       finding_count\nFROM traust_storage.findings_summary\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, run_id, layer_id, repo, severity, verdict;"
+const findingsSummaryListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       layer_id,\n       repo,\n       severity,\n       verdict,\n       finding_count\nFROM findings_summary\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, run_id, layer_id, repo, severity, verdict;"
+
+type findingsSummaryListParams struct {
+	scopeIds string
+}
+
+func (q queries) findingsSummaryList(ctx context.Context, conn *sql.Conn, p findingsSummaryListParams) (*sql.Rows, error) {
+	statement := findingsSummaryListSQLite
+	if q.dialect == dialectPostgres {
+		statement = findingsSummaryListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const fleetFixUpsertPostgres = "INSERT INTO traust_storage.fleet_fix (\n    binding_id,\n    artifact_digest,\n    id,\n    pattern_ref,\n    description,\n    matcher,\n    resolver,\n    rewrite,\n    guards,\n    tests\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const fleetFixUpsertSQLite = "INSERT INTO fleet_fix (\n    binding_id,\n    artifact_digest,\n    id,\n    pattern_ref,\n    description,\n    matcher,\n    resolver,\n    rewrite,\n    guards,\n    tests\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type fleetFixUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	id             string
+	patternRef     string
+	description    string
+	matcher        string
+	resolver       *string
+	rewrite        string
+	guards         string
+	tests          string
+}
+
+func (q queries) fleetFixUpsert(ctx context.Context, conn *sql.Conn, p fleetFixUpsertParams) error {
+	statement := fleetFixUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = fleetFixUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.id, p.patternRef, p.description, p.matcher, p.resolver, p.rewrite, p.guards, p.tests)
+	return err
+}
+
+const impactAnalysisUpsertPostgres = "INSERT INTO traust_storage.impact_analysis (\n    binding_id,\n    artifact_digest,\n    metadata,\n    summary,\n    repos\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const impactAnalysisUpsertSQLite = "INSERT INTO impact_analysis (\n    binding_id,\n    artifact_digest,\n    metadata,\n    summary,\n    repos\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type impactAnalysisUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	metadata       string
+	summary        string
+	repos          string
+}
+
+func (q queries) impactAnalysisUpsert(ctx context.Context, conn *sql.Conn, p impactAnalysisUpsertParams) error {
+	statement := impactAnalysisUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = impactAnalysisUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.metadata, p.summary, p.repos)
+	return err
+}
+
+const isolationReviewUpsertPostgres = "INSERT INTO traust_storage.isolation_review (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    interfaces,\n    gaps,\n    posture,\n    notes\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const isolationReviewUpsertSQLite = "INSERT INTO isolation_review (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    interfaces,\n    gaps,\n    posture,\n    notes\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type isolationReviewUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	title          string
+	metadata       string
+	interfaces     string
+	gaps           string
+	posture        string
+	notes          *string
+}
+
+func (q queries) isolationReviewUpsert(ctx context.Context, conn *sql.Conn, p isolationReviewUpsertParams) error {
+	statement := isolationReviewUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = isolationReviewUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.interfaces, p.gaps, p.posture, p.notes)
+	return err
+}
+
+const layerMetadataUpsertPostgres = "INSERT INTO traust_storage.layer_metadata (\n    binding_id,\n    artifact_digest,\n    repo,\n    created_at,\n    merkle_root,\n    merkle_epoch\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const layerMetadataUpsertSQLite = "INSERT INTO layer_metadata (\n    binding_id,\n    artifact_digest,\n    repo,\n    created_at,\n    merkle_root,\n    merkle_epoch\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type layerMetadataUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	repo           *string
+	createdAt      *string
+	merkleRoot     *string
+	merkleEpoch    *int64
+}
+
+func (q queries) layerMetadataUpsert(ctx context.Context, conn *sql.Conn, p layerMetadataUpsertParams) error {
+	statement := layerMetadataUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = layerMetadataUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.repo, p.createdAt, p.merkleRoot, p.merkleEpoch)
+	return err
+}
+
+const orgParametersUpsertPostgres = "INSERT INTO traust_storage.org_parameters (\n    binding_id,\n    artifact_digest,\n    version,\n    declared_by,\n    declared_on,\n    note,\n    parameters\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const orgParametersUpsertSQLite = "INSERT INTO org_parameters (\n    binding_id,\n    artifact_digest,\n    version,\n    declared_by,\n    declared_on,\n    note,\n    parameters\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type orgParametersUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	version        int64
+	declaredBy     string
+	declaredOn     *string
+	note           *string
+	parameters     string
+}
+
+func (q queries) orgParametersUpsert(ctx context.Context, conn *sql.Conn, p orgParametersUpsertParams) error {
+	statement := orgParametersUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = orgParametersUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.declaredBy, p.declaredOn, p.note, p.parameters)
+	return err
+}
+
+const pqcBlockersUpsertPostgres = "INSERT INTO traust_storage.pqc_blockers (\n    binding_id,\n    artifact_digest,\n    artifact,\n    title,\n    metadata,\n    executive_summary,\n    severity_criteria,\n    findings,\n    findings_summary,\n    remediation_roadmap\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const pqcBlockersUpsertSQLite = "INSERT INTO pqc_blockers (\n    binding_id,\n    artifact_digest,\n    artifact,\n    title,\n    metadata,\n    executive_summary,\n    severity_criteria,\n    findings,\n    findings_summary,\n    remediation_roadmap\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type pqcBlockersUpsertParams struct {
+	bindingId          string
+	artifactDigest     string
+	artifact           string
+	title              string
+	metadata           string
+	executiveSummary   string
+	severityCriteria   string
+	findings           string
+	findingsSummary    string
+	remediationRoadmap string
+}
+
+func (q queries) pqcBlockersUpsert(ctx context.Context, conn *sql.Conn, p pqcBlockersUpsertParams) error {
+	statement := pqcBlockersUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = pqcBlockersUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.artifact, p.title, p.metadata, p.executiveSummary, p.severityCriteria, p.findings, p.findingsSummary, p.remediationRoadmap)
+	return err
+}
+
+const pqcDecisionTreeUpsertPostgres = "INSERT INTO traust_storage.pqc_decision_tree (\n    binding_id,\n    artifact_digest,\n    tree_version,\n    plan,\n    schema,\n    provenance_tree,\n    remediation_effort,\n    readiness_buckets,\n    tls_control_crosswalk,\n    fips_interaction,\n    pqc_classification_map,\n    server_side_caveat\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const pqcDecisionTreeUpsertSQLite = "INSERT INTO pqc_decision_tree (\n    binding_id,\n    artifact_digest,\n    tree_version,\n    plan,\n    schema,\n    provenance_tree,\n    remediation_effort,\n    readiness_buckets,\n    tls_control_crosswalk,\n    fips_interaction,\n    pqc_classification_map,\n    server_side_caveat\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type pqcDecisionTreeUpsertParams struct {
+	bindingId            string
+	artifactDigest       string
+	treeVersion          string
+	plan                 *string
+	schema               *string
+	provenanceTree       string
+	remediationEffort    string
+	readinessBuckets     string
+	tlsControlCrosswalk  string
+	fipsInteraction      string
+	pqcClassificationMap string
+	serverSideCaveat     *string
+}
+
+func (q queries) pqcDecisionTreeUpsert(ctx context.Context, conn *sql.Conn, p pqcDecisionTreeUpsertParams) error {
+	statement := pqcDecisionTreeUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = pqcDecisionTreeUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.treeVersion, p.plan, p.schema, p.provenanceTree, p.remediationEffort, p.readinessBuckets, p.tlsControlCrosswalk, p.fipsInteraction, p.pqcClassificationMap, p.serverSideCaveat)
+	return err
+}
+
+const pqcFactsUpsertPostgres = "INSERT INTO traust_storage.pqc_facts (\n    binding_id,\n    artifact_digest,\n    artifact,\n    repository,\n    stamps,\n    coverage,\n    summary,\n    facts\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const pqcFactsUpsertSQLite = "INSERT INTO pqc_facts (\n    binding_id,\n    artifact_digest,\n    artifact,\n    repository,\n    stamps,\n    coverage,\n    summary,\n    facts\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type pqcFactsUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	artifact       string
+	repository     string
+	stamps         string
+	coverage       string
+	summary        string
+	facts          string
+}
+
+func (q queries) pqcFactsUpsert(ctx context.Context, conn *sql.Conn, p pqcFactsUpsertParams) error {
+	statement := pqcFactsUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = pqcFactsUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.artifact, p.repository, p.stamps, p.coverage, p.summary, p.facts)
+	return err
+}
+
+const pqcReadinessUpsertPostgres = "INSERT INTO traust_storage.pqc_readiness (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    scores,\n    flags,\n    provenance_summary,\n    clock_items,\n    readiness_bucket,\n    fips_interaction,\n    runtime_evidence,\n    server_side_caveats,\n    notes,\n    remediations\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const pqcReadinessUpsertSQLite = "INSERT INTO pqc_readiness (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    scores,\n    flags,\n    provenance_summary,\n    clock_items,\n    readiness_bucket,\n    fips_interaction,\n    runtime_evidence,\n    server_side_caveats,\n    notes,\n    remediations\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type pqcReadinessUpsertParams struct {
+	bindingId         string
+	artifactDigest    string
+	title             string
+	metadata          string
+	scores            string
+	flags             string
+	provenanceSummary string
+	clockItems        *string
+	readinessBucket   *string
+	fipsInteraction   *string
+	runtimeEvidence   *string
+	serverSideCaveats *string
+	notes             *string
+	remediations      *string
+}
+
+func (q queries) pqcReadinessUpsert(ctx context.Context, conn *sql.Conn, p pqcReadinessUpsertParams) error {
+	statement := pqcReadinessUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = pqcReadinessUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.scores, p.flags, p.provenanceSummary, p.clockItems, p.readinessBucket, p.fipsInteraction, p.runtimeEvidence, p.serverSideCaveats, p.notes, p.remediations)
+	return err
+}
+
+const remediationUpsertPostgres = "INSERT INTO traust_storage.remediation (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    source_findings,\n    fork,\n    patch,\n    checks,\n    evidence,\n    revalidation,\n    pull_request,\n    summary,\n    notes,\n    footer\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const remediationUpsertSQLite = "INSERT INTO remediation (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    source_findings,\n    fork,\n    patch,\n    checks,\n    evidence,\n    revalidation,\n    pull_request,\n    summary,\n    notes,\n    footer\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type remediationUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	title          string
+	metadata       string
+	sourceFindings string
+	fork           string
+	patch          string
+	checks         string
+	evidence       *string
+	revalidation   *string
+	pullRequest    *string
+	summary        string
+	notes          *string
+	footer         *string
+}
+
+func (q queries) remediationUpsert(ctx context.Context, conn *sql.Conn, p remediationUpsertParams) error {
+	statement := remediationUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = remediationUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.sourceFindings, p.fork, p.patch, p.checks, p.evidence, p.revalidation, p.pullRequest, p.summary, p.notes, p.footer)
+	return err
+}
+
+const reportUpsertPostgres = "INSERT INTO traust_storage.report (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    executive_summary,\n    severity_criteria,\n    findings,\n    findings_summary,\n    remediation_roadmap,\n    dependency_audit,\n    negative_results,\n    asvs_coverage,\n    scanner_correlation,\n    peach_isolation_review,\n    disposition_summary,\n    footer\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15,\n    $16\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const reportUpsertSQLite = "INSERT INTO report (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    executive_summary,\n    severity_criteria,\n    findings,\n    findings_summary,\n    remediation_roadmap,\n    dependency_audit,\n    negative_results,\n    asvs_coverage,\n    scanner_correlation,\n    peach_isolation_review,\n    disposition_summary,\n    footer\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type reportUpsertParams struct {
+	bindingId            string
+	artifactDigest       string
+	title                string
+	metadata             string
+	executiveSummary     string
+	severityCriteria     string
+	findings             string
+	findingsSummary      string
+	remediationRoadmap   string
+	dependencyAudit      *string
+	negativeResults      *string
+	asvsCoverage         *string
+	scannerCorrelation   *string
+	peachIsolationReview *string
+	dispositionSummary   *string
+	footer               *string
+}
+
+func (q queries) reportUpsert(ctx context.Context, conn *sql.Conn, p reportUpsertParams) error {
+	statement := reportUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = reportUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.executiveSummary, p.severityCriteria, p.findings, p.findingsSummary, p.remediationRoadmap, p.dependencyAudit, p.negativeResults, p.asvsCoverage, p.scannerCorrelation, p.peachIsolationReview, p.dispositionSummary, p.footer)
+	return err
+}
+
+const riskRatingMethodologyUpsertPostgres = "INSERT INTO traust_storage.risk_rating_methodology (\n    binding_id,\n    artifact_digest,\n    methodology,\n    methodology_version,\n    source,\n    documentation,\n    schema,\n    bands,\n    bucket_thresholds,\n    likelihood_factors,\n    impact_factors,\n    matrix,\n    fallback,\n    threat_intel_factor\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const riskRatingMethodologyUpsertSQLite = "INSERT INTO risk_rating_methodology (\n    binding_id,\n    artifact_digest,\n    methodology,\n    methodology_version,\n    source,\n    documentation,\n    schema,\n    bands,\n    bucket_thresholds,\n    likelihood_factors,\n    impact_factors,\n    matrix,\n    fallback,\n    threat_intel_factor\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type riskRatingMethodologyUpsertParams struct {
+	bindingId          string
+	artifactDigest     string
+	methodology        string
+	methodologyVersion string
+	source             string
+	documentation      *string
+	schema             *string
+	bands              string
+	bucketThresholds   string
+	likelihoodFactors  string
+	impactFactors      string
+	matrix             string
+	fallback           string
+	threatIntelFactor  *string
+}
+
+func (q queries) riskRatingMethodologyUpsert(ctx context.Context, conn *sql.Conn, p riskRatingMethodologyUpsertParams) error {
+	statement := riskRatingMethodologyUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = riskRatingMethodologyUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.methodology, p.methodologyVersion, p.source, p.documentation, p.schema, p.bands, p.bucketThresholds, p.likelihoodFactors, p.impactFactors, p.matrix, p.fallback, p.threatIntelFactor)
+	return err
+}
+
+const scopeSetPostgres = "SELECT set_config('traust.scope_ids', $1, true);"
+const scopeSetSQLite = "SELECT ?;"
+
+type scopeSetParams struct {
+	scopeIds string
+}
+
+func (q queries) scopeSet(ctx context.Context, conn *sql.Conn, p scopeSetParams) error {
+	statement := scopeSetSQLite
+	if q.dialect == dialectPostgres {
+		statement = scopeSetPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.scopeIds)
+	return err
+}
+
+const slaPolicyUpsertPostgres = "INSERT INTO traust_storage.sla_policy (\n    binding_id,\n    artifact_digest,\n    policy_name,\n    source,\n    severity_mapping,\n    clock_start,\n    profiles\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const slaPolicyUpsertSQLite = "INSERT INTO sla_policy (\n    binding_id,\n    artifact_digest,\n    policy_name,\n    source,\n    severity_mapping,\n    clock_start,\n    profiles\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type slaPolicyUpsertParams struct {
+	bindingId       string
+	artifactDigest  string
+	policyName      string
+	source          string
+	severityMapping string
+	clockStart      *string
+	profiles        string
+}
+
+func (q queries) slaPolicyUpsert(ctx context.Context, conn *sql.Conn, p slaPolicyUpsertParams) error {
+	statement := slaPolicyUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = slaPolicyUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.policyName, p.source, p.severityMapping, p.clockStart, p.profiles)
+	return err
+}
+
+const traustStorageMetaExistsPostgres = "SELECT to_regclass('traust_storage.traust_storage_meta');"
+const traustStorageMetaExistsSQLite = "SELECT name\nFROM sqlite_master\nWHERE type = 'table' AND name = 'traust_storage_meta';"
+
+type traustStorageMetaExistsParams struct {
+}
+
+func (q queries) traustStorageMetaExists(ctx context.Context, conn *sql.Conn, p traustStorageMetaExistsParams) *sql.Row {
+	statement := traustStorageMetaExistsSQLite
+	if q.dialect == dialectPostgres {
+		statement = traustStorageMetaExistsPostgres
+	}
+	return conn.QueryRowContext(ctx, statement)
+}
+
+const traustStorageMetaGetPostgres = "SELECT contract_version, revision\nFROM traust_storage.traust_storage_meta\nWHERE id = 1;"
+const traustStorageMetaGetSQLite = "SELECT contract_version, revision\nFROM traust_storage_meta\nWHERE id = 1;"
+
+type traustStorageMetaGetParams struct {
+}
+
+func (q queries) traustStorageMetaGet(ctx context.Context, conn *sql.Conn, p traustStorageMetaGetParams) *sql.Row {
+	statement := traustStorageMetaGetSQLite
+	if q.dialect == dialectPostgres {
+		statement = traustStorageMetaGetPostgres
+	}
+	return conn.QueryRowContext(ctx, statement)
+}
+
+const traustStorageMetaLockPostgres = "-- Reserved bootstrap lock shared by storage hosts; the stable key is arbitrary, not a hash.\nSELECT pg_advisory_xact_lock(741829301);"
+const traustStorageMetaLockSQLite = ""
+
+type traustStorageMetaLockParams struct {
+}
+
+func (q queries) traustStorageMetaLock(ctx context.Context, conn *sql.Conn, p traustStorageMetaLockParams) error {
+	statement := traustStorageMetaLockSQLite
+	if q.dialect == dialectPostgres {
+		statement = traustStorageMetaLockPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement)
+	return err
+}
+
+const traustStorageMetaUpsertPostgres = "INSERT INTO traust_storage.traust_storage_meta (\n    id,\n    contract_version,\n    revision,\n    applied_at\n)\nVALUES (\n    1,\n    $1,\n    $2,\n    $3\n)\nON CONFLICT (id) DO UPDATE SET\n    contract_version = EXCLUDED.contract_version,\n    revision = EXCLUDED.revision,\n    applied_at = EXCLUDED.applied_at;"
+const traustStorageMetaUpsertSQLite = "INSERT INTO traust_storage_meta (\n    id,\n    contract_version,\n    revision,\n    applied_at\n)\nVALUES (\n    1,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (id) DO UPDATE SET\n    contract_version = EXCLUDED.contract_version,\n    revision = EXCLUDED.revision,\n    applied_at = EXCLUDED.applied_at;"
+
+type traustStorageMetaUpsertParams struct {
+	contractVersion string
+	revision        int64
+	appliedAt       string
+}
+
+func (q queries) traustStorageMetaUpsert(ctx context.Context, conn *sql.Conn, p traustStorageMetaUpsertParams) error {
+	statement := traustStorageMetaUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = traustStorageMetaUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.contractVersion, p.revision, p.appliedAt)
+	return err
+}
+
+const triageVerdictUpsertPostgres = "INSERT INTO traust_storage.triage_verdict (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    source_finding_id,\n    triage_completed,\n    verdict,\n    severity,\n    vote_breakdown,\n    rationale\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+const triageVerdictUpsertSQLite = "INSERT INTO triage_verdict (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    source_finding_id,\n    triage_completed,\n    verdict,\n    severity,\n    vote_breakdown,\n    rationale\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+
+type triageVerdictUpsertParams struct {
+	bindingId       string
+	artifactDigest  string
+	findingId       string
+	sourceFindingId *string
+	triageCompleted string
+	verdict         string
+	severity        *string
+	voteBreakdown   *string
+	rationale       *string
+}
+
+func (q queries) triageVerdictUpsert(ctx context.Context, conn *sql.Conn, p triageVerdictUpsertParams) error {
+	statement := triageVerdictUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = triageVerdictUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.findingId, p.sourceFindingId, p.triageCompleted, p.verdict, p.severity, p.voteBreakdown, p.rationale)
+	return err
+}
+
+const validationUpsertPostgres = "INSERT INTO traust_storage.validation (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    source_reports,\n    summary,\n    validated_findings,\n    attack_chains,\n    novel_findings,\n    negative_results,\n    execution_log_ref,\n    execution_log_sha256,\n    footer\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const validationUpsertSQLite = "INSERT INTO validation (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    source_reports,\n    summary,\n    validated_findings,\n    attack_chains,\n    novel_findings,\n    negative_results,\n    execution_log_ref,\n    execution_log_sha256,\n    footer\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type validationUpsertParams struct {
+	bindingId          string
+	artifactDigest     string
+	title              string
+	metadata           string
+	sourceReports      string
+	summary            string
+	validatedFindings  string
+	attackChains       string
+	novelFindings      string
+	negativeResults    *string
+	executionLogRef    string
+	executionLogSha256 *string
+	footer             *string
+}
+
+func (q queries) validationUpsert(ctx context.Context, conn *sql.Conn, p validationUpsertParams) error {
+	statement := validationUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = validationUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.sourceReports, p.summary, p.validatedFindings, p.attackChains, p.novelFindings, p.negativeResults, p.executionLogRef, p.executionLogSha256, p.footer)
+	return err
+}
+
+const verificationUpsertPostgres = "INSERT INTO traust_storage.verification (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    verified_findings,\n    regressions,\n    commit_timeline,\n    evidence,\n    recommendations,\n    notes,\n    footer\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const verificationUpsertSQLite = "INSERT INTO verification (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    verified_findings,\n    regressions,\n    commit_timeline,\n    evidence,\n    recommendations,\n    notes,\n    footer\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type verificationUpsertParams struct {
+	bindingId        string
+	artifactDigest   string
+	title            string
+	metadata         string
+	summary          string
+	verifiedFindings string
+	regressions      string
+	commitTimeline   string
+	evidence         *string
+	recommendations  *string
+	notes            *string
+	footer           *string
+}
+
+func (q queries) verificationUpsert(ctx context.Context, conn *sql.Conn, p verificationUpsertParams) error {
+	statement := verificationUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = verificationUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.summary, p.verifiedFindings, p.regressions, p.commitTimeline, p.evidence, p.recommendations, p.notes, p.footer)
+	return err
+}

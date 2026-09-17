@@ -23,31 +23,31 @@ func NewClient(p Provider) *Client {
 }
 
 // Scan runs the secure-code-audit skill. Returns a schema-validated Report.
-func (c *Client) Scan(ctx context.Context, in ScanInput) (types.Report, error) {
+func (c *Client) Scan(ctx context.Context, in ScanInput) (types.Artifact[types.Report], error) {
 	return Scan.Run(ctx, c.p, in)
 }
 
 // Triage runs the triage skill. Returns a schema-validated Triage.
-func (c *Client) Triage(ctx context.Context, in TriageInput) (types.Triage, error) {
+func (c *Client) Triage(ctx context.Context, in TriageInput) (types.Artifact[types.Triage], error) {
 	return Triage.Run(ctx, c.p, in)
 }
 
 // VulnScan runs the vuln-scan skill. Returns a schema-validated VulnFindings.
-func (c *Client) VulnScan(ctx context.Context, in VulnScanInput) (types.VulnFindings, error) {
+func (c *Client) VulnScan(ctx context.Context, in VulnScanInput) (types.Artifact[types.VulnFindings], error) {
 	return VulnScan.Run(ctx, c.p, in)
 }
 
 // Validate runs the validate-findings skill. Returns a schema-validated Validation.
-func (c *Client) Validate(ctx context.Context, in ValidateInput) (types.Validation, error) {
+func (c *Client) Validate(ctx context.Context, in ValidateInput) (types.Artifact[types.Validation], error) {
 	return Validate.Run(ctx, c.p, in)
 }
 
 // Verify runs the verify-remediation skill. Returns a schema-validated Verification.
-func (c *Client) Verify(ctx context.Context, in VerifyInput) (types.Verification, error) {
+func (c *Client) Verify(ctx context.Context, in VerifyInput) (types.Artifact[types.Verification], error) {
 	return Verify.Run(ctx, c.p, in)
 }
 
 // Remediate runs the remediate-finding skill. Returns a schema-validated Remediation.
-func (c *Client) Remediate(ctx context.Context, in RemediateInput) (types.Remediation, error) {
+func (c *Client) Remediate(ctx context.Context, in RemediateInput) (types.Artifact[types.Remediation], error) {
 	return Remediate.Run(ctx, c.p, in)
 }

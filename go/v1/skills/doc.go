@@ -13,12 +13,13 @@
 // Implement the [Provider] interface (one method), then call any skill:
 //
 //	provider := myK8sProvider(...)  // implements skills.Provider
-//	report, err := skills.Scan.Run(ctx, provider, skills.ScanInput{
+//	artifact, err := skills.Scan.Run(ctx, provider, skills.ScanInput{
 //	    Repo: "https://github.com/org/repo",
 //	    Ref:  "main",
 //	})
-//	for _, f := range report.Findings {
-//	    fmt.Println(f.ID, f.Severity, f.Title)
+//	report, err := artifact.Value()
+//	for _, finding := range report.Findings {
+//	    fmt.Println(finding.Id, finding.Severity, finding.Title)
 //	}
 //
 // # Client convenience
@@ -47,8 +48,8 @@
 // # Error handling
 //
 // All errors from [Skill.Run] are [*SkillError] with a typed [Phase] indicating
-// where the failure occurred (marshal, validate input, execute, validate output,
-// decode output). Use [errors.As] to inspect:
+// where the failure occurred (marshal, validate input, execute, validate output).
+// Use [errors.As] to inspect:
 //
 //	var se *skills.SkillError
 //	if errors.As(err, &se) {

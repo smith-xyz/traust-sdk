@@ -38,23 +38,18 @@ func NewSkill[In, Out any](name, inputSchema, outputSchema string) Skill[In, Out
 	}
 }
 
-// Run executes the skill against a Provider:
-//
-//  1. Marshal the typed input to JSON.
-//  2. Validate input against the input schema (if one is defined for this skill).
-//  3. Call p.Execute to run the skill on whatever backend the Provider wraps.
-//  4. Validate the raw output against the output schema.
-//  5. Unmarshal the output into the typed result.
-//
-// Returns the fully typed, schema-validated result or an error at any stage.
-func (s Skill[In, Out]) Run(ctx context.Context, p Provider, in In) (Out, error) {
-	var zero Out
+// Run validates a skill invocation and retains its exact response bytes.
+func (s Skill[In, Out]) Run(
+	ctx context.Context,
+	p Provider,
+	in In,
+) (types.Artifact[Out], error) {
+	var zero types.Artifact[Out]
 
 	input, err := json.Marshal(in)
 	if err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseMarshalInput, err)
 	}
-
 	if s.inputSchema != "" {
 		if err := validate.ValidateBytes(s.inputSchema, input); err != nil {
 			return zero, skillErr(s.Meta.Name, PhaseValidateInput, err)
@@ -65,16 +60,14 @@ func (s Skill[In, Out]) Run(ctx context.Context, p Provider, in In) (Out, error)
 	if err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseExecute, err)
 	}
-
-	if err := validate.ValidateBytes(s.outputSchema, raw); err != nil {
+	artifact, err := types.ParseArtifact[Out](s.outputSchema, raw)
+	if err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseValidateOutput, err)
 	}
-
-	var out Out
-	if err := json.Unmarshal(raw, &out); err != nil {
+	if _, err := artifact.Value(); err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseDecodeOutput, err)
 	}
-	return out, nil
+	return artifact, nil
 }
 
 // Dispatch validates and submits the skill input via an [AsyncProvider],
@@ -99,9 +92,13 @@ func (s Skill[In, Out]) Dispatch(ctx context.Context, p AsyncProvider, in In) (J
 	return ref, nil
 }
 
-// Collect retrieves and validates the result for a previously dispatched ref.
-func (s Skill[In, Out]) Collect(ctx context.Context, p AsyncProvider, ref JobRef) (Out, error) {
-	var zero Out
+// Collect retrieves, validates, and retains the result for a dispatched ref.
+func (s Skill[In, Out]) Collect(
+	ctx context.Context,
+	p AsyncProvider,
+	ref JobRef,
+) (types.Artifact[Out], error) {
+	var zero types.Artifact[Out]
 
 	if ref.SkillName != "" && ref.SkillName != s.Meta.Name {
 		return zero, skillErr(s.Meta.Name, PhaseCollect,
@@ -112,16 +109,14 @@ func (s Skill[In, Out]) Collect(ctx context.Context, p AsyncProvider, ref JobRef
 	if err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseCollect, err)
 	}
-
-	if err := validate.ValidateBytes(s.outputSchema, raw); err != nil {
+	artifact, err := types.ParseArtifact[Out](s.outputSchema, raw)
+	if err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseValidateOutput, err)
 	}
-
-	var out Out
-	if err := json.Unmarshal(raw, &out); err != nil {
+	if _, err := artifact.Value(); err != nil {
 		return zero, skillErr(s.Meta.Name, PhaseDecodeOutput, err)
 	}
-	return out, nil
+	return artifact, nil
 }
 
 // Scan runs the secure-code-audit skill.

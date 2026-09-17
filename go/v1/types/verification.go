@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.1.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
 
 package types
 
@@ -8,6 +8,7 @@ import (
 
 type Verification struct {
 	CommitTimeline   []TimelineEntry      `json:"commit_timeline"`
+	Evidence         []PatchEvidence      `json:"evidence,omitempty"`
 	Footer           *string              `json:"footer,omitempty"`
 	Metadata         VerificationMetadata `json:"metadata"`
 	Notes            *string              `json:"notes,omitempty"`

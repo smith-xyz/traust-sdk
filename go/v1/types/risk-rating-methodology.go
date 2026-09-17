@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.1.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
 
 package types
 
@@ -18,9 +18,9 @@ type RiskRatingMethodology struct {
 }
 
 type CiaMap struct {
-	H map[string]interface{} `json:"H"`
-	L map[string]interface{} `json:"L"`
-	N map[string]interface{} `json:"N"`
+	H float64 `json:"H"`
+	L float64 `json:"L"`
+	N float64 `json:"N"`
 }
 
 type MatrixRow struct {
@@ -40,11 +40,11 @@ type RiskRatingMethodologyFallback struct {
 }
 
 type RiskRatingMethodologyFallbackSeverityImpact struct {
-	Critical      map[string]interface{} `json:"critical"`
-	High          map[string]interface{} `json:"high"`
-	Informational map[string]interface{} `json:"informational"`
-	Low           map[string]interface{} `json:"low"`
-	Medium        map[string]interface{} `json:"medium"`
+	Critical      float64 `json:"critical"`
+	High          float64 `json:"high"`
+	Informational float64 `json:"informational"`
+	Low           float64 `json:"low"`
+	Medium        float64 `json:"medium"`
 }
 
 type RiskRatingMethodologyImpactFactors struct {
@@ -54,10 +54,10 @@ type RiskRatingMethodologyImpactFactors struct {
 }
 
 type RiskRatingMethodologyLikelihoodFactors struct {
-	AC map[string]map[string]interface{} `json:"AC"`
-	AV map[string]map[string]interface{} `json:"AV"`
-	PR map[string]map[string]interface{} `json:"PR"`
-	UI map[string]map[string]interface{} `json:"UI"`
+	AC map[string]float64 `json:"AC"`
+	AV map[string]float64 `json:"AV"`
+	PR map[string]float64 `json:"PR"`
+	UI map[string]float64 `json:"UI"`
 }
 
 type RiskRatingMethodologyMatrix struct {

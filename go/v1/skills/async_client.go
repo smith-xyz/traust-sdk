@@ -26,7 +26,7 @@ func (c *AsyncClient) DispatchScan(ctx context.Context, in ScanInput) (JobRef, e
 }
 
 // CollectScan waits for a previously dispatched scan job to complete.
-func (c *AsyncClient) CollectScan(ctx context.Context, ref JobRef) (types.Report, error) {
+func (c *AsyncClient) CollectScan(ctx context.Context, ref JobRef) (types.Artifact[types.Report], error) {
 	return Scan.Collect(ctx, c.p, ref)
 }
 
@@ -36,7 +36,7 @@ func (c *AsyncClient) DispatchTriage(ctx context.Context, in TriageInput) (JobRe
 }
 
 // CollectTriage waits for a previously dispatched triage job to complete.
-func (c *AsyncClient) CollectTriage(ctx context.Context, ref JobRef) (types.Triage, error) {
+func (c *AsyncClient) CollectTriage(ctx context.Context, ref JobRef) (types.Artifact[types.Triage], error) {
 	return Triage.Collect(ctx, c.p, ref)
 }
 
@@ -46,7 +46,7 @@ func (c *AsyncClient) DispatchVulnScan(ctx context.Context, in VulnScanInput) (J
 }
 
 // CollectVulnScan waits for a previously dispatched vuln-scan job to complete.
-func (c *AsyncClient) CollectVulnScan(ctx context.Context, ref JobRef) (types.VulnFindings, error) {
+func (c *AsyncClient) CollectVulnScan(ctx context.Context, ref JobRef) (types.Artifact[types.VulnFindings], error) {
 	return VulnScan.Collect(ctx, c.p, ref)
 }
 
@@ -56,7 +56,7 @@ func (c *AsyncClient) DispatchValidate(ctx context.Context, in ValidateInput) (J
 }
 
 // CollectValidate waits for a previously dispatched validate-findings job to complete.
-func (c *AsyncClient) CollectValidate(ctx context.Context, ref JobRef) (types.Validation, error) {
+func (c *AsyncClient) CollectValidate(ctx context.Context, ref JobRef) (types.Artifact[types.Validation], error) {
 	return Validate.Collect(ctx, c.p, ref)
 }
 
@@ -66,7 +66,7 @@ func (c *AsyncClient) DispatchVerify(ctx context.Context, in VerifyInput) (JobRe
 }
 
 // CollectVerify waits for a previously dispatched verify-remediation job to complete.
-func (c *AsyncClient) CollectVerify(ctx context.Context, ref JobRef) (types.Verification, error) {
+func (c *AsyncClient) CollectVerify(ctx context.Context, ref JobRef) (types.Artifact[types.Verification], error) {
 	return Verify.Collect(ctx, c.p, ref)
 }
 
@@ -76,6 +76,6 @@ func (c *AsyncClient) DispatchRemediate(ctx context.Context, in RemediateInput) 
 }
 
 // CollectRemediate waits for a previously dispatched remediate-finding job to complete.
-func (c *AsyncClient) CollectRemediate(ctx context.Context, ref JobRef) (types.Remediation, error) {
+func (c *AsyncClient) CollectRemediate(ctx context.Context, ref JobRef) (types.Artifact[types.Remediation], error) {
 	return Remediate.Collect(ctx, c.p, ref)
 }

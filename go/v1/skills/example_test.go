@@ -20,7 +20,7 @@ func TestScan_Run(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title == "" {
+	if artifactValue(t, report).Title == "" {
 		t.Fatal("expected non-empty report title")
 	}
 }
@@ -37,8 +37,8 @@ func TestClient_Scan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title != "Fixture Security Assessment" {
-		t.Fatalf("got title %q, want %q", report.Title, "Fixture Security Assessment")
+	if artifactValue(t, report).Title != "Fixture Security Assessment" {
+		t.Fatalf("got title %q, want %q", artifactValue(t, report).Title, "Fixture Security Assessment")
 	}
 }
 
@@ -53,8 +53,8 @@ func TestClient_Triage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if triage.TriageContext.HarnessVersion != "0.24.0" {
-		t.Fatalf("got harness version %q, want %q", triage.TriageContext.HarnessVersion, "0.24.0")
+	if artifactValue(t, triage).TriageContext.HarnessVersion != "0.24.0" {
+		t.Fatalf("got harness version %q, want %q", artifactValue(t, triage).TriageContext.HarnessVersion, "0.24.0")
 	}
 }
 

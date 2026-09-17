@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.1.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
 
 package types
 
@@ -78,8 +78,8 @@ type PqcDecisionTreeServerSideCaveatRulesItem struct {
 }
 
 type PqcDecisionTreeTlsControlCrosswalk struct {
-	Comment          *string                `json:"_comment,omitempty"`
-	AppControlled    map[string]interface{} `json:"app-controlled"`
-	InfraControlled  map[string]interface{} `json:"infra-controlled"`
-	VendorControlled map[string]interface{} `json:"vendor-controlled"`
+	Comment          *string  `json:"_comment,omitempty"`
+	AppControlled    []string `json:"app-controlled"`
+	InfraControlled  []string `json:"infra-controlled"`
+	VendorControlled []string `json:"vendor-controlled"`
 }

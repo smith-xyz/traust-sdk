@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.1.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
 
 package types
 
@@ -8,6 +8,7 @@ import (
 
 type Remediation struct {
 	Checks         []Check             `json:"checks"`
+	Evidence       []PatchEvidence     `json:"evidence,omitempty"`
 	Footer         *string             `json:"footer,omitempty"`
 	Fork           Fork                `json:"fork"`
 	Metadata       RemediationMetadata `json:"metadata"`
@@ -57,6 +58,17 @@ type PatchDiffstat struct {
 	Additions int `json:"additions"`
 	Deletions int `json:"deletions"`
 	Files     int `json:"files"`
+}
+
+type PatchEvidence struct {
+	BaseObservation    *string                 `json:"base_observation,omitempty"`
+	Command            *string                 `json:"command,omitempty"`
+	DeterministicSteps *string                 `json:"deterministic_steps,omitempty"`
+	Kind               enums.PatchEvidenceKind `json:"kind"`
+	LogPath            *string                 `json:"log_path,omitempty"`
+	Outcome            string                  `json:"outcome"`
+	PatchedObservation *string                 `json:"patched_observation,omitempty"`
+	Tool               *string                 `json:"tool,omitempty"`
 }
 
 type PatchFilesChangedItem struct {

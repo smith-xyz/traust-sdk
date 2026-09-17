@@ -154,7 +154,23 @@ func GenerateTypes(schemas map[string]*SchemaFile, enumMappings []EnumMapping, e
 			return fmt.Errorf("writing %s: %w", outPath, err)
 		}
 	}
-	return nil
+	return generateArtifactConstructors(filenames, outDir, contractsVersion)
+}
+
+func generateArtifactConstructors(filenames []string, outDir, version string) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "// Code generated from traust-contracts v%s. DO NOT EDIT.\n\npackage types\n\n", version)
+	b.WriteString("import \"encoding/json\"\n\n")
+	for _, filename := range filenames {
+		schema := strings.TrimSuffix(filename, ".schema.json")
+		typeName := schemaStructName(filename)
+		fmt.Fprintf(&b, "func Parse%sArtifact(payload []byte) (Artifact[%s], error) {\n", typeName, typeName)
+		fmt.Fprintf(&b, "\treturn ParseArtifact[%s](%q, payload)\n}\n\n", typeName, schema)
+		fmt.Fprintf(&b, "func Encode%sArtifact(value %s) (Artifact[%s], error) {\n", typeName, typeName, typeName)
+		fmt.Fprintf(&b, "\tpayload, err := json.Marshal(value)\n\tif err != nil { return Artifact[%s]{}, err }\n", typeName)
+		fmt.Fprintf(&b, "\treturn Parse%sArtifact(payload)\n}\n\n", typeName)
+	}
+	return formatAndWrite(filepath.Join(outDir, "artifacts_gen.go"), []byte(b.String()))
 }
 
 func sortedSchemaFilenames(schemas map[string]*SchemaFile) []string {
@@ -366,7 +382,7 @@ func (fg *fileGen) goTypeForResolved(node *SchemaNode, ref, parentStruct, fieldN
 	if node.AdditionalProperties != nil {
 		return fg.mapType(node.AdditionalProperties, parentStruct, fieldName), nil
 	}
-	return "map[string]interface{}", nil
+	return fg.goTypeBase(node, parentStruct, fieldName)
 }
 
 func (fg *fileGen) goTypeBase(node *SchemaNode, parentStruct, fieldName string) (string, error) {

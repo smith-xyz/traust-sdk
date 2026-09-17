@@ -29,8 +29,8 @@ func TestScan_DispatchCollect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title != "Fixture Security Assessment" {
-		t.Fatalf("got title %q, want %q", report.Title, "Fixture Security Assessment")
+	if artifactValue(t, report).Title != "Fixture Security Assessment" {
+		t.Fatalf("got title %q, want %q", artifactValue(t, report).Title, "Fixture Security Assessment")
 	}
 }
 
@@ -50,8 +50,8 @@ func TestTriage_DispatchCollect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if triage.TriageContext.HarnessVersion != "0.24.0" {
-		t.Fatalf("got harness version %q, want %q", triage.TriageContext.HarnessVersion, "0.24.0")
+	if artifactValue(t, triage).TriageContext.HarnessVersion != "0.24.0" {
+		t.Fatalf("got harness version %q, want %q", artifactValue(t, triage).TriageContext.HarnessVersion, "0.24.0")
 	}
 }
 
@@ -73,8 +73,8 @@ func TestAsyncClient_ScanRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title != "Fixture Security Assessment" {
-		t.Fatalf("got title %q, want %q", report.Title, "Fixture Security Assessment")
+	if artifactValue(t, report).Title != "Fixture Security Assessment" {
+		t.Fatalf("got title %q, want %q", artifactValue(t, report).Title, "Fixture Security Assessment")
 	}
 }
 
@@ -95,8 +95,8 @@ func TestAsyncClient_TriageRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if triage.TriageCompleted != "2026-01-01" {
-		t.Fatalf("got triage completed %q, want %q", triage.TriageCompleted, "2026-01-01")
+	if artifactValue(t, triage).TriageCompleted != "2026-01-01" {
+		t.Fatalf("got triage completed %q, want %q", artifactValue(t, triage).TriageCompleted, "2026-01-01")
 	}
 }
 
@@ -180,8 +180,8 @@ func TestSyncAdapter_RoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title != "Fixture Security Assessment" {
-		t.Fatalf("got title %q, want %q", report.Title, "Fixture Security Assessment")
+	if artifactValue(t, report).Title != "Fixture Security Assessment" {
+		t.Fatalf("got title %q, want %q", artifactValue(t, report).Title, "Fixture Security Assessment")
 	}
 }
 
@@ -199,8 +199,8 @@ func TestSyncAdapter_ViaClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title != "Fixture Security Assessment" {
-		t.Fatalf("got title %q, want %q", report.Title, "Fixture Security Assessment")
+	if artifactValue(t, report).Title != "Fixture Security Assessment" {
+		t.Fatalf("got title %q, want %q", artifactValue(t, report).Title, "Fixture Security Assessment")
 	}
 
 	triage, err := client.Triage(context.Background(), skills.TriageInput{
@@ -209,8 +209,8 @@ func TestSyncAdapter_ViaClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if triage.TriageContext.HarnessVersion != "0.24.0" {
-		t.Fatalf("got harness version %q, want %q", triage.TriageContext.HarnessVersion, "0.24.0")
+	if artifactValue(t, triage).TriageContext.HarnessVersion != "0.24.0" {
+		t.Fatalf("got harness version %q, want %q", artifactValue(t, triage).TriageContext.HarnessVersion, "0.24.0")
 	}
 }
 
@@ -244,15 +244,15 @@ func TestMultipleDispatches_IndependentRefs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if triage.TriageCompleted != "2026-01-01" {
-		t.Fatalf("got triage completed %q, want %q", triage.TriageCompleted, "2026-01-01")
+	if artifactValue(t, triage).TriageCompleted != "2026-01-01" {
+		t.Fatalf("got triage completed %q, want %q", artifactValue(t, triage).TriageCompleted, "2026-01-01")
 	}
 
 	report, err := skills.Scan.Collect(ctx, provider, ref1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Title != "Fixture Security Assessment" {
-		t.Fatalf("got title %q, want %q", report.Title, "Fixture Security Assessment")
+	if artifactValue(t, report).Title != "Fixture Security Assessment" {
+		t.Fatalf("got title %q, want %q", artifactValue(t, report).Title, "Fixture Security Assessment")
 	}
 }

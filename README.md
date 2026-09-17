@@ -6,8 +6,9 @@ Typed SDKs for invoking security harness skills with pluggable execution backend
 
 ```bash
 make setup   # enable git hooks (once per clone)
-make test    # go test ./...
-make status  # per-language versions and tags
+make test              # network-free Go unit tests
+make test-integration  # storage: SQLite + optional local PostgreSQL
+make status            # per-language versions and tags
 ```
 
 Each language has its own `{lang}/VERSION` and git tag (`{tag_prefix}/vX.Y.Z` in `ci/languages.json`).
@@ -33,9 +34,21 @@ implement a Provider interface to run skills however you want).
 
 ```bash
 cd go/
-make generate   # reads schemas/enums from sibling traust-contracts repo
-make test       # verify everything passes
+make generate   # fetches and verifies the pinned canonical contracts commit
+make test       # network-free unit tests
 ```
+
+For storage integration coverage, `make test-integration` always exercises SQLite
+and attempts PostgreSQL at one fixed local test DSN. Start that database with:
+
+```bash
+podman run --name traust-postgres --rm -d -e POSTGRES_USER=traust -e POSTGRES_PASSWORD=traust-test-only -e POSTGRES_DB=traust_test -p 127.0.0.1:5432:5432 -v traust-postgres-data:/var/lib/postgresql/data docker.io/library/postgres:16
+```
+
+These are fixed local test-only credentials, **not deployed credentials or
+secrets**; the suite does not support a DSN override. An absent, unreachable, or
+authentication-rejecting PostgreSQL skips that portion with a message. Once a
+connection succeeds, Open, initialization, and protocol failures fail the test.
 
 ## License
 

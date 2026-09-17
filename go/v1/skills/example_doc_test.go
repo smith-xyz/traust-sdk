@@ -22,7 +22,8 @@ func Example_scanDirect() {
 		fmt.Println("error:", err)
 		return
 	}
-	fmt.Println(report.Title)
+	value, _ := report.Value()
+	fmt.Println(value.Title)
 	// Output: Fixture Security Assessment
 }
 
@@ -41,7 +42,8 @@ func ExampleClient_Scan() {
 		fmt.Println("error:", err)
 		return
 	}
-	fmt.Println(report.Title)
+	value, _ := report.Value()
+	fmt.Println(value.Title)
 	// Output: Fixture Security Assessment
 }
 
@@ -55,12 +57,14 @@ func ExampleNewStaticProvider() {
 		Repo: "https://github.com/org/repo",
 		Ref:  "main",
 	})
-	fmt.Println(report.Title)
+	reportValue, _ := report.Value()
+	fmt.Println(reportValue.Title)
 
 	triage, _ := skills.Triage.Run(context.Background(), provider, skills.TriageInput{
 		Repo: "https://github.com/org/repo",
 	})
-	fmt.Println(triage.TriageContext.HarnessVersion)
+	triageValue, _ := triage.Value()
+	fmt.Println(triageValue.TriageContext.HarnessVersion)
 	// Output:
 	// Fixture Security Assessment
 	// 0.24.0
