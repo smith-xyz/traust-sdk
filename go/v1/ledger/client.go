@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 // Client binds a Provider for typed submission methods.

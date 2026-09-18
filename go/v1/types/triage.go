@@ -3,7 +3,7 @@
 package types
 
 import (
-	"github.com/openshift/traust-sdk/go/v1/enums"
+	"github.com/traust-security/traust-sdk/go/v1/enums"
 )
 
 type Triage struct {

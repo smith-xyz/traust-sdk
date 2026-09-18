@@ -3,7 +3,7 @@ package ledger
 import (
 	"fmt"
 
-	"github.com/openshift/traust-sdk/go/v1/ledger/internal/check"
+	"github.com/traust-security/traust-sdk/go/v1/ledger/internal/check"
 )
 
 // Phase identifies where in the submission pipeline an error occurred.

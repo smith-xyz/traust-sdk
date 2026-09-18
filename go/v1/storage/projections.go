@@ -9,7 +9,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 type projectionName string

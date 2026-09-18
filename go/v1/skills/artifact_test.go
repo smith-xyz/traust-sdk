@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/openshift/traust-sdk/go/v1/skills"
-	"github.com/openshift/traust-sdk/go/v1/skills/skillstest"
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/skills"
+	"github.com/traust-security/traust-sdk/go/v1/skills/skillstest"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 type rawProvider struct {

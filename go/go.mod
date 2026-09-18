@@ -1,4 +1,4 @@
-module github.com/openshift/traust-sdk/go
+module github.com/traust-security/traust-sdk/go
 
 go 1.26
 

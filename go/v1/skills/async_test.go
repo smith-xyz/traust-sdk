@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/openshift/traust-sdk/go/v1/skills"
-	"github.com/openshift/traust-sdk/go/v1/skills/skillstest"
+	"github.com/traust-security/traust-sdk/go/v1/skills"
+	"github.com/traust-security/traust-sdk/go/v1/skills/skillstest"
 )
 
 func TestScan_DispatchCollect(t *testing.T) {

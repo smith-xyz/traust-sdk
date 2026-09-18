@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/openshift/traust-sdk/go/v1/ledger/internal/transport"
+	"github.com/traust-security/traust-sdk/go/v1/ledger/internal/transport"
 )
 
 // StatusError is returned when the ledger service responds with a non-2xx

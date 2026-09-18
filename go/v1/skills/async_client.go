@@ -3,7 +3,7 @@ package skills
 import (
 	"context"
 
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 // AsyncClient binds an [AsyncProvider] so callers don't pass it on every call.

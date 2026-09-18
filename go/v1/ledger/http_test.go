@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/openshift/traust-sdk/go/v1/ledger"
+	"github.com/traust-security/traust-sdk/go/v1/ledger"
 )
 
 func mustNoErr(t *testing.T, err error) {

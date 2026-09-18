@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openshift/traust-sdk/go/v1/enums"
-	"github.com/openshift/traust-sdk/go/v1/ledger"
-	"github.com/openshift/traust-sdk/go/v1/ledger/ingesttest"
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/enums"
+	"github.com/traust-security/traust-sdk/go/v1/ledger"
+	"github.com/traust-security/traust-sdk/go/v1/ledger/ingesttest"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 // testFingerprint is a 64-hex fingerprint constant assembled at runtime so no

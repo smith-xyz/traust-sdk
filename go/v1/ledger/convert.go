@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/openshift/traust-sdk/go/v1/enums"
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/enums"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 const rationaleCap = 500

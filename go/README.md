@@ -1,7 +1,7 @@
 # traust-sdk (Go)
 
 ```bash
-go get github.com/openshift/traust-sdk/go@v0.9.0
+go get github.com/traust-security/traust-sdk/go@v0.9.0
 ```
 
 ## Skills SDK
@@ -9,7 +9,7 @@ go get github.com/openshift/traust-sdk/go@v0.9.0
 Import a skill, plug in your provider, call it — typed input in, typed result out:
 
 ```go
-import "github.com/openshift/traust-sdk/go/v1/skills"
+import "github.com/traust-security/traust-sdk/go/v1/skills"
 
 provider := myK8sProvider(...)  // you implement skills.Provider
 
@@ -52,7 +52,7 @@ triage, _ := client.Triage(ctx, skills.TriageInput{...})
 ### Testing
 
 ```go
-import "github.com/openshift/traust-sdk/go/v1/skills/skillstest"
+import "github.com/traust-security/traust-sdk/go/v1/skills/skillstest"
 
 provider := skillstest.NewStaticProvider().
     WithScanResult(skillstest.FixtureReport())
@@ -68,7 +68,7 @@ report, _ := skills.Scan.Run(ctx, provider, skills.ScanInput{
 Submit reports and human events to the ledger service:
 
 ```go
-import "github.com/openshift/traust-sdk/go/v1/ledger"
+import "github.com/traust-security/traust-sdk/go/v1/ledger"
 
 client := ledger.NewHTTPClient("https://ledger.example.com",
     ledger.WithBearerToken(os.Getenv("LEDGER_TOKEN")),
@@ -110,7 +110,7 @@ For custom transports, implement `ledger.Provider` and use `ledger.NewClient(pro
 ### Testing
 
 ```go
-import "github.com/openshift/traust-sdk/go/v1/ledger/ingesttest"
+import "github.com/traust-security/traust-sdk/go/v1/ledger/ingesttest"
 
 provider := ingesttest.NewStaticProvider().
     WithTriageResponse(ingesttest.FixtureTriageResponse())
@@ -122,7 +122,7 @@ client := ledger.NewClient(provider)
 Read layers, findings, and verification results from the ledger service:
 
 ```go
-import "github.com/openshift/traust-sdk/go/v1/ledger"
+import "github.com/traust-security/traust-sdk/go/v1/ledger"
 
 client := ledger.NewHTTPClient("https://ledger.example.com",
     ledger.WithBearerToken(os.Getenv("LEDGER_TOKEN")),
@@ -144,7 +144,7 @@ For custom transports, implement `ledger.Provider` and use `ledger.NewClient(pro
 ### Testing
 
 ```go
-import "github.com/openshift/traust-sdk/go/v1/ledger/querytest"
+import "github.com/traust-security/traust-sdk/go/v1/ledger/querytest"
 
 provider := querytest.NewStaticProvider().
     WithFindingsResponse("repo-a", querytest.FixtureFindingsResponse())
@@ -165,7 +165,7 @@ import (
     "database/sql"
 
     _ "github.com/jackc/pgx/v5/stdlib"
-    "github.com/openshift/traust-sdk/go/v1/storage"
+    "github.com/traust-security/traust-sdk/go/v1/storage"
 )
 
 db, err := sql.Open("pgx", dsn)

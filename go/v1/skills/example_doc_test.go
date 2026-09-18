@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/traust-sdk/go/v1/skills"
-	"github.com/openshift/traust-sdk/go/v1/skills/skillstest"
+	"github.com/traust-security/traust-sdk/go/v1/skills"
+	"github.com/traust-security/traust-sdk/go/v1/skills/skillstest"
 )
 
 // This example shows the primary usage pattern: call a skill directly with a

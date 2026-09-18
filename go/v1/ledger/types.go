@@ -1,6 +1,6 @@
 package ledger
 
-import "github.com/openshift/traust-sdk/go/v1/types"
+import "github.com/traust-security/traust-sdk/go/v1/types"
 
 // HealthResponse is returned by GET /healthz.
 type HealthResponse struct {

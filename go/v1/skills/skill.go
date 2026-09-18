@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openshift/traust-sdk/go/v1/types"
-	"github.com/openshift/traust-sdk/go/v1/validate"
+	"github.com/traust-security/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/validate"
 )
 
 // Skill is a typed, schema-validated invocation unit. Each Skill knows its

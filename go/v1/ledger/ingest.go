@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openshift/traust-sdk/go/v1/ledger/internal/check"
-	"github.com/openshift/traust-sdk/go/v1/types"
-	"github.com/openshift/traust-sdk/go/v1/validate"
+	"github.com/traust-security/traust-sdk/go/v1/ledger/internal/check"
+	"github.com/traust-security/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/validate"
 )
 
 type submissionOp[In any] struct {

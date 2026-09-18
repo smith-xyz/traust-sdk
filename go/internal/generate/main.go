@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	enumsPkg = "github.com/openshift/traust-sdk/go/v1/enums"
+	enumsPkg = "github.com/traust-security/traust-sdk/go/v1/enums"
 )
 
 func main() {

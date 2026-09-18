@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/openshift/traust-sdk/go/v1/ledger"
+	"github.com/traust-security/traust-sdk/go/v1/ledger"
 )
 
 // StaticProvider is a test double that returns pre-configured responses.

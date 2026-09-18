@@ -1,7 +1,7 @@
 package ledger
 
 import (
-	"github.com/openshift/traust-sdk/go/v1/types"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 // ReportMeta is shared metadata for machine-lane report submissions.

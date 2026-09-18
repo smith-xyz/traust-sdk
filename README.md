@@ -17,7 +17,7 @@ Each language has its own `{lang}/VERSION` and git tag (`{tag_prefix}/vX.Y.Z` in
 
 | Language | Path | Module |
 |---|---|---|
-| Go | [`go/`](go/) | `github.com/openshift/traust-sdk/go` |
+| Go | [`go/`](go/) | `github.com/traust-security/traust-sdk/go` |
 
 ## Architecture
 

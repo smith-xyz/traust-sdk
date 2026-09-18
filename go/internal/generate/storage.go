@@ -551,7 +551,7 @@ func generateOperations(
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "// Code generated from traust-contracts %s. DO NOT EDIT.\n\npackage storage\n\n", contractsRef)
-	b.WriteString("import (\n\t\"context\"\n\t\"database/sql\"\n\n\t\"github.com/openshift/traust-sdk/go/v1/types\"\n)\n\n")
+	b.WriteString("import (\n\t\"context\"\n\t\"database/sql\"\n\n\t\"github.com/traust-security/traust-sdk/go/v1/types\"\n)\n\n")
 	filenames := sortedSchemaFilenames(schemas)
 	for _, filename := range filenames {
 		schema := strings.TrimSuffix(filename, ".schema.json")

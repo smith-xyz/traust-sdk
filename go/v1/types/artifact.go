@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/openshift/traust-sdk/go/v1/validate"
+	"github.com/traust-security/traust-sdk/go/v1/validate"
 )
 
 var ErrEmptyArtifact = errors.New("artifact payload is empty")

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/traust-sdk/go/v1/ledger"
-	"github.com/openshift/traust-sdk/go/v1/ledger/ingesttest"
+	"github.com/traust-security/traust-sdk/go/v1/ledger"
+	"github.com/traust-security/traust-sdk/go/v1/ledger/ingesttest"
 )
 
 func ExampleNewClient() {
