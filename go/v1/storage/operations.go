@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 72ba388931b3a4a5510020d8dc5f7293a94d6151. DO NOT EDIT.
+// Code generated from traust-contracts 3ffd06325a78240fab6b05e0aaa8ac65f8d6573a. DO NOT EDIT.
 
 package storage
 
@@ -542,6 +542,86 @@ func (c *Client) GetLayer(ctx context.Context, bindingID string) (types.Artifact
 	return getTypedArtifact(ctx, c.store, "layer", bindingID, types.ParseLayerArtifact)
 }
 
+type SaveOperatorPrivProfileInput struct {
+	Binding  Binding
+	Artifact types.Artifact[types.OperatorPrivProfile]
+}
+
+func (c *Client) SaveOperatorPrivProfile(ctx context.Context, input SaveOperatorPrivProfileInput) (SaveResult, error) {
+	return saveTypedArtifact(ctx, c.store, "operator-priv-profile", input.Binding, bindingRequirements{subject: true, run: true, layer: false}, input.Artifact, c.store.projectOperatorPrivProfile)
+}
+
+func (c *Client) GetOperatorPrivProfile(ctx context.Context, bindingID string) (types.Artifact[types.OperatorPrivProfile], error) {
+	return getTypedArtifact(ctx, c.store, "operator-priv-profile", bindingID, types.ParseOperatorPrivProfileArtifact)
+}
+
+func (s *sqlStore) projectOperatorPrivProfile(ctx context.Context, conn *sql.Conn, state writeState, value types.OperatorPrivProfile) error {
+	workloads, err := optionalProjectionJSON(value.Workloads)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldWorkloads, err)
+	}
+	rbacRules, err := optionalProjectionJSON(value.RbacRules)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldRbacRules, err)
+	}
+	rbacFlags, err := optionalProjectionJSON(value.RbacFlags)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldRbacFlags, err)
+	}
+	sccRequests, err := optionalProjectionJSON(value.SccRequests)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldSccRequests, err)
+	}
+	sccsShipped, err := optionalProjectionJSON(value.SccsShipped)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldSccsShipped, err)
+	}
+	namespaces, err := optionalProjectionJSON(value.Namespaces)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldNamespaces, err)
+	}
+	installModes, err := optionalProjectionJSON(value.InstallModes)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldInstallModes, err)
+	}
+	operatorgroups, err := optionalProjectionJSON(value.Operatorgroups)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldOperatorgroups, err)
+	}
+	tier2RequiredVsGranted, err := optionalProjectionJSON(value.Tier2RequiredVsGranted)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldTier2RequiredVsGranted, err)
+	}
+	exampleOrTestManifestsExcluded, err := optionalProjectionJSON(value.ExampleOrTestManifestsExcluded)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldExampleOrTestManifestsExcluded, err)
+	}
+	summary, err := optionalProjectionJSON(value.Summary)
+	if err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldSummary, err)
+	}
+	if err := s.queries.privProfileUpsert(ctx, conn, privProfileUpsertParams{
+		bindingId:                      state.bindingID,
+		artifactDigest:                 state.digest,
+		repo:                           value.Repo,
+		tier:                           value.Tier,
+		workloads:                      workloads,
+		rbacRules:                      rbacRules,
+		rbacFlags:                      rbacFlags,
+		sccRequests:                    sccRequests,
+		sccsShipped:                    sccsShipped,
+		namespaces:                     namespaces,
+		installModes:                   installModes,
+		operatorgroups:                 operatorgroups,
+		tier2RequiredVsGranted:         tier2RequiredVsGranted,
+		exampleOrTestManifestsExcluded: exampleOrTestManifestsExcluded,
+		summary:                        summary,
+	}); err != nil {
+		return projectionError(projectionPrivProfile, projectionFieldRow, err)
+	}
+	return nil
+}
+
 type SaveOrgParametersInput struct {
 	Binding  Binding
 	Artifact types.Artifact[types.OrgParameters]
@@ -1077,6 +1157,19 @@ func (s *sqlStore) projectSlaPolicy(ctx context.Context, conn *sql.Conn, state w
 	return nil
 }
 
+type SaveThreatRegisterInput struct {
+	Binding  Binding
+	Artifact types.Artifact[types.ThreatRegister]
+}
+
+func (c *Client) SaveThreatRegister(ctx context.Context, input SaveThreatRegisterInput) (SaveResult, error) {
+	return saveTypedArtifact(ctx, c.store, "threat-register", input.Binding, bindingRequirements{subject: false, run: false, layer: false}, input.Artifact, c.store.projectThreatRegister)
+}
+
+func (c *Client) GetThreatRegister(ctx context.Context, bindingID string) (types.Artifact[types.ThreatRegister], error) {
+	return getTypedArtifact(ctx, c.store, "threat-register", bindingID, types.ParseThreatRegisterArtifact)
+}
+
 type SaveTriageInput struct {
 	Binding  Binding
 	Artifact types.Artifact[types.Triage]
@@ -1318,6 +1411,12 @@ func (c *Client) saveNamed(ctx context.Context, name string, payload []byte, bin
 			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
 		}
 		return c.SaveLayer(ctx, SaveLayerInput{Binding: binding, Artifact: artifact})
+	case "operator-priv-profile":
+		artifact, err := types.ParseOperatorPrivProfileArtifact(payload)
+		if err != nil {
+			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
+		}
+		return c.SaveOperatorPrivProfile(ctx, SaveOperatorPrivProfileInput{Binding: binding, Artifact: artifact})
 	case "org-parameters":
 		artifact, err := types.ParseOrgParametersArtifact(payload)
 		if err != nil {
@@ -1372,6 +1471,12 @@ func (c *Client) saveNamed(ctx context.Context, name string, payload []byte, bin
 			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
 		}
 		return c.SaveSlaPolicy(ctx, SaveSlaPolicyInput{Binding: binding, Artifact: artifact})
+	case "threat-register":
+		artifact, err := types.ParseThreatRegisterArtifact(payload)
+		if err != nil {
+			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
+		}
+		return c.SaveThreatRegister(ctx, SaveThreatRegisterInput{Binding: binding, Artifact: artifact})
 	case "triage":
 		artifact, err := types.ParseTriageArtifact(payload)
 		if err != nil {

@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.16.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.18.2. DO NOT EDIT.
 
 package types
 

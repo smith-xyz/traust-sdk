@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 72ba388931b3a4a5510020d8dc5f7293a94d6151 SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts 3ffd06325a78240fab6b05e0aaa8ac65f8d6573a SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -554,6 +554,21 @@ func (q queries) openFindingsList(ctx context.Context, conn *sql.Conn, p openFin
 	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
+const operatorPrivilegeListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       repo,\n       tier,\n       workload_count,\n       privileged_or_host_workloads,\n       rbac_rule_count,\n       distinct_rule_triples,\n       distinct_cluster_triples,\n       cluster_scoped_rules,\n       wildcard_rules,\n       no_scc_request_recorded,\n       flag_secrets_access,\n       flag_nodes_access,\n       flag_wildcard_verbs,\n       flag_wildcard_resources,\n       flag_rbac_write,\n       flag_pods_exec,\n       flag_escalate_bind_impersonate,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM traust_storage.operator_privilege\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, repo;"
+const operatorPrivilegeListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       repo,\n       tier,\n       workload_count,\n       privileged_or_host_workloads,\n       rbac_rule_count,\n       distinct_rule_triples,\n       distinct_cluster_triples,\n       cluster_scoped_rules,\n       wildcard_rules,\n       no_scc_request_recorded,\n       flag_secrets_access,\n       flag_nodes_access,\n       flag_wildcard_verbs,\n       flag_wildcard_resources,\n       flag_rbac_write,\n       flag_pods_exec,\n       flag_escalate_bind_impersonate,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM operator_privilege\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, repo;"
+
+type operatorPrivilegeListParams struct {
+	scopeIds string
+}
+
+func (q queries) operatorPrivilegeList(ctx context.Context, conn *sql.Conn, p operatorPrivilegeListParams) (*sql.Rows, error) {
+	statement := operatorPrivilegeListSQLite
+	if q.dialect == dialectPostgres {
+		statement = operatorPrivilegeListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
 const orgParametersUpsertPostgres = "INSERT INTO traust_storage.org_parameters (\n    binding_id,\n    artifact_digest,\n    version,\n    declared_by,\n    declared_on,\n    note,\n    parameters\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (binding_id) DO NOTHING;"
 const orgParametersUpsertSQLite = "INSERT INTO org_parameters (\n    binding_id,\n    artifact_digest,\n    version,\n    declared_by,\n    declared_on,\n    note,\n    parameters\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
 
@@ -677,6 +692,36 @@ func (q queries) pqcReadinessUpsert(ctx context.Context, conn *sql.Conn, p pqcRe
 		statement = pqcReadinessUpsertPostgres
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.scores, p.flags, p.provenanceSummary, p.clockItems, p.readinessBucket, p.fipsInteraction, p.runtimeEvidence, p.serverSideCaveats, p.notes, p.remediations)
+	return err
+}
+
+const privProfileUpsertPostgres = "INSERT INTO traust_storage.priv_profile (\n    binding_id,\n    artifact_digest,\n    repo,\n    tier,\n    workloads,\n    rbac_rules,\n    rbac_flags,\n    scc_requests,\n    sccs_shipped,\n    namespaces,\n    install_modes,\n    operatorgroups,\n    tier2_required_vs_granted,\n    example_or_test_manifests_excluded,\n    summary\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15\n)\nON CONFLICT (binding_id) DO NOTHING;"
+const privProfileUpsertSQLite = "INSERT INTO priv_profile (\n    binding_id,\n    artifact_digest,\n    repo,\n    tier,\n    workloads,\n    rbac_rules,\n    rbac_flags,\n    scc_requests,\n    sccs_shipped,\n    namespaces,\n    install_modes,\n    operatorgroups,\n    tier2_required_vs_granted,\n    example_or_test_manifests_excluded,\n    summary\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
+
+type privProfileUpsertParams struct {
+	bindingId                      string
+	artifactDigest                 string
+	repo                           string
+	tier                           *string
+	workloads                      *string
+	rbacRules                      *string
+	rbacFlags                      *string
+	sccRequests                    *string
+	sccsShipped                    *string
+	namespaces                     *string
+	installModes                   *string
+	operatorgroups                 *string
+	tier2RequiredVsGranted         *string
+	exampleOrTestManifestsExcluded *string
+	summary                        *string
+}
+
+func (q queries) privProfileUpsert(ctx context.Context, conn *sql.Conn, p privProfileUpsertParams) error {
+	statement := privProfileUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = privProfileUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.repo, p.tier, p.workloads, p.rbacRules, p.rbacFlags, p.sccRequests, p.sccsShipped, p.namespaces, p.installModes, p.operatorgroups, p.tier2RequiredVsGranted, p.exampleOrTestManifestsExcluded, p.summary)
 	return err
 }
 
@@ -863,6 +908,71 @@ func (q queries) subjectOwnershipUpsert(ctx context.Context, conn *sql.Conn, p s
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.subjectId, p.tree, p.ownership, p.businessUnit, p.label, p.product, p.repoUrl, p.ref, p.refKind, p.isBranchAudit)
 	return err
+}
+
+const threatUpsertPostgres = "INSERT INTO traust_storage.threat (\n    binding_id,\n    artifact_digest,\n    threat_key,\n    threat_id,\n    model,\n    subject_id,\n    product,\n    statement,\n    surface,\n    asset,\n    impact,\n    likelihood,\n    status,\n    controls,\n    actors,\n    evidence,\n    linddun,\n    score,\n    isolation_dimensions,\n    isolation_boundaries\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15,\n    $16,\n    $17,\n    $18,\n    $19,\n    $20\n)\nON CONFLICT (binding_id, threat_key) DO NOTHING;"
+const threatUpsertSQLite = "INSERT INTO threat (\n    binding_id,\n    artifact_digest,\n    threat_key,\n    threat_id,\n    model,\n    subject_id,\n    product,\n    statement,\n    surface,\n    asset,\n    impact,\n    likelihood,\n    status,\n    controls,\n    actors,\n    evidence,\n    linddun,\n    score,\n    isolation_dimensions,\n    isolation_boundaries\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, threat_key) DO NOTHING;"
+
+type threatUpsertParams struct {
+	bindingId           string
+	artifactDigest      string
+	threatKey           string
+	threatId            string
+	model               string
+	subjectId           *string
+	product             *string
+	statement           *string
+	surface             *string
+	asset               *string
+	impact              *string
+	likelihood          *string
+	status              *string
+	controls            *string
+	actors              *string
+	evidence            *string
+	linddun             *int64
+	score               *int64
+	isolationDimensions *string
+	isolationBoundaries *string
+}
+
+func (q queries) threatUpsert(ctx context.Context, conn *sql.Conn, p threatUpsertParams) error {
+	statement := threatUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = threatUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.threatKey, p.threatId, p.model, p.subjectId, p.product, p.statement, p.surface, p.asset, p.impact, p.likelihood, p.status, p.controls, p.actors, p.evidence, p.linddun, p.score, p.isolationDimensions, p.isolationBoundaries)
+	return err
+}
+
+const threatCurrentListPostgres = "SELECT scope_id,\n       threat_key,\n       threat_id,\n       model,\n       subject_id,\n       product,\n       statement,\n       surface,\n       asset,\n       impact,\n       likelihood,\n       status,\n       controls,\n       evidence,\n       linddun,\n       score,\n       isolation_dimensions,\n       isolation_boundaries,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM traust_storage.threat_current\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, threat_key;"
+const threatCurrentListSQLite = "SELECT scope_id,\n       threat_key,\n       threat_id,\n       model,\n       subject_id,\n       product,\n       statement,\n       surface,\n       asset,\n       impact,\n       likelihood,\n       status,\n       controls,\n       evidence,\n       linddun,\n       score,\n       isolation_dimensions,\n       isolation_boundaries,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM threat_current\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, threat_key;"
+
+type threatCurrentListParams struct {
+	scopeIds string
+}
+
+func (q queries) threatCurrentList(ctx context.Context, conn *sql.Conn, p threatCurrentListParams) (*sql.Rows, error) {
+	statement := threatCurrentListSQLite
+	if q.dialect == dialectPostgres {
+		statement = threatCurrentListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const threatExposureListPostgres = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       product,\n       impact,\n       likelihood,\n       status,\n       evidenced,\n       linddun,\n       threats,\n       subjects,\n       top_score\nFROM traust_storage.threat_exposure\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, tree, product, impact, likelihood, status;"
+const threatExposureListSQLite = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       product,\n       impact,\n       likelihood,\n       status,\n       evidenced,\n       linddun,\n       threats,\n       subjects,\n       top_score\nFROM threat_exposure\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, tree, product, impact, likelihood, status;"
+
+type threatExposureListParams struct {
+	scopeIds string
+}
+
+func (q queries) threatExposureList(ctx context.Context, conn *sql.Conn, p threatExposureListParams) (*sql.Rows, error) {
+	statement := threatExposureListSQLite
+	if q.dialect == dialectPostgres {
+		statement = threatExposureListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const traustStorageMetaExistsPostgres = "SELECT to_regclass('traust_storage.traust_storage_meta');"

@@ -429,3 +429,165 @@ func (c *Client) QueryCensusExposure(ctx context.Context, scopeIDs []string) ([]
 			return c.store.queries.censusExposureList(ctx, conn, censusExposureListParams{scopeIds: scope})
 		}, scanCensusExposure)
 }
+
+// ThreatRow is one modelled threat from the CURRENT register, with the owner
+// of the subject it was modelled against.
+type ThreatRow struct {
+	ScopeID string
+	// The identity. Never ThreatID: every model numbers its threats from T1,
+	// so ThreatID alone collides across the whole model set.
+	ThreatKey           string
+	ThreatID            string
+	Model               string
+	SubjectID           *string
+	Product             *string
+	Statement           *string
+	Surface             *string
+	Asset               *string
+	Impact              *string
+	Likelihood          *string
+	Status              *string
+	Controls            *string
+	Evidence            *string
+	Linddun             *int64
+	Score               *int64
+	IsolationDimensions *string
+	IsolationBoundaries *string
+	Ownership           *string
+	BusinessUnit        *string
+	Tree                *string
+	IsBranchAudit       *int64
+}
+
+// ThreatExposureRow aggregates modelled threats. Status is carried
+// UNCOLLAPSED -- partially_mitigated is the largest bucket in practice, so
+// folding it into mitigated overstates threat coverage more than any other
+// choice here. Evidenced separates a threat backed by a finding from one that
+// is only modelled: "unmitigated" and "unevidenced" are different claims.
+type ThreatExposureRow struct {
+	ScopeID      string
+	Tree         *string
+	Ownership    *string
+	BusinessUnit *string
+	Product      *string
+	Impact       *string
+	Likelihood   *string
+	Status       *string
+	Evidenced    int64
+	Linddun      *int64
+	Threats      int64
+	Subjects     int64
+	TopScore     *int64
+}
+
+// OperatorPrivilegeRow is the privilege one operator ASKS FOR, parsed from its
+// shipped manifests. DECLARED state -- never a live cluster read. Each Flag*
+// is 1 when that high-privilege pattern matched and 0 when it did not; never
+// NULL, so a dashboard filter cannot silently drop a row.
+type OperatorPrivilegeRow struct {
+	ScopeID                     string
+	SubjectID                   *string
+	RunID                       *string
+	Repo                        string
+	Tier                        *string
+	WorkloadCount               *int64
+	PrivilegedOrHostWorkloads   *int64
+	RbacRuleCount               *int64
+	DistinctRuleTriples         *int64
+	DistinctClusterTriples      *int64
+	ClusterScopedRules          *int64
+	WildcardRules               *int64
+	NoSccRequestRecorded        *int64
+	FlagSecretsAccess           int64
+	FlagNodesAccess             int64
+	FlagWildcardVerbs           int64
+	FlagWildcardResources       int64
+	FlagRbacWrite               int64
+	FlagPodsExec                int64
+	FlagEscalateBindImpersonate int64
+	Ownership                   *string
+	BusinessUnit                *string
+	Tree                        *string
+	IsBranchAudit               *int64
+}
+
+func scanThreats(rows *sql.Rows) (result []ThreatRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row ThreatRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.ThreatKey, &row.ThreatID, &row.Model, &row.SubjectID,
+			&row.Product, &row.Statement, &row.Surface, &row.Asset, &row.Impact,
+			&row.Likelihood, &row.Status, &row.Controls, &row.Evidence, &row.Linddun,
+			&row.Score, &row.IsolationDimensions, &row.IsolationBoundaries,
+			&row.Ownership, &row.BusinessUnit, &row.Tree, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func scanThreatExposure(rows *sql.Rows) (result []ThreatExposureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row ThreatExposureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit, &row.Product,
+			&row.Impact, &row.Likelihood, &row.Status, &row.Evidenced, &row.Linddun,
+			&row.Threats, &row.Subjects, &row.TopScore,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func scanOperatorPrivilege(rows *sql.Rows) (result []OperatorPrivilegeRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row OperatorPrivilegeRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.RunID, &row.Repo, &row.Tier,
+			&row.WorkloadCount, &row.PrivilegedOrHostWorkloads, &row.RbacRuleCount,
+			&row.DistinctRuleTriples, &row.DistinctClusterTriples,
+			&row.ClusterScopedRules, &row.WildcardRules, &row.NoSccRequestRecorded,
+			&row.FlagSecretsAccess, &row.FlagNodesAccess, &row.FlagWildcardVerbs,
+			&row.FlagWildcardResources, &row.FlagRbacWrite, &row.FlagPodsExec,
+			&row.FlagEscalateBindImpersonate,
+			&row.Ownership, &row.BusinessUnit, &row.Tree, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryThreatCurrent returns the threats of the CURRENT register, with owner.
+func (c *Client) QueryThreatCurrent(ctx context.Context, scopeIDs []string) ([]ThreatRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.threatCurrentList(ctx, conn, threatCurrentListParams{scopeIds: scope})
+		}, scanThreats)
+}
+
+// QueryThreatExposure returns threats aggregated by impact, likelihood and
+// status, and whether each group is evidenced.
+func (c *Client) QueryThreatExposure(ctx context.Context, scopeIDs []string) ([]ThreatExposureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.threatExposureList(ctx, conn, threatExposureListParams{scopeIds: scope})
+		}, scanThreatExposure)
+}
+
+// QueryOperatorPrivilege returns the privilege each operator asks for in its
+// shipped manifests. Declared state, never a runtime grant.
+func (c *Client) QueryOperatorPrivilege(ctx context.Context, scopeIDs []string) ([]OperatorPrivilegeRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.operatorPrivilegeList(ctx, conn, operatorPrivilegeListParams{scopeIds: scope})
+		}, scanOperatorPrivilege)
+}

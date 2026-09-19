@@ -252,3 +252,79 @@ func optionalBoolAsInt(value *bool) *int64 {
 	}
 	return &stored
 }
+
+// projectThreatRegister fans a register out to one `threat` row per threat.
+// Hand-written for the same reason projectCorpusRegistry is: the generator's
+// one-row projector maps ROOT schema properties to columns, and these live
+// inside threats[].
+//
+// Keyed on Key, never Id: every threat model numbers its threats from T1, so
+// Id collides across the whole model set and an Id-keyed write would keep one
+// threat per number out of tens of thousands.
+func (s *sqlStore) projectThreatRegister(
+	ctx context.Context,
+	conn *sql.Conn,
+	state writeState,
+	register types.ThreatRegister,
+) error {
+	for _, threat := range register.Threats {
+		actors, err := optionalProjectionJSON(threat.Actors)
+		if err != nil {
+			return projectionError(projectionThreat, projectionFieldActors, err)
+		}
+		// Kept even when empty: an empty list means MODELLED BUT NOT
+		// EVIDENCED, which is a different claim from unmitigated, and
+		// threat_exposure reports the two apart.
+		evidence, err := optionalProjectionJSON(threat.Evidence)
+		if err != nil {
+			return projectionError(projectionThreat, projectionFieldEvidence, err)
+		}
+		dimensions, err := optionalProjectionJSON(threat.IsolationDimensions)
+		if err != nil {
+			return projectionError(projectionThreat, projectionFieldIsolationDimensions, err)
+		}
+		boundaries, err := optionalProjectionJSON(threat.IsolationBoundaries)
+		if err != nil {
+			return projectionError(projectionThreat, projectionFieldIsolationBoundaries, err)
+		}
+		impact := string(threat.Impact)
+		likelihood := string(threat.Likelihood)
+		status := string(threat.Status)
+		statement := threat.Threat
+		if err := s.queries.threatUpsert(ctx, conn, threatUpsertParams{
+			bindingId:           state.bindingID,
+			artifactDigest:      state.digest,
+			threatKey:           threat.Key,
+			threatId:            threat.Id,
+			model:               threat.Model,
+			subjectId:           threat.SubjectId,
+			product:             threat.Product,
+			statement:           &statement,
+			surface:             threat.Surface,
+			asset:               threat.Asset,
+			impact:              &impact,
+			likelihood:          &likelihood,
+			status:              &status,
+			controls:            threat.Controls,
+			actors:              actors,
+			evidence:            evidence,
+			linddun:             optionalBoolAsInt(threat.Linddun),
+			score:               optionalIntAsInt64(threat.Score),
+			isolationDimensions: dimensions,
+			isolationBoundaries: boundaries,
+		}); err != nil {
+			return projectionError(projectionThreat, projectionFieldRow, err)
+		}
+	}
+	return nil
+}
+
+// optionalIntAsInt64 keeps absent ABSENT, matching optionalBoolAsInt: a
+// missing score is not a score of zero.
+func optionalIntAsInt64(value *int) *int64 {
+	if value == nil {
+		return nil
+	}
+	stored := int64(*value)
+	return &stored
+}

@@ -54,6 +54,7 @@ func bindingFor(name string) Binding {
 		"cloud-config-findings-current",
 		"compliance-assessment",
 		"doc-variance",
+		"operator-priv-profile",
 		"pqc-blockers",
 		"pqc-facts",
 		"pqc-readiness",
@@ -167,6 +168,12 @@ func projectionTable(name string) string {
 		return "finding"
 	case "corpus-registry":
 		return "subject_ownership"
+	// Threat MODELS are prose Markdown; the register is their structured
+	// restatement, so the family and its table differ by more than a dash.
+	case "threat-register":
+		return "threat"
+	case "operator-priv-profile":
+		return "priv_profile"
 	default:
 		return strings.ReplaceAll(name, "-", "_")
 	}
@@ -190,7 +197,8 @@ func TestAllArtifactsRetainEvidenceAndProject(t *testing.T) {
 		table := projectionTable(name)
 		want := 1
 		// Fan-out families project one row per item in their sample.
-		if name == "vuln-findings" || name == "corpus-registry" {
+		if name == "vuln-findings" || name == "corpus-registry" ||
+			name == "threat-register" {
 			want = 2
 		}
 		var got int

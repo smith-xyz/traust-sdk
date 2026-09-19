@@ -414,8 +414,10 @@ func bootstrapRank(section, name string) int {
 			return 2
 		case "current_finding.sql":
 			return 3
-		default:
+		case "threat_current.sql":
 			return 4
+		default:
+			return 5
 		}
 	}
 	if section != "schema" {
@@ -570,6 +572,15 @@ func generateOperations(
 	// exist without this.
 	vocabulary.use("layer_metadata")
 	vocabulary.use("subject_ownership")
+	// Fan-out table with a hand-written projector, so no generated projector
+	// records it -- without this its identifiers are never emitted.
+	vocabulary.use(
+		"threat",
+		"actors",
+		"evidence",
+		"isolation_dimensions",
+		"isolation_boundaries",
+	)
 	vocabulary.use("finding", "line")
 	vocabulary.use("triage_verdict", "rationale", "severity", "vote_breakdown")
 
@@ -597,8 +608,13 @@ func generateOperations(
 		// Families whose projection FANS OUT (one row per item) rather than
 		// mapping root properties to columns. generateOneRowProjector cannot
 		// express them, so their projectors are written by hand.
+		// Families that project one row PER ITEM rather than one row per
+		// artifact. They have hand-written projectors because their columns
+		// come from array items, not from the schema's root properties --
+		// which is exactly what generateOneRowProjector requires.
 		fanOut := schema == "layer" || schema == "triage" ||
-			schema == "vuln-findings" || schema == "corpus-registry"
+			schema == "vuln-findings" || schema == "corpus-registry" ||
+			schema == "threat-register"
 		if fanOut || profile.Projection == "" {
 			continue
 		}

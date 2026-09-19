@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.16.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.18.2. DO NOT EDIT.
 
 package types
 
@@ -184,6 +184,18 @@ func EncodeLayerArtifact(value Layer) (Artifact[Layer], error) {
 	return ParseLayerArtifact(payload)
 }
 
+func ParseOperatorPrivProfileArtifact(payload []byte) (Artifact[OperatorPrivProfile], error) {
+	return ParseArtifact[OperatorPrivProfile]("operator-priv-profile", payload)
+}
+
+func EncodeOperatorPrivProfileArtifact(value OperatorPrivProfile) (Artifact[OperatorPrivProfile], error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return Artifact[OperatorPrivProfile]{}, err
+	}
+	return ParseOperatorPrivProfileArtifact(payload)
+}
+
 func ParseOrgParametersArtifact(payload []byte) (Artifact[OrgParameters], error) {
 	return ParseArtifact[OrgParameters]("org-parameters", payload)
 }
@@ -290,6 +302,18 @@ func EncodeSlaPolicyArtifact(value SlaPolicy) (Artifact[SlaPolicy], error) {
 		return Artifact[SlaPolicy]{}, err
 	}
 	return ParseSlaPolicyArtifact(payload)
+}
+
+func ParseThreatRegisterArtifact(payload []byte) (Artifact[ThreatRegister], error) {
+	return ParseArtifact[ThreatRegister]("threat-register", payload)
+}
+
+func EncodeThreatRegisterArtifact(value ThreatRegister) (Artifact[ThreatRegister], error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return Artifact[ThreatRegister]{}, err
+	}
+	return ParseThreatRegisterArtifact(payload)
 }
 
 func ParseTriageArtifact(payload []byte) (Artifact[Triage], error) {
