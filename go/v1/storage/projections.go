@@ -123,6 +123,41 @@ func (s *sqlStore) projectLayer(
 	}); err != nil {
 		return projectionError(projectionLayerMetadata, projectionFieldRow, err)
 	}
+	// The events are the TIME DIMENSION. A Go caller that saves a layer
+	// without them writes the merkle root and silently loses every date the
+	// trend, MTTR and SLA views are computed from.
+	for _, event := range layer.Events {
+		source := string(event.Source.Type)
+		actorKind := string(event.Source.Actor.Kind)
+		var validity, resolution *string
+		if event.Disposition.Validity != nil {
+			value := string(*event.Disposition.Validity)
+			validity = &value
+		}
+		if event.Disposition.Resolution != nil {
+			value := string(*event.Disposition.Resolution)
+			resolution = &value
+		}
+		if err := s.queries.layerEventUpsert(ctx, conn, layerEventUpsertParams{
+			bindingId:       state.bindingID,
+			artifactDigest:  state.digest,
+			eventId:         event.EventId,
+			findingRef:      event.FindingRef,
+			fingerprint:     event.Fingerprint,
+			fingerprintAlgo: event.FingerprintAlgo,
+			recordedAt:      event.RecordedAt,
+			occurredAt:      event.OccurredAt,
+			sourceType:      &source,
+			sourceRef:       &event.Source.Ref,
+			actorKind:       &actorKind,
+			validity:        validity,
+			resolution:      resolution,
+			evidenceGrade:   event.EvidenceGrade,
+			autoAcceptTier:  optionalBoolAsInt(event.AutoAcceptTier),
+		}); err != nil {
+			return projectionError(projectionLayerEvent, projectionFieldRow, err)
+		}
+	}
 	return nil
 }
 

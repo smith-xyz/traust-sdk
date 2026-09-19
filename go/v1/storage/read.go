@@ -591,3 +591,123 @@ func (c *Client) QueryOperatorPrivilege(ctx context.Context, scopeIDs []string) 
 			return c.store.queries.operatorPrivilegeList(ctx, conn, operatorPrivilegeListParams{scopeIds: scope})
 		}, scanOperatorPrivilege)
 }
+
+// FindingTimelineRow is one finding identity with its full clock.
+// DaysToResolve is nil while the finding is OPEN -- a mean taken over
+// closed findings alone is censored and reads faster than reality.
+// ClockInconsistent marks a resolution dated before the earliest report we
+// still hold, where the duration is unknown rather than negative.
+type FindingTimelineRow struct {
+	ScopeID                  string
+	Fingerprint              string
+	FirstSeen                *string
+	LastSeen                 *string
+	Subjects                 int64
+	FirstAdjudicated         *string
+	ResolvedAt               *string
+	RegressionAt             *string
+	DaysToResolve            *float64
+	ClockInconsistent        int64
+	DaysAdjudicatedToResolve *float64
+	RegressionDays           *float64
+	RegressionStillOpen      *int64
+	Events                   *int64
+}
+
+// ExposureTrendRow is findings opened and closed in one period, each
+// identity counted once rather than once per re-audit.
+type ExposureTrendRow struct {
+	ScopeID string
+	Period  string
+	Opened  int64
+	Closed  int64
+	Net     int64
+}
+
+// FindingSLARow ages an open finding from FIRST OBSERVED. Still-open
+// findings are included deliberately: the breaches are exactly the ones
+// that never closed, so a closed-only view inverts the metric.
+type FindingSLARow struct {
+	ScopeID       string
+	Fingerprint   string
+	Severity      *string
+	Ownership     *string
+	BusinessUnit  *string
+	Tree          *string
+	FirstSeen     *string
+	ResolvedAt    *string
+	StillOpen     int64
+	AgeDays       *float64
+	DaysToResolve *float64
+}
+
+func scanFindingTimeline(rows *sql.Rows) (result []FindingTimelineRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row FindingTimelineRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Fingerprint, &row.FirstSeen, &row.LastSeen,
+			&row.Subjects, &row.FirstAdjudicated, &row.ResolvedAt, &row.RegressionAt,
+			&row.DaysToResolve, &row.ClockInconsistent, &row.DaysAdjudicatedToResolve,
+			&row.RegressionDays, &row.RegressionStillOpen, &row.Events,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func scanExposureTrend(rows *sql.Rows) (result []ExposureTrendRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row ExposureTrendRow
+		if err := rows.Scan(&row.ScopeID, &row.Period, &row.Opened,
+			&row.Closed, &row.Net); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func scanFindingSLA(rows *sql.Rows) (result []FindingSLARow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row FindingSLARow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Fingerprint, &row.Severity, &row.Ownership,
+			&row.BusinessUnit, &row.Tree, &row.FirstSeen, &row.ResolvedAt,
+			&row.StillOpen, &row.AgeDays, &row.DaysToResolve,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryFindingTimeline returns each finding's clock: born, adjudicated,
+// closed, and the durations between.
+func (c *Client) QueryFindingTimeline(ctx context.Context, scopeIDs []string) ([]FindingTimelineRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.findingTimelineList(ctx, conn, findingTimelineListParams{scopeIds: scope})
+		}, scanFindingTimeline)
+}
+
+// QueryExposureTrend returns findings opened and closed per period.
+func (c *Client) QueryExposureTrend(ctx context.Context, scopeIDs []string) ([]ExposureTrendRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.exposureTrendList(ctx, conn, exposureTrendListParams{scopeIds: scope})
+		}, scanExposureTrend)
+}
+
+// QueryFindingSLA returns the age of every finding against its SLA clock.
+func (c *Client) QueryFindingSLA(ctx context.Context, scopeIDs []string) ([]FindingSLARow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.findingSlaList(ctx, conn, findingSlaListParams{scopeIds: scope})
+		}, scanFindingSLA)
+}

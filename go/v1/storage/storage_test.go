@@ -161,7 +161,9 @@ func TestBindingIDGoldenVectorAndPresence(t *testing.T) {
 func projectionTable(name string) string {
 	switch name {
 	case "layer":
-		return "layer_metadata"
+		// The metadata row is one of two projections; layer_event carries
+		// the history and is what a lost time dimension would show up in.
+		return "layer_event"
 	case "triage":
 		return "triage_verdict"
 	case "vuln-findings":
@@ -200,6 +202,11 @@ func TestAllArtifactsRetainEvidenceAndProject(t *testing.T) {
 		if name == "vuln-findings" || name == "corpus-registry" ||
 			name == "threat-register" {
 			want = 2
+		}
+		// The layer sample carries three real ledger events: a confirm, a
+		// regression and a resolve, so a duration is computable from it.
+		if name == "layer" {
+			want = 3
 		}
 		var got int
 		if err := sqlDB(client).QueryRow("SELECT count(*) FROM " + table).Scan(&got); err != nil {

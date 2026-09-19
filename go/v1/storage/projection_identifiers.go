@@ -1,4 +1,4 @@
-// Code generated from traust-contracts fc571c5392024d0b0e311c7316551c04091595ac projection metadata. DO NOT EDIT.
+// Code generated from traust-contracts d4bbc6ac3733e1db8653760be0710a39b3c88ed4 projection metadata. DO NOT EDIT.
 
 package storage
 
@@ -17,6 +17,7 @@ const (
 	projectionFleetFix                            projectionName  = "fleet_fix"
 	projectionImpactAnalysis                      projectionName  = "impact_analysis"
 	projectionIsolationReview                     projectionName  = "isolation_review"
+	projectionLayerEvent                          projectionName  = "layer_event"
 	projectionLayerMetadata                       projectionName  = "layer_metadata"
 	projectionOrgParameters                       projectionName  = "org_parameters"
 	projectionPQCBlockers                         projectionName  = "pqc_blockers"

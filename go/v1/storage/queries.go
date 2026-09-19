@@ -1,4 +1,4 @@
-// Code generated from traust-contracts fc571c5392024d0b0e311c7316551c04091595ac SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts d4bbc6ac3733e1db8653760be0710a39b3c88ed4 SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -391,6 +391,21 @@ func (q queries) docVarianceUpsert(ctx context.Context, conn *sql.Conn, p docVar
 	return err
 }
 
+const exposureTrendListPostgres = "SELECT scope_id,\n       period,\n       opened,\n       closed,\n       net\nFROM traust_storage.exposure_trend\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, period;"
+const exposureTrendListSQLite = "SELECT scope_id,\n       period,\n       opened,\n       closed,\n       net\nFROM exposure_trend\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, period;"
+
+type exposureTrendListParams struct {
+	scopeIds string
+}
+
+func (q queries) exposureTrendList(ctx context.Context, conn *sql.Conn, p exposureTrendListParams) (*sql.Rows, error) {
+	statement := exposureTrendListSQLite
+	if q.dialect == dialectPostgres {
+		statement = exposureTrendListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
 const findingUpsertPostgres = "INSERT INTO traust_storage.finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    target,\n    scanned_at,\n    title,\n    severity,\n    description,\n    category,\n    file,\n    line,\n    cwe,\n    recommendation,\n    confidence\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
 const findingUpsertSQLite = "INSERT INTO finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    target,\n    scanned_at,\n    title,\n    severity,\n    description,\n    category,\n    file,\n    line,\n    cwe,\n    recommendation,\n    confidence\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
 
@@ -418,6 +433,36 @@ func (q queries) findingUpsert(ctx context.Context, conn *sql.Conn, p findingUps
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.findingId, p.target, p.scannedAt, p.title, p.severity, p.description, p.category, p.file, p.line, p.cwe, p.recommendation, p.confidence)
 	return err
+}
+
+const findingSlaListPostgres = "SELECT scope_id,\n       fingerprint,\n       severity,\n       ownership,\n       business_unit,\n       tree,\n       first_seen,\n       resolved_at,\n       still_open,\n       age_days,\n       days_to_resolve\nFROM traust_storage.finding_sla\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, age_days DESC;"
+const findingSlaListSQLite = "SELECT scope_id,\n       fingerprint,\n       severity,\n       ownership,\n       business_unit,\n       tree,\n       first_seen,\n       resolved_at,\n       still_open,\n       age_days,\n       days_to_resolve\nFROM finding_sla\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, age_days DESC;"
+
+type findingSlaListParams struct {
+	scopeIds string
+}
+
+func (q queries) findingSlaList(ctx context.Context, conn *sql.Conn, p findingSlaListParams) (*sql.Rows, error) {
+	statement := findingSlaListSQLite
+	if q.dialect == dialectPostgres {
+		statement = findingSlaListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const findingTimelineListPostgres = "SELECT scope_id,\n       fingerprint,\n       first_seen,\n       last_seen,\n       subjects,\n       first_adjudicated,\n       resolved_at,\n       regression_at,\n       days_to_resolve,\n       clock_inconsistent,\n       days_adjudicated_to_resolve,\n       regression_days,\n       regression_still_open,\n       events\nFROM traust_storage.finding_timeline\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, fingerprint;"
+const findingTimelineListSQLite = "SELECT scope_id,\n       fingerprint,\n       first_seen,\n       last_seen,\n       subjects,\n       first_adjudicated,\n       resolved_at,\n       regression_at,\n       days_to_resolve,\n       clock_inconsistent,\n       days_adjudicated_to_resolve,\n       regression_days,\n       regression_still_open,\n       events\nFROM finding_timeline\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, fingerprint;"
+
+type findingTimelineListParams struct {
+	scopeIds string
+}
+
+func (q queries) findingTimelineList(ctx context.Context, conn *sql.Conn, p findingTimelineListParams) (*sql.Rows, error) {
+	statement := findingTimelineListSQLite
+	if q.dialect == dialectPostgres {
+		statement = findingTimelineListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const findingsSummaryListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       layer_id,\n       repo,\n       severity,\n       verdict,\n       finding_count\nFROM traust_storage.findings_summary\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, run_id, layer_id, repo, severity, verdict;"
@@ -515,6 +560,36 @@ func (q queries) isolationReviewUpsert(ctx context.Context, conn *sql.Conn, p is
 		statement = isolationReviewUpsertPostgres
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.interfaces, p.gaps, p.posture, p.notes)
+	return err
+}
+
+const layerEventUpsertPostgres = "INSERT INTO traust_storage.layer_event (\n    binding_id,\n    artifact_digest,\n    event_id,\n    finding_ref,\n    fingerprint,\n    fingerprint_algo,\n    recorded_at,\n    occurred_at,\n    source_type,\n    source_ref,\n    actor_kind,\n    validity,\n    resolution,\n    evidence_grade,\n    auto_accept_tier\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15\n)\nON CONFLICT (binding_id, event_id) DO NOTHING;"
+const layerEventUpsertSQLite = "INSERT INTO layer_event (\n    binding_id,\n    artifact_digest,\n    event_id,\n    finding_ref,\n    fingerprint,\n    fingerprint_algo,\n    recorded_at,\n    occurred_at,\n    source_type,\n    source_ref,\n    actor_kind,\n    validity,\n    resolution,\n    evidence_grade,\n    auto_accept_tier\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, event_id) DO NOTHING;"
+
+type layerEventUpsertParams struct {
+	bindingId       string
+	artifactDigest  string
+	eventId         string
+	findingRef      string
+	fingerprint     *string
+	fingerprintAlgo *string
+	recordedAt      string
+	occurredAt      *string
+	sourceType      *string
+	sourceRef       *string
+	actorKind       *string
+	validity        *string
+	resolution      *string
+	evidenceGrade   *string
+	autoAcceptTier  *int64
+}
+
+func (q queries) layerEventUpsert(ctx context.Context, conn *sql.Conn, p layerEventUpsertParams) error {
+	statement := layerEventUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = layerEventUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.eventId, p.findingRef, p.fingerprint, p.fingerprintAlgo, p.recordedAt, p.occurredAt, p.sourceType, p.sourceRef, p.actorKind, p.validity, p.resolution, p.evidenceGrade, p.autoAcceptTier)
 	return err
 }
 

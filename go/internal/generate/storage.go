@@ -416,8 +416,12 @@ func bootstrapRank(section, name string) int {
 			return 3
 		case "threat_current.sql":
 			return 4
-		default:
+		case "finding_first_seen.sql":
 			return 5
+		case "finding_timeline.sql":
+			return 6
+		default:
+			return 7
 		}
 	}
 	if section != "schema" {
@@ -571,6 +575,7 @@ func generateOperations(
 	// one-row projector never sees them, so their identifiers would not
 	// exist without this.
 	vocabulary.use("layer_metadata")
+	vocabulary.use("layer_event")
 	vocabulary.use("subject_ownership")
 	// Fan-out table with a hand-written projector, so no generated projector
 	// records it -- without this its identifiers are never emitted.
