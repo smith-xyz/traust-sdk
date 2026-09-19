@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.14.2. DO NOT EDIT.
 
 package types
 
@@ -29,6 +29,8 @@ type VulnFindingsFinding struct {
 	Description      string         `json:"description"`
 	ExploitScenario  *string        `json:"exploit_scenario,omitempty"`
 	File             string         `json:"file"`
+	Fingerprint      *string        `json:"fingerprint,omitempty"`
+	FingerprintAlgo  *string        `json:"fingerprint_algo,omitempty"`
 	Id               string         `json:"id"`
 	Line             interface{}    `json:"line"`
 	Recommendation   string         `json:"recommendation"`

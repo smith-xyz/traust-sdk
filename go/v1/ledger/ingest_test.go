@@ -539,6 +539,10 @@ func (p *badSubmitProvider) Post(context.Context, string, []byte) ([]byte, error
 	return nil, errors.New("not used")
 }
 
+// fixtureTriageInput's fingerprint is 64 hex characters because
+// triage.schema.json now DECLARES the field with the contract pattern. The
+// previous placeholder "fp-test-001" was rejected by schema validation
+// before reaching the fingerprint check these tests exist to exercise.
 func fixtureTriageInput() ledger.TriageReportInput {
 	raw := `{
 		"layer_id": "repo-a",
@@ -568,7 +572,7 @@ func fixtureTriageInput() ledger.TriageReportInput {
 				"verdict": "true_positive",
 				"rationale": "Parameterized query missing in login handler",
 				"first_links": ["src/login.go:42"],
-				"fingerprint": "fp-test-001"
+				"fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 			}]
 		}
 	}`

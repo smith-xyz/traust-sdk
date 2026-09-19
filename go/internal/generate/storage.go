@@ -398,6 +398,24 @@ func rewriteSQL(s, d string) ([]string, string) {
 	return names, strings.TrimSpace(out)
 }
 func bootstrapRank(section, name string) int {
+	// Views that other views select FROM must be created first.
+	// Alphabetical order is NOT dependency order: current_finding sorts
+	// before report_current but selects from it, and PostgreSQL resolves a
+	// view's references at CREATE time while SQLite does not -- so the
+	// alphabetical order failed only on PostgreSQL. Mirrors VIEW_ORDER in
+	// traust-contracts sql.py; the two must stay in step.
+	if section == "views" {
+		switch name {
+		case "binding_current.sql":
+			return 0
+		case "report_current.sql":
+			return 1
+		case "current_finding.sql":
+			return 2
+		default:
+			return 3
+		}
+	}
 	if section != "schema" {
 		return 2
 	}
@@ -545,7 +563,11 @@ func generateOperations(
 	if err != nil {
 		return err
 	}
+	// Tables written by HAND-WRITTEN fan-out projectors. The generated
+	// one-row projector never sees them, so their identifiers would not
+	// exist without this.
 	vocabulary.use("layer_metadata")
+	vocabulary.use("subject_ownership")
 	vocabulary.use("finding", "line")
 	vocabulary.use("triage_verdict", "rationale", "severity", "vote_breakdown")
 
@@ -570,7 +592,12 @@ func generateOperations(
 		fmt.Fprintf(&b, "\treturn saveTypedArtifact(ctx, c.store, %q, input.Binding, %s, input.Artifact, %s)\n}\n\n", schema, runtimeProfileLiteral(profile), projector)
 		fmt.Fprintf(&b, "func (c *Client) Get%s(ctx context.Context, bindingID string) (types.Artifact[types.%s], error) {\n", operation, goType)
 		fmt.Fprintf(&b, "\treturn getTypedArtifact(ctx, c.store, %q, bindingID, types.Parse%sArtifact)\n}\n\n", schema, goType)
-		if schema == "layer" || schema == "triage" || schema == "vuln-findings" || profile.Projection == "" {
+		// Families whose projection FANS OUT (one row per item) rather than
+		// mapping root properties to columns. generateOneRowProjector cannot
+		// express them, so their projectors are written by hand.
+		fanOut := schema == "layer" || schema == "triage" ||
+			schema == "vuln-findings" || schema == "corpus-registry"
+		if fanOut || profile.Projection == "" {
 			continue
 		}
 		if err := generateOneRowProjector(

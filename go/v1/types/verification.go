@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.14.2. DO NOT EDIT.
 
 package types
 
@@ -27,19 +27,21 @@ type CrossRepo struct {
 }
 
 type Regression struct {
-	AttackPattern *string         `json:"attack_pattern,omitempty"`
-	Category      *string         `json:"category,omitempty"`
-	Cvss          *RegressionCvss `json:"cvss,omitempty"`
-	Cwes          []string        `json:"cwes"`
-	Description   string          `json:"description"`
-	Evidence      []EvidenceBlock `json:"evidence,omitempty"`
-	Id            string          `json:"id"`
-	IntroducedBy  string          `json:"introduced_by"`
-	Locations     []Location      `json:"locations"`
-	Remediation   string          `json:"remediation"`
-	RoutedId      *string         `json:"routed_id,omitempty"`
-	Severity      enums.Severity  `json:"severity"`
-	Title         string          `json:"title"`
+	AttackPattern   *string         `json:"attack_pattern,omitempty"`
+	Category        *string         `json:"category,omitempty"`
+	Cvss            *RegressionCvss `json:"cvss,omitempty"`
+	Cwes            []string        `json:"cwes"`
+	Description     string          `json:"description"`
+	Evidence        []EvidenceBlock `json:"evidence,omitempty"`
+	Fingerprint     *string         `json:"fingerprint,omitempty"`
+	FingerprintAlgo *string         `json:"fingerprint_algo,omitempty"`
+	Id              string          `json:"id"`
+	IntroducedBy    string          `json:"introduced_by"`
+	Locations       []Location      `json:"locations"`
+	Remediation     string          `json:"remediation"`
+	RoutedId        *string         `json:"routed_id,omitempty"`
+	Severity        enums.Severity  `json:"severity"`
+	Title           string          `json:"title"`
 }
 
 type RegressionCvss struct {

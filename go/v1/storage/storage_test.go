@@ -165,6 +165,8 @@ func projectionTable(name string) string {
 		return "triage_verdict"
 	case "vuln-findings":
 		return "finding"
+	case "corpus-registry":
+		return "subject_ownership"
 	default:
 		return strings.ReplaceAll(name, "-", "_")
 	}
@@ -187,7 +189,8 @@ func TestAllArtifactsRetainEvidenceAndProject(t *testing.T) {
 	for name := range samples {
 		table := projectionTable(name)
 		want := 1
-		if name == "vuln-findings" {
+		// Fan-out families project one row per item in their sample.
+		if name == "vuln-findings" || name == "corpus-registry" {
 			want = 2
 		}
 		var got int

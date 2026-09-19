@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 9bef178a9a68a8640bdd98356bacb7c6fe367edd SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts a5abb3ed28665a190270ceb805b5d5a03a43442e SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -207,6 +207,42 @@ func (q queries) cloudConfigAuditUpsert(ctx context.Context, conn *sql.Conn, p c
 	return err
 }
 
+const cloudConfigFindingUpsertPostgres = "INSERT INTO traust_storage.cloud_config_finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    title,\n    severity,\n    fingerprint,\n    validation_status,\n    check_id,\n    framework,\n    provider,\n    status,\n    scanner_severity,\n    validity,\n    resolution,\n    assurance,\n    last_updated,\n    conflict,\n    fp_overridden,\n    fp_reassertion_blocked,\n    refuted_awaiting_signoff,\n    severity_override\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15,\n    $16,\n    $17,\n    $18,\n    $19,\n    $20,\n    $21\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+const cloudConfigFindingUpsertSQLite = "INSERT INTO cloud_config_finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    title,\n    severity,\n    fingerprint,\n    validation_status,\n    check_id,\n    framework,\n    provider,\n    status,\n    scanner_severity,\n    validity,\n    resolution,\n    assurance,\n    last_updated,\n    conflict,\n    fp_overridden,\n    fp_reassertion_blocked,\n    refuted_awaiting_signoff,\n    severity_override\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+
+type cloudConfigFindingUpsertParams struct {
+	bindingId              string
+	artifactDigest         string
+	findingId              string
+	title                  *string
+	severity               *string
+	fingerprint            *string
+	validationStatus       *string
+	checkId                *string
+	framework              *string
+	provider               *string
+	status                 *string
+	scannerSeverity        *string
+	validity               *string
+	resolution             *string
+	assurance              *string
+	lastUpdated            *string
+	conflict               *int64
+	fpOverridden           *int64
+	fpReassertionBlocked   *int64
+	refutedAwaitingSignoff *int64
+	severityOverride       *string
+}
+
+func (q queries) cloudConfigFindingUpsert(ctx context.Context, conn *sql.Conn, p cloudConfigFindingUpsertParams) error {
+	statement := cloudConfigFindingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = cloudConfigFindingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.findingId, p.title, p.severity, p.fingerprint, p.validationStatus, p.checkId, p.framework, p.provider, p.status, p.scannerSeverity, p.validity, p.resolution, p.assurance, p.lastUpdated, p.conflict, p.fpOverridden, p.fpReassertionBlocked, p.refutedAwaitingSignoff, p.severityOverride)
+	return err
+}
+
 const cloudConfigFindingsCurrentUpsertPostgres = "INSERT INTO traust_storage.cloud_config_findings_current (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps,\n    disposition_summary\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8\n)\nON CONFLICT (binding_id) DO NOTHING;"
 const cloudConfigFindingsCurrentUpsertSQLite = "INSERT INTO cloud_config_findings_current (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps,\n    disposition_summary\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
 
@@ -289,6 +325,21 @@ func (q queries) complianceScopeUpsert(ctx context.Context, conn *sql.Conn, p co
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.updated, p.boundaries)
 	return err
+}
+
+const distinctExposureListPostgres = "SELECT scope_id,\n       fingerprint,\n       occurrences,\n       severity_example,\n       business_unit_example,\n       first_subject\nFROM traust_storage.distinct_exposure\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, fingerprint;"
+const distinctExposureListSQLite = "SELECT scope_id,\n       fingerprint,\n       occurrences,\n       severity_example,\n       business_unit_example,\n       first_subject\nFROM distinct_exposure\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, fingerprint;"
+
+type distinctExposureListParams struct {
+	scopeIds string
+}
+
+func (q queries) distinctExposureList(ctx context.Context, conn *sql.Conn, p distinctExposureListParams) (*sql.Rows, error) {
+	statement := distinctExposureListSQLite
+	if q.dialect == dialectPostgres {
+		statement = distinctExposureListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const docVarianceUpsertPostgres = "INSERT INTO traust_storage.doc_variance (\n    binding_id,\n    artifact_digest,\n    metadata,\n    records\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4\n)\nON CONFLICT (binding_id) DO NOTHING;"
@@ -379,6 +430,21 @@ func (q queries) fleetFixUpsert(ctx context.Context, conn *sql.Conn, p fleetFixU
 	return err
 }
 
+const hardeningFindingsListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       finding_id,\n       title,\n       severity,\n       fingerprint,\n       validity,\n       resolution,\n       assurance,\n       family,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM traust_storage.hardening_findings\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, run_id, finding_id, title;"
+const hardeningFindingsListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       finding_id,\n       title,\n       severity,\n       fingerprint,\n       validity,\n       resolution,\n       assurance,\n       family,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM hardening_findings\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, run_id, finding_id, title;"
+
+type hardeningFindingsListParams struct {
+	scopeIds string
+}
+
+func (q queries) hardeningFindingsList(ctx context.Context, conn *sql.Conn, p hardeningFindingsListParams) (*sql.Rows, error) {
+	statement := hardeningFindingsListSQLite
+	if q.dialect == dialectPostgres {
+		statement = hardeningFindingsListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
 const impactAnalysisUpsertPostgres = "INSERT INTO traust_storage.impact_analysis (\n    binding_id,\n    artifact_digest,\n    metadata,\n    summary,\n    repos\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5\n)\nON CONFLICT (binding_id) DO NOTHING;"
 const impactAnalysisUpsertSQLite = "INSERT INTO impact_analysis (\n    binding_id,\n    artifact_digest,\n    metadata,\n    summary,\n    repos\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
 
@@ -441,6 +507,21 @@ func (q queries) layerMetadataUpsert(ctx context.Context, conn *sql.Conn, p laye
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.repo, p.createdAt, p.merkleRoot, p.merkleEpoch)
 	return err
+}
+
+const openFindingsListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       finding_id,\n       title,\n       severity,\n       fingerprint,\n       validity,\n       resolution,\n       assurance,\n       family,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM traust_storage.open_findings\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, run_id, finding_id, title;"
+const openFindingsListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       finding_id,\n       title,\n       severity,\n       fingerprint,\n       validity,\n       resolution,\n       assurance,\n       family,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM open_findings\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, run_id, finding_id, title;"
+
+type openFindingsListParams struct {
+	scopeIds string
+}
+
+func (q queries) openFindingsList(ctx context.Context, conn *sql.Conn, p openFindingsListParams) (*sql.Rows, error) {
+	statement := openFindingsListSQLite
+	if q.dialect == dialectPostgres {
+		statement = openFindingsListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const orgParametersUpsertPostgres = "INSERT INTO traust_storage.org_parameters (\n    binding_id,\n    artifact_digest,\n    version,\n    declared_by,\n    declared_on,\n    note,\n    parameters\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (binding_id) DO NOTHING;"
@@ -629,6 +710,37 @@ func (q queries) reportUpsert(ctx context.Context, conn *sql.Conn, p reportUpser
 	return err
 }
 
+const reportFindingUpsertPostgres = "INSERT INTO traust_storage.report_finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    title,\n    severity,\n    fingerprint,\n    validation_status,\n    validity,\n    resolution,\n    assurance,\n    last_updated,\n    conflict,\n    fp_overridden,\n    fp_reassertion_blocked,\n    refuted_awaiting_signoff,\n    severity_override\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15,\n    $16\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+const reportFindingUpsertSQLite = "INSERT INTO report_finding (\n    binding_id,\n    artifact_digest,\n    finding_id,\n    title,\n    severity,\n    fingerprint,\n    validation_status,\n    validity,\n    resolution,\n    assurance,\n    last_updated,\n    conflict,\n    fp_overridden,\n    fp_reassertion_blocked,\n    refuted_awaiting_signoff,\n    severity_override\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, finding_id) DO NOTHING;"
+
+type reportFindingUpsertParams struct {
+	bindingId              string
+	artifactDigest         string
+	findingId              string
+	title                  *string
+	severity               *string
+	fingerprint            *string
+	validationStatus       *string
+	validity               *string
+	resolution             *string
+	assurance              *string
+	lastUpdated            *string
+	conflict               *int64
+	fpOverridden           *int64
+	fpReassertionBlocked   *int64
+	refutedAwaitingSignoff *int64
+	severityOverride       *string
+}
+
+func (q queries) reportFindingUpsert(ctx context.Context, conn *sql.Conn, p reportFindingUpsertParams) error {
+	statement := reportFindingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = reportFindingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.findingId, p.title, p.severity, p.fingerprint, p.validationStatus, p.validity, p.resolution, p.assurance, p.lastUpdated, p.conflict, p.fpOverridden, p.fpReassertionBlocked, p.refutedAwaitingSignoff, p.severityOverride)
+	return err
+}
+
 const riskRatingMethodologyUpsertPostgres = "INSERT INTO traust_storage.risk_rating_methodology (\n    binding_id,\n    artifact_digest,\n    methodology,\n    methodology_version,\n    source,\n    documentation,\n    schema,\n    bands,\n    bucket_thresholds,\n    likelihood_factors,\n    impact_factors,\n    matrix,\n    fallback,\n    threat_intel_factor\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id) DO NOTHING;"
 const riskRatingMethodologyUpsertSQLite = "INSERT INTO risk_rating_methodology (\n    binding_id,\n    artifact_digest,\n    methodology,\n    methodology_version,\n    source,\n    documentation,\n    schema,\n    bands,\n    bucket_thresholds,\n    likelihood_factors,\n    impact_factors,\n    matrix,\n    fallback,\n    threat_intel_factor\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
 
@@ -693,6 +805,33 @@ func (q queries) slaPolicyUpsert(ctx context.Context, conn *sql.Conn, p slaPolic
 		statement = slaPolicyUpsertPostgres
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.policyName, p.source, p.severityMapping, p.clockStart, p.profiles)
+	return err
+}
+
+const subjectOwnershipUpsertPostgres = "INSERT INTO traust_storage.subject_ownership (\n    binding_id,\n    artifact_digest,\n    subject_id,\n    tree,\n    ownership,\n    business_unit,\n    label,\n    product,\n    repo_url,\n    ref,\n    ref_kind,\n    is_branch_audit\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12\n)\nON CONFLICT (binding_id, subject_id) DO NOTHING;"
+const subjectOwnershipUpsertSQLite = "INSERT INTO subject_ownership (\n    binding_id,\n    artifact_digest,\n    subject_id,\n    tree,\n    ownership,\n    business_unit,\n    label,\n    product,\n    repo_url,\n    ref,\n    ref_kind,\n    is_branch_audit\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, subject_id) DO NOTHING;"
+
+type subjectOwnershipUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	subjectId      string
+	tree           string
+	ownership      string
+	businessUnit   string
+	label          *string
+	product        *string
+	repoUrl        *string
+	ref            *string
+	refKind        *string
+	isBranchAudit  *int64
+}
+
+func (q queries) subjectOwnershipUpsert(ctx context.Context, conn *sql.Conn, p subjectOwnershipUpsertParams) error {
+	statement := subjectOwnershipUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = subjectOwnershipUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.subjectId, p.tree, p.ownership, p.businessUnit, p.label, p.product, p.repoUrl, p.ref, p.refKind, p.isBranchAudit)
 	return err
 }
 

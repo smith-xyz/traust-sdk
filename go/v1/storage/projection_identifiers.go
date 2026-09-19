@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 9bef178a9a68a8640bdd98356bacb7c6fe367edd projection metadata. DO NOT EDIT.
+// Code generated from traust-contracts a5abb3ed28665a190270ceb805b5d5a03a43442e projection metadata. DO NOT EDIT.
 
 package storage
 
@@ -27,6 +27,7 @@ const (
 	projectionReport                     projectionName  = "report"
 	projectionRiskRatingMethodology      projectionName  = "risk_rating_methodology"
 	projectionSlaPolicy                  projectionName  = "sla_policy"
+	projectionSubjectOwnership           projectionName  = "subject_ownership"
 	projectionTriageVerdict              projectionName  = "triage_verdict"
 	projectionValidation                 projectionName  = "validation"
 	projectionVerification               projectionName  = "verification"

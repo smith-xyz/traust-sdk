@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 9bef178a9a68a8640bdd98356bacb7c6fe367edd. DO NOT EDIT.
+// Code generated from traust-contracts a5abb3ed28665a190270ceb805b5d5a03a43442e. DO NOT EDIT.
 
 package storage
 
@@ -347,6 +347,19 @@ func (s *sqlStore) projectComplianceScope(ctx context.Context, conn *sql.Conn, s
 		return projectionError(projectionComplianceScope, projectionFieldRow, err)
 	}
 	return nil
+}
+
+type SaveCorpusRegistryInput struct {
+	Binding  Binding
+	Artifact types.Artifact[types.CorpusRegistry]
+}
+
+func (c *Client) SaveCorpusRegistry(ctx context.Context, input SaveCorpusRegistryInput) (SaveResult, error) {
+	return saveTypedArtifact(ctx, c.store, "corpus-registry", input.Binding, bindingRequirements{subject: false, run: false, layer: false}, input.Artifact, c.store.projectCorpusRegistry)
+}
+
+func (c *Client) GetCorpusRegistry(ctx context.Context, bindingID string) (types.Artifact[types.CorpusRegistry], error) {
+	return getTypedArtifact(ctx, c.store, "corpus-registry", bindingID, types.ParseCorpusRegistryArtifact)
 }
 
 type SaveDocVarianceInput struct {
@@ -1269,6 +1282,12 @@ func (c *Client) saveNamed(ctx context.Context, name string, payload []byte, bin
 			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
 		}
 		return c.SaveComplianceScope(ctx, SaveComplianceScopeInput{Binding: binding, Artifact: artifact})
+	case "corpus-registry":
+		artifact, err := types.ParseCorpusRegistryArtifact(payload)
+		if err != nil {
+			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
+		}
+		return c.SaveCorpusRegistry(ctx, SaveCorpusRegistryInput{Binding: binding, Artifact: artifact})
 	case "doc-variance":
 		artifact, err := types.ParseDocVarianceArtifact(payload)
 		if err != nil {

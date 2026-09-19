@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.14.2. DO NOT EDIT.
 
 package types
 
@@ -39,6 +39,8 @@ type TriageFinding struct {
 	DuplicateOf       interface{}   `json:"duplicate_of,omitempty"`
 	ExclusionRule     interface{}   `json:"exclusion_rule,omitempty"`
 	File              interface{}   `json:"file,omitempty"`
+	Fingerprint       *string       `json:"fingerprint,omitempty"`
+	FingerprintAlgo   *string       `json:"fingerprint_algo,omitempty"`
 	FirstLinks        []string      `json:"first_links,omitempty"`
 	Id                string        `json:"id"`
 	Line              interface{}   `json:"line,omitempty"`

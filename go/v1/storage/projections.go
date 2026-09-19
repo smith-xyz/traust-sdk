@@ -199,3 +199,56 @@ func (s *sqlStore) projectTriage(
 	}
 	return nil
 }
+
+// projectCorpusRegistry fans a registry out to one subject_ownership row per
+// subject. Hand-written because the generator's one-row projector maps ROOT
+// schema properties to columns, and these live inside subjects[].
+//
+// Ownership is the denominator every dashboard cut divides by, so a Go
+// caller that saves a registry without this writes the evidence and leaves
+// every owned-scoped query empty.
+func (s *sqlStore) projectCorpusRegistry(
+	ctx context.Context,
+	conn *sql.Conn,
+	state writeState,
+	registry types.CorpusRegistry,
+) error {
+	for _, subject := range registry.Subjects {
+		var refKind *string
+		if subject.RefKind != nil {
+			value := string(*subject.RefKind)
+			refKind = &value
+		}
+		if err := s.queries.subjectOwnershipUpsert(ctx, conn, subjectOwnershipUpsertParams{
+			bindingId:      state.bindingID,
+			artifactDigest: state.digest,
+			subjectId:      subject.SubjectId,
+			tree:           subject.Tree,
+			ownership:      string(subject.Ownership),
+			businessUnit:   subject.BusinessUnit,
+			label:          subject.Label,
+			product:        subject.Product,
+			repoUrl:        subject.RepoUrl,
+			ref:            subject.Ref,
+			refKind:        refKind,
+			isBranchAudit:  optionalBoolAsInt(subject.IsBranchAudit),
+		}); err != nil {
+			return projectionError(projectionSubjectOwnership, projectionFieldRow, err)
+		}
+	}
+	return nil
+}
+
+// optionalBoolAsInt keeps absent ABSENT. storage/v1 stores flags as INTEGER
+// on both dialects, and "not a branch audit" must not be confused with "the
+// registry does not say".
+func optionalBoolAsInt(value *bool) *int64 {
+	if value == nil {
+		return nil
+	}
+	stored := int64(0)
+	if *value {
+		stored = 1
+	}
+	return &stored
+}

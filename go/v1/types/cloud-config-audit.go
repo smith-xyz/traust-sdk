@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.14.2. DO NOT EDIT.
 
 package types
 
@@ -20,6 +20,8 @@ type CloudConfigAuditFindingsItem struct {
 	Cwe                 interface{}                                 `json:"cwe,omitempty"`
 	ExternalCorrelation []string                                    `json:"external_correlation,omitempty"`
 	FactIds             []string                                    `json:"fact_ids"`
+	Fingerprint         *string                                     `json:"fingerprint,omitempty"`
+	FingerprintAlgo     *string                                     `json:"fingerprint_algo,omitempty"`
 	Framework           string                                      `json:"framework"`
 	Id                  string                                      `json:"id"`
 	IsolationBoundary   *string                                     `json:"isolation_boundary,omitempty"`

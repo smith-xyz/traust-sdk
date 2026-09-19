@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.14.2. DO NOT EDIT.
 
 package types
 
@@ -161,6 +161,7 @@ type ReportFinding struct {
 	EffectiveSeverity   *enums.Severity          `json:"effective_severity,omitempty"`
 	Evidence            []EvidenceBlock          `json:"evidence,omitempty"`
 	Fingerprint         *string                  `json:"fingerprint,omitempty"`
+	FingerprintAlgo     *string                  `json:"fingerprint_algo,omitempty"`
 	Id                  string                   `json:"id"`
 	IsolationBoundary   *string                  `json:"isolation_boundary,omitempty"`
 	IsolationDimensions []string                 `json:"isolation_dimensions,omitempty"`

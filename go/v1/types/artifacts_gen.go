@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.4.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.14.2. DO NOT EDIT.
 
 package types
 
@@ -110,6 +110,18 @@ func EncodeComplianceScopeArtifact(value ComplianceScope) (Artifact[ComplianceSc
 		return Artifact[ComplianceScope]{}, err
 	}
 	return ParseComplianceScopeArtifact(payload)
+}
+
+func ParseCorpusRegistryArtifact(payload []byte) (Artifact[CorpusRegistry], error) {
+	return ParseArtifact[CorpusRegistry]("corpus-registry", payload)
+}
+
+func EncodeCorpusRegistryArtifact(value CorpusRegistry) (Artifact[CorpusRegistry], error) {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return Artifact[CorpusRegistry]{}, err
+	}
+	return ParseCorpusRegistryArtifact(payload)
 }
 
 func ParseDocVarianceArtifact(payload []byte) (Artifact[DocVariance], error) {
