@@ -420,8 +420,10 @@ func bootstrapRank(section, name string) int {
 			return 5
 		case "finding_timeline.sql":
 			return 6
-		default:
+		case "sla_threshold.sql":
 			return 7
+		default:
+			return 8
 		}
 	}
 	if section != "schema" {

@@ -1,4 +1,4 @@
-// Code generated from traust-contracts d4bbc6ac3733e1db8653760be0710a39b3c88ed4 SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts 0d228a860da8460ee00910166d5d50ccfc7456f3 SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -435,8 +435,8 @@ func (q queries) findingUpsert(ctx context.Context, conn *sql.Conn, p findingUps
 	return err
 }
 
-const findingSlaListPostgres = "SELECT scope_id,\n       fingerprint,\n       severity,\n       ownership,\n       business_unit,\n       tree,\n       first_seen,\n       resolved_at,\n       still_open,\n       age_days,\n       days_to_resolve\nFROM traust_storage.finding_sla\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, age_days DESC;"
-const findingSlaListSQLite = "SELECT scope_id,\n       fingerprint,\n       severity,\n       ownership,\n       business_unit,\n       tree,\n       first_seen,\n       resolved_at,\n       still_open,\n       age_days,\n       days_to_resolve\nFROM finding_sla\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, age_days DESC;"
+const findingSlaListPostgres = "SELECT scope_id,\n       fingerprint,\n       severity,\n       ownership,\n       business_unit,\n       tree,\n       policy_name,\n       profile_name,\n       clock_start,\n       clock_started_at,\n       resolved_at,\n       still_open,\n       resolve_days,\n       age_days,\n       breached,\n       days_to_resolve\nFROM traust_storage.finding_sla\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, age_days DESC;"
+const findingSlaListSQLite = "SELECT scope_id,\n       fingerprint,\n       severity,\n       ownership,\n       business_unit,\n       tree,\n       policy_name,\n       profile_name,\n       clock_start,\n       clock_started_at,\n       resolved_at,\n       still_open,\n       resolve_days,\n       age_days,\n       breached,\n       days_to_resolve\nFROM finding_sla\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, age_days DESC;"
 
 type findingSlaListParams struct {
 	scopeIds string
@@ -450,8 +450,8 @@ func (q queries) findingSlaList(ctx context.Context, conn *sql.Conn, p findingSl
 	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
-const findingTimelineListPostgres = "SELECT scope_id,\n       fingerprint,\n       first_seen,\n       last_seen,\n       subjects,\n       first_adjudicated,\n       resolved_at,\n       regression_at,\n       days_to_resolve,\n       clock_inconsistent,\n       days_adjudicated_to_resolve,\n       regression_days,\n       regression_still_open,\n       events\nFROM traust_storage.finding_timeline\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, fingerprint;"
-const findingTimelineListSQLite = "SELECT scope_id,\n       fingerprint,\n       first_seen,\n       last_seen,\n       subjects,\n       first_adjudicated,\n       resolved_at,\n       regression_at,\n       days_to_resolve,\n       clock_inconsistent,\n       days_adjudicated_to_resolve,\n       regression_days,\n       regression_still_open,\n       events\nFROM finding_timeline\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, fingerprint;"
+const findingTimelineListPostgres = "SELECT scope_id,\n       fingerprint,\n       first_seen,\n       last_seen,\n       subjects,\n       first_adjudicated,\n       first_routed_or_filed,\n       resolved_at,\n       regression_at,\n       days_to_resolve,\n       clock_inconsistent,\n       days_adjudicated_to_resolve,\n       regression_days,\n       regression_still_open,\n       events\nFROM traust_storage.finding_timeline\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, fingerprint;"
+const findingTimelineListSQLite = "SELECT scope_id,\n       fingerprint,\n       first_seen,\n       last_seen,\n       subjects,\n       first_adjudicated,\n       first_routed_or_filed,\n       resolved_at,\n       regression_at,\n       days_to_resolve,\n       clock_inconsistent,\n       days_adjudicated_to_resolve,\n       regression_days,\n       regression_still_open,\n       events\nFROM finding_timeline\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, fingerprint;"
 
 type findingTimelineListParams struct {
 	scopeIds string
@@ -956,6 +956,21 @@ func (q queries) slaPolicyUpsert(ctx context.Context, conn *sql.Conn, p slaPolic
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.policyName, p.source, p.severityMapping, p.clockStart, p.profiles)
 	return err
+}
+
+const slaThresholdListPostgres = "SELECT scope_id,\n       policy_name,\n       profile_name,\n       clock_start,\n       severity,\n       resolve_days,\n       acknowledge_days\nFROM traust_storage.sla_threshold\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, severity;"
+const slaThresholdListSQLite = "SELECT scope_id,\n       policy_name,\n       profile_name,\n       clock_start,\n       severity,\n       resolve_days,\n       acknowledge_days\nFROM sla_threshold\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, severity;"
+
+type slaThresholdListParams struct {
+	scopeIds string
+}
+
+func (q queries) slaThresholdList(ctx context.Context, conn *sql.Conn, p slaThresholdListParams) (*sql.Rows, error) {
+	statement := slaThresholdListSQLite
+	if q.dialect == dialectPostgres {
+		statement = slaThresholdListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const subjectOwnershipUpsertPostgres = "INSERT INTO traust_storage.subject_ownership (\n    binding_id,\n    artifact_digest,\n    subject_id,\n    tree,\n    ownership,\n    business_unit,\n    label,\n    product,\n    repo_url,\n    ref,\n    ref_kind,\n    is_branch_audit\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12\n)\nON CONFLICT (binding_id, subject_id) DO NOTHING;"

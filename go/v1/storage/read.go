@@ -628,17 +628,40 @@ type ExposureTrendRow struct {
 // findings are included deliberately: the breaches are exactly the ones
 // that never closed, so a closed-only view inverts the metric.
 type FindingSLARow struct {
-	ScopeID       string
-	Fingerprint   string
-	Severity      *string
-	Ownership     *string
-	BusinessUnit  *string
-	Tree          *string
-	FirstSeen     *string
-	ResolvedAt    *string
-	StillOpen     int64
+	ScopeID      string
+	Fingerprint  string
+	Severity     *string
+	Ownership    *string
+	BusinessUnit *string
+	Tree         *string
+	// Which policy judged this, and under which profile. Nil when no
+	// sla-policy has been ingested for the scope.
+	PolicyName  *string
+	ProfileName *string
+	// Which timestamp the POLICY says starts the clock.
+	ClockStart     *string
+	ClockStartedAt *string
+	ResolvedAt     *string
+	StillOpen      int64
+	// Nil means the policy tracks this severity without clocking it, or
+	// there is no policy. Breached is nil in both cases -- never false,
+	// which would read as affirmatively within SLA.
+	ResolveDays   *int64
 	AgeDays       *float64
+	Breached      *int64
 	DaysToResolve *float64
+}
+
+// SLAThresholdRow is the deployment's own per-severity threshold, from the
+// default profile of its sla-policy artifact.
+type SLAThresholdRow struct {
+	ScopeID         string
+	PolicyName      string
+	ProfileName     string
+	ClockStart      string
+	Severity        string
+	ResolveDays     *int64
+	AcknowledgeDays *int64
 }
 
 func scanFindingTimeline(rows *sql.Rows) (result []FindingTimelineRow, err error) {
@@ -677,8 +700,10 @@ func scanFindingSLA(rows *sql.Rows) (result []FindingSLARow, err error) {
 		var row FindingSLARow
 		if err := rows.Scan(
 			&row.ScopeID, &row.Fingerprint, &row.Severity, &row.Ownership,
-			&row.BusinessUnit, &row.Tree, &row.FirstSeen, &row.ResolvedAt,
-			&row.StillOpen, &row.AgeDays, &row.DaysToResolve,
+			&row.BusinessUnit, &row.Tree, &row.PolicyName, &row.ProfileName,
+			&row.ClockStart, &row.ClockStartedAt, &row.ResolvedAt,
+			&row.StillOpen, &row.ResolveDays, &row.AgeDays, &row.Breached,
+			&row.DaysToResolve,
 		); err != nil {
 			return nil, err
 		}
@@ -710,4 +735,29 @@ func (c *Client) QueryFindingSLA(ctx context.Context, scopeIDs []string) ([]Find
 		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
 			return c.store.queries.findingSlaList(ctx, conn, findingSlaListParams{scopeIds: scope})
 		}, scanFindingSLA)
+}
+
+func scanSLAThreshold(rows *sql.Rows) (result []SLAThresholdRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row SLAThresholdRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.PolicyName, &row.ProfileName, &row.ClockStart,
+			&row.Severity, &row.ResolveDays, &row.AcknowledgeDays,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QuerySLAThreshold returns the deployment's own per-severity thresholds
+// from the default profile, so a consumer can show what the policy IS and
+// not only who breached it.
+func (c *Client) QuerySLAThreshold(ctx context.Context, scopeIDs []string) ([]SLAThresholdRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.slaThresholdList(ctx, conn, slaThresholdListParams{scopeIds: scope})
+		}, scanSLAThreshold)
 }

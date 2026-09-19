@@ -1,5 +1,5 @@
 CONTRACTS_REPO := https://github.com/traust-security/traust-contracts.git
-CONTRACTS_REF := d4bbc6ac3733e1db8653760be0710a39b3c88ed4
+CONTRACTS_REF := 0d228a860da8460ee00910166d5d50ccfc7456f3
 CONTRACTS_CACHE := $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/traust-sdk/contracts
 CONTRACTS_SOURCE := $(CONTRACTS_CACHE)/checkout-$(CONTRACTS_REF)
 ENUMS_DIR := $(CONTRACTS_SOURCE)/enums/v1
