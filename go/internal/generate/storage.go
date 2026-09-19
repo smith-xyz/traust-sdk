@@ -410,10 +410,12 @@ func bootstrapRank(section, name string) int {
 			return 0
 		case "report_current.sql":
 			return 1
-		case "current_finding.sql":
+		case "ownership_current.sql":
 			return 2
-		default:
+		case "current_finding.sql":
 			return 3
+		default:
+			return 4
 		}
 	}
 	if section != "schema" {

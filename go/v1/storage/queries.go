@@ -1,4 +1,4 @@
-// Code generated from traust-contracts a5abb3ed28665a190270ceb805b5d5a03a43442e SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts 72ba388931b3a4a5510020d8dc5f7293a94d6151 SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -183,6 +183,36 @@ func (q queries) benchmarkTargetUpsert(ctx context.Context, conn *sql.Conn, p be
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.updated, p.targets)
 	return err
+}
+
+const censusExposureListPostgres = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       is_branch_audit,\n       family,\n       severity,\n       exposure_class,\n       occurrences,\n       distinct_fingerprints\nFROM traust_storage.census_exposure\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, tree, ownership, business_unit, is_branch_audit,\n         family, severity, exposure_class;"
+const censusExposureListSQLite = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       is_branch_audit,\n       family,\n       severity,\n       exposure_class,\n       occurrences,\n       distinct_fingerprints\nFROM census_exposure\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, tree, ownership, business_unit, is_branch_audit,\n         family, severity, exposure_class;"
+
+type censusExposureListParams struct {
+	scopeIds string
+}
+
+func (q queries) censusExposureList(ctx context.Context, conn *sql.Conn, p censusExposureListParams) (*sql.Rows, error) {
+	statement := censusExposureListSQLite
+	if q.dialect == dialectPostgres {
+		statement = censusExposureListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const censusPopulationListPostgres = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       subjects,\n       branch_reaudits,\n       with_report\nFROM traust_storage.census_population\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, tree, ownership, business_unit;"
+const censusPopulationListSQLite = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       subjects,\n       branch_reaudits,\n       with_report\nFROM census_population\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, tree, ownership, business_unit;"
+
+type censusPopulationListParams struct {
+	scopeIds string
+}
+
+func (q queries) censusPopulationList(ctx context.Context, conn *sql.Conn, p censusPopulationListParams) (*sql.Rows, error) {
+	statement := censusPopulationListSQLite
+	if q.dialect == dialectPostgres {
+		statement = censusPopulationListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const cloudConfigAuditUpsertPostgres = "INSERT INTO traust_storage.cloud_config_audit (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    summary,\n    findings,\n    gaps\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (binding_id) DO NOTHING;"

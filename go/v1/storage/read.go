@@ -348,3 +348,84 @@ func (c *Client) QueryDistinctExposure(ctx context.Context, scopeIDs []string) (
 			return c.store.queries.distinctExposureList(ctx, conn, distinctExposureListParams{scopeIds: scope})
 		}, scanDistinctExposure)
 }
+
+// CensusPopulationRow is one row of the census_population view: the
+// DENOMINATOR, counted from ownership rather than from findings. A subject
+// audited clean is still coverage; counting the denominator from findings
+// drops it and overstates every percentage divided by it.
+type CensusPopulationRow struct {
+	ScopeID        string
+	Tree           string
+	Ownership      string
+	BusinessUnit   string
+	Subjects       int64
+	BranchReaudits int64
+	WithReport     int64
+}
+
+// CensusExposureRow is one row of the census_exposure view: every finding
+// classified once into an exhaustive, mutually exclusive ExposureClass
+// (false_positive | hardening | closed | open). Consumers FILTER this; they
+// do not restate the disposition policy, which is where numbers drifted.
+type CensusExposureRow struct {
+	ScopeID              string
+	Tree                 *string
+	Ownership            *string
+	BusinessUnit         *string
+	IsBranchAudit        *int64
+	Family               string
+	Severity             *string
+	ExposureClass        string
+	Occurrences          int64
+	DistinctFingerprints int64
+}
+
+func scanCensusPopulation(rows *sql.Rows) (result []CensusPopulationRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row CensusPopulationRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit,
+			&row.Subjects, &row.BranchReaudits, &row.WithReport,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func scanCensusExposure(rows *sql.Rows) (result []CensusExposureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row CensusExposureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit,
+			&row.IsBranchAudit, &row.Family, &row.Severity, &row.ExposureClass,
+			&row.Occurrences, &row.DistinctFingerprints,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryCensusPopulation returns the census denominator per tree, plus the
+// coverage numerator (WithReport) and the branch-re-audit count that a
+// coverage percentage must exclude.
+func (c *Client) QueryCensusPopulation(ctx context.Context, scopeIDs []string) ([]CensusPopulationRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.censusPopulationList(ctx, conn, censusPopulationListParams{scopeIds: scope})
+		}, scanCensusPopulation)
+}
+
+// QueryCensusExposure returns every finding classified once by exposure
+// class, aggregated by tree, ownership, branch-audit, family and severity.
+func (c *Client) QueryCensusExposure(ctx context.Context, scopeIDs []string) ([]CensusExposureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.censusExposureList(ctx, conn, censusExposureListParams{scopeIds: scope})
+		}, scanCensusExposure)
+}
