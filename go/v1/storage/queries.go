@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 07b77289cda37f2d92b9417f55f798257cda560f SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts f75c2505f70a14f5edf399342ebe8a60915d26e6 SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -741,6 +741,21 @@ func (q queries) pqcFactsUpsert(ctx context.Context, conn *sql.Conn, p pqcFactsU
 	return err
 }
 
+const pqcPostureListPostgres = "SELECT scope_id,\n       subject_id,\n       readiness_bucket,\n       has_2030_clock,\n       hndl_priority,\n       runtime_verification_required,\n       dominant_provenance,\n       clock_items,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM traust_storage.pqc_posture\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id;"
+const pqcPostureListSQLite = "SELECT scope_id,\n       subject_id,\n       readiness_bucket,\n       has_2030_clock,\n       hndl_priority,\n       runtime_verification_required,\n       dominant_provenance,\n       clock_items,\n       ownership,\n       business_unit,\n       tree,\n       is_branch_audit\nFROM pqc_posture\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id;"
+
+type pqcPostureListParams struct {
+	scopeIds string
+}
+
+func (q queries) pqcPostureList(ctx context.Context, conn *sql.Conn, p pqcPostureListParams) (*sql.Rows, error) {
+	statement := pqcPostureListSQLite
+	if q.dialect == dialectPostgres {
+		statement = pqcPostureListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
 const pqcReadinessUpsertPostgres = "INSERT INTO traust_storage.pqc_readiness (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    scores,\n    flags,\n    provenance_summary,\n    clock_items,\n    readiness_bucket,\n    fips_interaction,\n    runtime_evidence,\n    server_side_caveats,\n    notes,\n    remediations\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id) DO NOTHING;"
 const pqcReadinessUpsertSQLite = "INSERT INTO pqc_readiness (\n    binding_id,\n    artifact_digest,\n    title,\n    metadata,\n    scores,\n    flags,\n    provenance_summary,\n    clock_items,\n    readiness_bucket,\n    fips_interaction,\n    runtime_evidence,\n    server_side_caveats,\n    notes,\n    remediations\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
 
@@ -768,6 +783,21 @@ func (q queries) pqcReadinessUpsert(ctx context.Context, conn *sql.Conn, p pqcRe
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.scores, p.flags, p.provenanceSummary, p.clockItems, p.readinessBucket, p.fipsInteraction, p.runtimeEvidence, p.serverSideCaveats, p.notes, p.remediations)
 	return err
+}
+
+const pqcReadinessRollupListPostgres = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       readiness_bucket,\n       subjects,\n       with_2030_clock,\n       hndl_priority,\n       clock_items\nFROM traust_storage.pqc_readiness_rollup\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, tree, readiness_bucket;"
+const pqcReadinessRollupListSQLite = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       readiness_bucket,\n       subjects,\n       with_2030_clock,\n       hndl_priority,\n       clock_items\nFROM pqc_readiness_rollup\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, tree, readiness_bucket;"
+
+type pqcReadinessRollupListParams struct {
+	scopeIds string
+}
+
+func (q queries) pqcReadinessRollupList(ctx context.Context, conn *sql.Conn, p pqcReadinessRollupListParams) (*sql.Rows, error) {
+	statement := pqcReadinessRollupListSQLite
+	if q.dialect == dialectPostgres {
+		statement = pqcReadinessRollupListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const privProfileUpsertPostgres = "INSERT INTO traust_storage.priv_profile (\n    binding_id,\n    artifact_digest,\n    repo,\n    tier,\n    workloads,\n    rbac_rules,\n    rbac_flags,\n    scc_requests,\n    sccs_shipped,\n    namespaces,\n    install_modes,\n    operatorgroups,\n    tier2_required_vs_granted,\n    example_or_test_manifests_excluded,\n    summary\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15\n)\nON CONFLICT (binding_id) DO NOTHING;"

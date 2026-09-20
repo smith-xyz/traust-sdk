@@ -761,3 +761,88 @@ func (c *Client) QuerySLAThreshold(ctx context.Context, scopeIDs []string) ([]SL
 			return c.store.queries.slaThresholdList(ctx, conn, slaThresholdListParams{scopeIds: scope})
 		}, scanSLAThreshold)
 }
+
+// PQCPostureRow is one subject's post-quantum readiness, with its owner.
+// NotApplicable is a real bucket, not a gap: a repo with no
+// key-establishment surface has nothing to migrate.
+type PQCPostureRow struct {
+	ScopeID         string
+	SubjectID       *string
+	ReadinessBucket *string
+	Has2030Clock    *int64
+	HNDLPriority    *int64
+	// Whether the source assessment must be confirmed against a running
+	// system before it can be relied on.
+	RuntimeVerificationRequired *int64
+	DominantProvenance          *string
+	ClockItems                  *int64
+	Ownership                   *string
+	BusinessUnit                *string
+	Tree                        *string
+	IsBranchAudit               *int64
+}
+
+// PQCReadinessRollupRow aggregates readiness by bucket. Counts SUBJECTS,
+// not assessments -- a repo re-assessed five times is one repo in a
+// bucket, and counting assessments inflates the portfolio by rescan
+// frequency.
+type PQCReadinessRollupRow struct {
+	ScopeID         string
+	Tree            *string
+	Ownership       *string
+	BusinessUnit    *string
+	ReadinessBucket *string
+	Subjects        int64
+	With2030Clock   *int64
+	HNDLPriority    *int64
+	ClockItems      *int64
+}
+
+func scanPQCPosture(rows *sql.Rows) (result []PQCPostureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row PQCPostureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.ReadinessBucket, &row.Has2030Clock,
+			&row.HNDLPriority, &row.RuntimeVerificationRequired,
+			&row.DominantProvenance, &row.ClockItems, &row.Ownership,
+			&row.BusinessUnit, &row.Tree, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func scanPQCReadinessRollup(rows *sql.Rows) (result []PQCReadinessRollupRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row PQCReadinessRollupRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit,
+			&row.ReadinessBucket, &row.Subjects, &row.With2030Clock,
+			&row.HNDLPriority, &row.ClockItems,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryPQCPosture returns post-quantum readiness per subject.
+func (c *Client) QueryPQCPosture(ctx context.Context, scopeIDs []string) ([]PQCPostureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.pqcPostureList(ctx, conn, pqcPostureListParams{scopeIds: scope})
+		}, scanPQCPosture)
+}
+
+// QueryPQCReadinessRollup returns readiness aggregated by bucket.
+func (c *Client) QueryPQCReadinessRollup(ctx context.Context, scopeIDs []string) ([]PQCReadinessRollupRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.pqcReadinessRollupList(ctx, conn, pqcReadinessRollupListParams{scopeIds: scope})
+		}, scanPQCReadinessRollup)
+}

@@ -420,12 +420,14 @@ func bootstrapRank(section, name string) int {
 			return 5
 		case "finding_timeline.sql":
 			return 6
-		case "sla_clock.sql":
+		case "pqc_posture.sql":
 			return 7
-		case "sla_threshold.sql":
+		case "sla_clock.sql":
 			return 8
-		default:
+		case "sla_threshold.sql":
 			return 9
+		default:
+			return 10
 		}
 	}
 	if section != "schema" {
