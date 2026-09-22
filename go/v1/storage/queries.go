@@ -1,4 +1,4 @@
-// Code generated from traust-contracts b0815b68307ddd6346b5bc7c2f5d9d9f4ce2805b SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts bfd089d4336ae2588b486d494a84a9f68419d5ab SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -153,6 +153,46 @@ func (q queries) artifactEvidenceUpsert(ctx context.Context, conn *sql.Conn, p a
 	}
 	_, err := conn.ExecContext(ctx, statement, p.digest, p.payload, p.firstIngestedAt)
 	return err
+}
+
+const attackChainUpsertPostgres = "INSERT INTO traust_storage.attack_chain (\n    binding_id,\n    artifact_digest,\n    chain_id,\n    name,\n    entry_point,\n    terminal_asset,\n    mitre_attack_refs,\n    steps,\n    verdict,\n    narrative\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10\n)\nON CONFLICT (binding_id, chain_id) DO NOTHING;"
+const attackChainUpsertSQLite = "INSERT INTO attack_chain (\n    binding_id,\n    artifact_digest,\n    chain_id,\n    name,\n    entry_point,\n    terminal_asset,\n    mitre_attack_refs,\n    steps,\n    verdict,\n    narrative\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, chain_id) DO NOTHING;"
+
+type attackChainUpsertParams struct {
+	bindingId       string
+	artifactDigest  string
+	chainId         string
+	name            *string
+	entryPoint      *string
+	terminalAsset   *string
+	mitreAttackRefs *string
+	steps           *string
+	verdict         *string
+	narrative       *string
+}
+
+func (q queries) attackChainUpsert(ctx context.Context, conn *sql.Conn, p attackChainUpsertParams) error {
+	statement := attackChainUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = attackChainUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.chainId, p.name, p.entryPoint, p.terminalAsset, p.mitreAttackRefs, p.steps, p.verdict, p.narrative)
+	return err
+}
+
+const attackCoverageListPostgres = "SELECT scope_id,\n       technique,\n       source,\n       evidence_tier,\n       occurrences,\n       subjects\nFROM traust_storage.attack_coverage\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, technique, evidence_tier DESC;"
+const attackCoverageListSQLite = "SELECT scope_id,\n       technique,\n       source,\n       evidence_tier,\n       occurrences,\n       subjects\nFROM attack_coverage\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, technique, evidence_tier DESC;"
+
+type attackCoverageListParams struct {
+	scopeIds string
+}
+
+func (q queries) attackCoverageList(ctx context.Context, conn *sql.Conn, p attackCoverageListParams) (*sql.Rows, error) {
+	statement := attackCoverageListSQLite
+	if q.dialect == dialectPostgres {
+		statement = attackCoverageListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }
 
 const attackMappingUpsertPostgres = "INSERT INTO traust_storage.attack_mapping (\n    binding_id,\n    artifact_digest,\n    mapping_version,\n    attack_version,\n    source,\n    documentation,\n    schema,\n    attribution,\n    capability_map,\n    category_map\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10\n)\nON CONFLICT (binding_id) DO NOTHING;"
@@ -360,6 +400,50 @@ func (q queries) complianceMappingUpsert(ctx context.Context, conn *sql.Conn, p 
 		statement = complianceMappingUpsertPostgres
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.version, p.note, p.controls, p.checks)
+	return err
+}
+
+const compliancePostureListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       framework,\n       control_id,\n       title,\n       classification,\n       verdict,\n       verdict_source,\n       assurance_tier,\n       check_id,\n       reason,\n       narrative,\n       evidence,\n       override,\n       n_pass_agreement,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM traust_storage.compliance_posture\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, framework, control_id, subject_id;"
+const compliancePostureListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       framework,\n       control_id,\n       title,\n       classification,\n       verdict,\n       verdict_source,\n       assurance_tier,\n       check_id,\n       reason,\n       narrative,\n       evidence,\n       override,\n       n_pass_agreement,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM compliance_posture\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, framework, control_id, subject_id;"
+
+type compliancePostureListParams struct {
+	scopeIds string
+}
+
+func (q queries) compliancePostureList(ctx context.Context, conn *sql.Conn, p compliancePostureListParams) (*sql.Rows, error) {
+	statement := compliancePostureListSQLite
+	if q.dialect == dialectPostgres {
+		statement = compliancePostureListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const complianceResultUpsertPostgres = "INSERT INTO traust_storage.compliance_result (\n    binding_id,\n    artifact_digest,\n    framework,\n    control_id,\n    title,\n    classification,\n    verdict,\n    verdict_source,\n    check_id,\n    reason,\n    narrative,\n    evidence,\n    override,\n    n_pass_agreement\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14\n)\nON CONFLICT (binding_id, framework, control_id) DO NOTHING;"
+const complianceResultUpsertSQLite = "INSERT INTO compliance_result (\n    binding_id,\n    artifact_digest,\n    framework,\n    control_id,\n    title,\n    classification,\n    verdict,\n    verdict_source,\n    check_id,\n    reason,\n    narrative,\n    evidence,\n    override,\n    n_pass_agreement\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, framework, control_id) DO NOTHING;"
+
+type complianceResultUpsertParams struct {
+	bindingId      string
+	artifactDigest string
+	framework      string
+	controlId      string
+	title          *string
+	classification *string
+	verdict        *string
+	verdictSource  *string
+	checkId        *string
+	reason         *string
+	narrative      *string
+	evidence       *string
+	override       *string
+	nPassAgreement *string
+}
+
+func (q queries) complianceResultUpsert(ctx context.Context, conn *sql.Conn, p complianceResultUpsertParams) error {
+	statement := complianceResultUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = complianceResultUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.framework, p.controlId, p.title, p.classification, p.verdict, p.verdictSource, p.checkId, p.reason, p.narrative, p.evidence, p.override, p.nPassAgreement)
 	return err
 }
 
@@ -704,6 +788,21 @@ func (q queries) orgParametersUpsert(ctx context.Context, conn *sql.Conn, p orgP
 	return err
 }
 
+const patternExposureListPostgres = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       family,\n       cwe,\n       category,\n       severity,\n       effective_severity,\n       exposure_class,\n       occurrences,\n       distinct_fingerprints,\n       subjects\nFROM traust_storage.pattern_exposure\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, tree, family, cwe, severity;"
+const patternExposureListSQLite = "SELECT scope_id,\n       tree,\n       ownership,\n       business_unit,\n       family,\n       cwe,\n       category,\n       severity,\n       effective_severity,\n       exposure_class,\n       occurrences,\n       distinct_fingerprints,\n       subjects\nFROM pattern_exposure\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, tree, family, cwe, severity;"
+
+type patternExposureListParams struct {
+	scopeIds string
+}
+
+func (q queries) patternExposureList(ctx context.Context, conn *sql.Conn, p patternExposureListParams) (*sql.Rows, error) {
+	statement := patternExposureListSQLite
+	if q.dialect == dialectPostgres {
+		statement = patternExposureListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
 const pqcBlockersUpsertPostgres = "INSERT INTO traust_storage.pqc_blockers (\n    binding_id,\n    artifact_digest,\n    artifact,\n    title,\n    metadata,\n    executive_summary,\n    severity_criteria,\n    findings,\n    findings_summary,\n    remediation_roadmap\n) VALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10\n)\nON CONFLICT (binding_id) DO NOTHING;"
 const pqcBlockersUpsertSQLite = "INSERT INTO pqc_blockers (\n    binding_id,\n    artifact_digest,\n    artifact,\n    title,\n    metadata,\n    executive_summary,\n    severity_criteria,\n    findings,\n    findings_summary,\n    remediation_roadmap\n) VALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id) DO NOTHING;"
 
@@ -894,6 +993,48 @@ func (q queries) remediationUpsert(ctx context.Context, conn *sql.Conn, p remedi
 		statement = remediationUpsertPostgres
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.sourceFindings, p.fork, p.patch, p.checks, p.evidence, p.revalidation, p.pullRequest, p.summary, p.notes, p.footer)
+	return err
+}
+
+const remediationCurrentListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       finding_ref,\n       title,\n       severity,\n       cwes,\n       locations,\n       triage_confidence,\n       validation_verdict,\n       audit_report_path,\n       triage_report_path,\n       validation_report_path,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM traust_storage.remediation_current\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, finding_ref;"
+const remediationCurrentListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       finding_ref,\n       title,\n       severity,\n       cwes,\n       locations,\n       triage_confidence,\n       validation_verdict,\n       audit_report_path,\n       triage_report_path,\n       validation_report_path,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM remediation_current\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, finding_ref;"
+
+type remediationCurrentListParams struct {
+	scopeIds string
+}
+
+func (q queries) remediationCurrentList(ctx context.Context, conn *sql.Conn, p remediationCurrentListParams) (*sql.Rows, error) {
+	statement := remediationCurrentListSQLite
+	if q.dialect == dialectPostgres {
+		statement = remediationCurrentListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const remediationSourceUpsertPostgres = "INSERT INTO traust_storage.remediation_source (\n    binding_id,\n    artifact_digest,\n    finding_ref,\n    title,\n    severity,\n    cwes,\n    locations,\n    triage_confidence,\n    validation_verdict,\n    audit_report_path,\n    triage_report_path,\n    validation_report_path\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12\n)\nON CONFLICT (binding_id, finding_ref) DO NOTHING;"
+const remediationSourceUpsertSQLite = "INSERT INTO remediation_source (\n    binding_id,\n    artifact_digest,\n    finding_ref,\n    title,\n    severity,\n    cwes,\n    locations,\n    triage_confidence,\n    validation_verdict,\n    audit_report_path,\n    triage_report_path,\n    validation_report_path\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, finding_ref) DO NOTHING;"
+
+type remediationSourceUpsertParams struct {
+	bindingId            string
+	artifactDigest       string
+	findingRef           string
+	title                *string
+	severity             *string
+	cwes                 *string
+	locations            *string
+	triageConfidence     *float64
+	validationVerdict    *string
+	auditReportPath      *string
+	triageReportPath     *string
+	validationReportPath *string
+}
+
+func (q queries) remediationSourceUpsert(ctx context.Context, conn *sql.Conn, p remediationSourceUpsertParams) error {
+	statement := remediationSourceUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = remediationSourceUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.findingRef, p.title, p.severity, p.cwes, p.locations, p.triageConfidence, p.validationVerdict, p.auditReportPath, p.triageReportPath, p.validationReportPath)
 	return err
 }
 
@@ -1357,4 +1498,97 @@ func (q queries) verificationUpsert(ctx context.Context, conn *sql.Conn, p verif
 	}
 	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.title, p.metadata, p.summary, p.verifiedFindings, p.regressions, p.commitTimeline, p.evidence, p.recommendations, p.notes, p.footer)
 	return err
+}
+
+const verificationCurrentListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       original_id,\n       original_title,\n       original_severity,\n       verdict,\n       held,\n       unattributed,\n       remediation_commits,\nevidence_explanation,\n       evidence_framework_reference,\n       evidence_original_code,\n       evidence_patched_code,\n       disposition_rationale,\n       residual_risk,\n       residual_severity,\n       cross_repo,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM traust_storage.verification_current\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, original_id;"
+const verificationCurrentListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       original_id,\n       original_title,\n       original_severity,\n       verdict,\n       held,\n       unattributed,\n       remediation_commits,\nevidence_explanation,\n       evidence_framework_reference,\n       evidence_original_code,\n       evidence_patched_code,\n       disposition_rationale,\n       residual_risk,\n       residual_severity,\n       cross_repo,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM verification_current\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, original_id;"
+
+type verificationCurrentListParams struct {
+	scopeIds string
+}
+
+func (q queries) verificationCurrentList(ctx context.Context, conn *sql.Conn, p verificationCurrentListParams) (*sql.Rows, error) {
+	statement := verificationCurrentListSQLite
+	if q.dialect == dialectPostgres {
+		statement = verificationCurrentListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
+}
+
+const verificationFindingUpsertPostgres = "INSERT INTO traust_storage.verification_finding (\n    binding_id,\n    artifact_digest,\n    original_id,\n    original_title,\n    original_severity,\n    verdict,\n    remediation_commits,\n    unattributed,\nevidence_explanation,\n    evidence_framework_reference,\n    evidence_original_code,\n    evidence_patched_code,\n    disposition_rationale,\n    residual_risk,\n    residual_severity,\n    cross_repo\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n$9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15,\n    $16\n)\nON CONFLICT (binding_id, original_id) DO NOTHING;"
+const verificationFindingUpsertSQLite = "INSERT INTO verification_finding (\n    binding_id,\n    artifact_digest,\n    original_id,\n    original_title,\n    original_severity,\n    verdict,\n    remediation_commits,\n    unattributed,\nevidence_explanation,\n    evidence_framework_reference,\n    evidence_original_code,\n    evidence_patched_code,\n    disposition_rationale,\n    residual_risk,\n    residual_severity,\n    cross_repo\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, original_id) DO NOTHING;"
+
+type verificationFindingUpsertParams struct {
+	bindingId                  string
+	artifactDigest             string
+	originalId                 string
+	originalTitle              *string
+	originalSeverity           *string
+	verdict                    *string
+	remediationCommits         *string
+	unattributed               *int64
+	evidenceExplanation        *string
+	evidenceFrameworkReference *string
+	evidenceOriginalCode       *string
+	evidencePatchedCode        *string
+	dispositionRationale       *string
+	residualRisk               *string
+	residualSeverity           *string
+	crossRepo                  *string
+}
+
+func (q queries) verificationFindingUpsert(ctx context.Context, conn *sql.Conn, p verificationFindingUpsertParams) error {
+	statement := verificationFindingUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = verificationFindingUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.originalId, p.originalTitle, p.originalSeverity, p.verdict, p.remediationCommits, p.unattributed, p.evidenceExplanation, p.evidenceFrameworkReference, p.evidenceOriginalCode, p.evidencePatchedCode, p.dispositionRationale, p.residualRisk, p.residualSeverity, p.crossRepo)
+	return err
+}
+
+const verificationRegressionUpsertPostgres = "INSERT INTO traust_storage.verification_regression (\n    binding_id,\n    artifact_digest,\n    regression_id,\n    title,\n    severity,\n    cwes,\n    cvss,\n    locations,\n    description,\n    remediation,\n    evidence,\n    attack_pattern,\n    category,\n    introduced_by,\n    routed_id,\n    fingerprint,\n    fingerprint_algo\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7,\n    $8,\n    $9,\n    $10,\n    $11,\n    $12,\n    $13,\n    $14,\n    $15,\n    $16,\n    $17\n)\nON CONFLICT (binding_id, regression_id) DO NOTHING;"
+const verificationRegressionUpsertSQLite = "INSERT INTO verification_regression (\n    binding_id,\n    artifact_digest,\n    regression_id,\n    title,\n    severity,\n    cwes,\n    cvss,\n    locations,\n    description,\n    remediation,\n    evidence,\n    attack_pattern,\n    category,\n    introduced_by,\n    routed_id,\n    fingerprint,\n    fingerprint_algo\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (binding_id, regression_id) DO NOTHING;"
+
+type verificationRegressionUpsertParams struct {
+	bindingId       string
+	artifactDigest  string
+	regressionId    string
+	title           *string
+	severity        *string
+	cwes            *string
+	cvss            *string
+	locations       *string
+	description     *string
+	remediation     *string
+	evidence        *string
+	attackPattern   *string
+	category        *string
+	introducedBy    *string
+	routedId        *string
+	fingerprint     *string
+	fingerprintAlgo *string
+}
+
+func (q queries) verificationRegressionUpsert(ctx context.Context, conn *sql.Conn, p verificationRegressionUpsertParams) error {
+	statement := verificationRegressionUpsertSQLite
+	if q.dialect == dialectPostgres {
+		statement = verificationRegressionUpsertPostgres
+	}
+	_, err := conn.ExecContext(ctx, statement, p.bindingId, p.artifactDigest, p.regressionId, p.title, p.severity, p.cwes, p.cvss, p.locations, p.description, p.remediation, p.evidence, p.attackPattern, p.category, p.introducedBy, p.routedId, p.fingerprint, p.fingerprintAlgo)
+	return err
+}
+
+const verificationRegressionCurrentListPostgres = "SELECT scope_id,\n       subject_id,\n       run_id,\n       regression_id,\n       title,\n       severity,\n       cwes,\n       cvss,\n       locations,\n       description,\n       remediation,\n       evidence,\n       attack_pattern,\n       category,\n       introduced_by,\n       routed_id,\n       fingerprint,\n       fingerprint_algo,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM traust_storage.verification_regression_current\nWHERE scope_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n)\nORDER BY scope_id, subject_id, regression_id;"
+const verificationRegressionCurrentListSQLite = "SELECT scope_id,\n       subject_id,\n       run_id,\n       regression_id,\n       title,\n       severity,\n       cwes,\n       cvss,\n       locations,\n       description,\n       remediation,\n       evidence,\n       attack_pattern,\n       category,\n       introduced_by,\n       routed_id,\n       fingerprint,\n       fingerprint_algo,\n       ownership,\n       business_unit,\n       tree,\n       product,\n       is_branch_audit\nFROM verification_regression_current\nWHERE scope_id IN (SELECT value FROM json_each(?))\nORDER BY scope_id, subject_id, regression_id;"
+
+type verificationRegressionCurrentListParams struct {
+	scopeIds string
+}
+
+func (q queries) verificationRegressionCurrentList(ctx context.Context, conn *sql.Conn, p verificationRegressionCurrentListParams) (*sql.Rows, error) {
+	statement := verificationRegressionCurrentListSQLite
+	if q.dialect == dialectPostgres {
+		statement = verificationRegressionCurrentListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.scopeIds)
 }

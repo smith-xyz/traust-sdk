@@ -1025,3 +1025,292 @@ func (c *Client) QueryValidationCurrent(ctx context.Context, scopeIDs []string) 
 			return c.store.queries.validationCurrentList(ctx, conn, validationCurrentListParams{scopeIds: scope})
 		}, scanValidationCurrent)
 }
+
+type AttackCoverageRow struct {
+	ScopeID      string
+	Technique    string
+	Source       string
+	EvidenceTier int64
+	Occurrences  int64
+	Subjects     int64
+}
+
+func scanAttackCoverage(rows *sql.Rows) (result []AttackCoverageRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row AttackCoverageRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Technique, &row.Source, &row.EvidenceTier,
+			&row.Occurrences, &row.Subjects,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryAttackCoverage returns one row per ATT&CK technique per source, with
+// evidence_tier separating a technique somebody WROTE DOWN from one somebody
+// PROVED: 3 a chain confirmed end to end, 2 a chain attempted and not
+// confirmed, 1 modelled only.
+func (c *Client) QueryAttackCoverage(ctx context.Context, scopeIDs []string) ([]AttackCoverageRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.attackCoverageList(ctx, conn, attackCoverageListParams{scopeIds: scope})
+		}, scanAttackCoverage)
+}
+
+type CompliancePostureRow struct {
+	ScopeID        string
+	SubjectID      *string
+	RunID          *string
+	Framework      string
+	ControlID      string
+	Title          *string
+	Classification *string
+	Verdict        *string
+	VerdictSource  *string
+	AssuranceTier  *int64
+	CheckID        *string
+	Reason         *string
+	Narrative      *string
+	Evidence       *string
+	Override       *string
+	NPassAgreement *string
+	Ownership      *string
+	BusinessUnit   *string
+	Tree           *string
+	Product        *string
+	IsBranchAudit  *int64
+}
+
+func scanCompliancePosture(rows *sql.Rows) (result []CompliancePostureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row CompliancePostureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.RunID, &row.Framework,
+			&row.ControlID, &row.Title, &row.Classification, &row.Verdict,
+			&row.VerdictSource, &row.AssuranceTier, &row.CheckID, &row.Reason,
+			&row.Narrative, &row.Evidence, &row.Override, &row.NPassAgreement,
+			&row.Ownership, &row.BusinessUnit, &row.Tree, &row.Product,
+			&row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryCompliancePosture returns control verdicts of the current assessment.
+// One row per control per framework, never a percentage, and verdict_source
+// stays uncollapsed: satisfied-by-check and satisfied-by-human-override are
+// different assurance claims.
+func (c *Client) QueryCompliancePosture(ctx context.Context, scopeIDs []string) ([]CompliancePostureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.compliancePostureList(ctx, conn, compliancePostureListParams{scopeIds: scope})
+		}, scanCompliancePosture)
+}
+
+type PatternExposureRow struct {
+	ScopeID              string
+	Tree                 *string
+	Ownership            *string
+	BusinessUnit         *string
+	Family               string
+	CWE                  string
+	Category             *string
+	Severity             *string
+	EffectiveSeverity    *string
+	ExposureClass        string
+	Occurrences          int64
+	DistinctFingerprints int64
+	Subjects             int64
+}
+
+func scanPatternExposure(rows *sql.Rows) (result []PatternExposureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row PatternExposureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit,
+			&row.Family, &row.CWE, &row.Category, &row.Severity,
+			&row.EffectiveSeverity, &row.ExposureClass, &row.Occurrences, &row.DistinctFingerprints,
+			&row.Subjects,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryPatternExposure returns recurring weakness patterns, one row per CWE
+// per cut. Fanned out of cwes[], so a finding declaring two weaknesses counts
+// under both and Occurrences sums to more than the finding count.
+func (c *Client) QueryPatternExposure(ctx context.Context, scopeIDs []string) ([]PatternExposureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.patternExposureList(ctx, conn, patternExposureListParams{scopeIds: scope})
+		}, scanPatternExposure)
+}
+
+type RemediationCurrentRow struct {
+	ScopeID              string
+	SubjectID            *string
+	RunID                *string
+	FindingRef           string
+	Title                *string
+	Severity             *string
+	CWEs                 *string
+	Locations            *string
+	TriageConfidence     *float64
+	ValidationVerdict    *string
+	AuditReportPath      *string
+	TriageReportPath     *string
+	ValidationReportPath *string
+	Ownership            *string
+	BusinessUnit         *string
+	Tree                 *string
+	Product              *string
+	IsBranchAudit        *int64
+}
+
+func scanRemediationCurrent(rows *sql.Rows) (result []RemediationCurrentRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row RemediationCurrentRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.RunID, &row.FindingRef,
+			&row.Title, &row.Severity, &row.CWEs, &row.Locations,
+			&row.TriageConfidence, &row.ValidationVerdict, &row.AuditReportPath, &row.TriageReportPath,
+			&row.ValidationReportPath, &row.Ownership, &row.BusinessUnit, &row.Tree,
+			&row.Product, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryRemediationCurrent returns the findings each current remediation set
+// out to fix. ValidationVerdict is the state AT REMEDIATION TIME, not now.
+func (c *Client) QueryRemediationCurrent(ctx context.Context, scopeIDs []string) ([]RemediationCurrentRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.remediationCurrentList(ctx, conn, remediationCurrentListParams{scopeIds: scope})
+		}, scanRemediationCurrent)
+}
+
+type VerificationCurrentRow struct {
+	ScopeID                    string
+	SubjectID                  *string
+	RunID                      *string
+	OriginalID                 string
+	OriginalTitle              *string
+	OriginalSeverity           *string
+	Verdict                    *string
+	Held                       int64
+	Unattributed               *int64
+	RemediationCommits         *string
+	EvidenceExplanation        *string
+	EvidenceFrameworkReference *string
+	EvidenceOriginalCode       *string
+	EvidencePatchedCode        *string
+	DispositionRationale       *string
+	ResidualRisk               *string
+	ResidualSeverity           *string
+	CrossRepo                  *string
+	Ownership                  *string
+	BusinessUnit               *string
+	Tree                       *string
+	Product                    *string
+	IsBranchAudit              *int64
+}
+
+func scanVerificationCurrent(rows *sql.Rows) (result []VerificationCurrentRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row VerificationCurrentRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.RunID, &row.OriginalID,
+			&row.OriginalTitle, &row.OriginalSeverity, &row.Verdict, &row.Held,
+			&row.Unattributed, &row.RemediationCommits, &row.EvidenceExplanation, &row.EvidenceFrameworkReference,
+			&row.EvidenceOriginalCode, &row.EvidencePatchedCode, &row.DispositionRationale, &row.ResidualRisk,
+			&row.ResidualSeverity, &row.CrossRepo, &row.Ownership, &row.BusinessUnit,
+			&row.Tree, &row.Product, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryVerificationCurrent returns whether each fix held. Verdict keeps all
+// seven contract values; Held is the narrow derived binary -- only resolved,
+// because a false positive was never real and risk_accepted was never fixed.
+func (c *Client) QueryVerificationCurrent(ctx context.Context, scopeIDs []string) ([]VerificationCurrentRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.verificationCurrentList(ctx, conn, verificationCurrentListParams{scopeIds: scope})
+		}, scanVerificationCurrent)
+}
+
+type VerificationRegressionCurrentRow struct {
+	ScopeID         string
+	SubjectID       *string
+	RunID           *string
+	RegressionID    string
+	Title           *string
+	Severity        *string
+	CWEs            *string
+	CVSS            *string
+	Locations       *string
+	Description     *string
+	Remediation     *string
+	Evidence        *string
+	AttackPattern   *string
+	Category        *string
+	IntroducedBy    *string
+	RoutedID        *string
+	Fingerprint     *string
+	FingerprintAlgo *string
+	Ownership       *string
+	BusinessUnit    *string
+	Tree            *string
+	Product         *string
+	IsBranchAudit   *int64
+}
+
+func scanVerificationRegressionCurrent(rows *sql.Rows) (result []VerificationRegressionCurrentRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row VerificationRegressionCurrentRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.RunID, &row.RegressionID,
+			&row.Title, &row.Severity, &row.CWEs, &row.CVSS,
+			&row.Locations, &row.Description, &row.Remediation, &row.Evidence,
+			&row.AttackPattern, &row.Category, &row.IntroducedBy, &row.RoutedID,
+			&row.Fingerprint, &row.FingerprintAlgo, &row.Ownership, &row.BusinessUnit,
+			&row.Tree, &row.Product, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryVerificationRegressionCurrent returns what each fix BROKE: new
+// findings the remediation introduced, not restatements of the one it closed.
+func (c *Client) QueryVerificationRegressionCurrent(ctx context.Context, scopeIDs []string) ([]VerificationRegressionCurrentRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.verificationRegressionCurrentList(ctx, conn, verificationRegressionCurrentListParams{scopeIds: scope})
+		}, scanVerificationRegressionCurrent)
+}
