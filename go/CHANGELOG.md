@@ -2,6 +2,14 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.3.0]
+
+## Changes
+
+- **Reverted the 0.13.0 storage changes.** The storage bindings track
+  traust-contracts 0.35.0, whose storage contract is the 0.33.0 definition
+  (REVISION 15). go/v0.13.0 remains tagged and should not be used.
+
 ## [0.2.0]
 
 ## Changes
