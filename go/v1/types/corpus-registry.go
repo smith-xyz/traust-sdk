@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.33.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.34.0. DO NOT EDIT.
 
 package types
 
@@ -22,6 +22,7 @@ type Subject struct {
 	Ref           *string         `json:"ref,omitempty"`
 	RefKind       *enums.RefKind  `json:"ref_kind,omitempty"`
 	RepoUrl       *string         `json:"repo_url,omitempty"`
+	ReportKind    *string         `json:"report_kind,omitempty"`
 	SubjectId     string          `json:"subject_id"`
 	Tree          string          `json:"tree"`
 }

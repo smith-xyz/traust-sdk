@@ -2,6 +2,34 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.3.0]
+
+## Changes
+
+- **Storage tracks traust-contracts 0.34.0 (storage `REVISION` 16).** Four
+  new fan-out tables (`impact_repo`, `threat_boundary`, `boundary_threat`,
+  `doc_variance_record`), the widened `layer_event` (all nine actor fields)
+  and `subject_ownership` (`report_kind`), and the rewritten
+  `advisory_exposure` reach the generated bootstrap and query bindings.
+- **Four new readers**, so every consumption view the contract declares has a
+  Go reader (the parity gate says so): `QueryCensusDistinct`,
+  `QueryCensusBranch`, `QueryBoundaryCurrent`, `QueryDocVarianceCurrent`.
+  `policy_report_current` is declared intermediate in both languages.
+- The hand-written layer and registry projectors write the new columns:
+  `projectLayer` fills the eight actor identity fields, `projectCorpusRegistry`
+  fills `report_kind`.
+- The generator escapes Go keywords in generated identifiers
+  (`threat_boundary.interface` produced invalid Go) and mirrors the
+  contract's view creation order for the new intermediate view, which
+  PostgreSQL resolves at CREATE time.
+
+### Breaking
+
+`CensusPopulationRow` and `CensusExposureRow` gain a trailing `ReportKind
+*string`. `AdvisoryExposureRow.L1DependsOn`, `.L1VersionInRange`,
+`.L4PackageImported` and `.FeaturePatternMatches` are `*int64` (the columns
+are INTEGER now), no longer `*string`.
+
 ## [0.2.0]
 
 ## Changes

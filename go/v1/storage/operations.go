@@ -1,4 +1,4 @@
-// Code generated from traust-contracts bfd089d4336ae2588b486d494a84a9f68419d5ab. DO NOT EDIT.
+// Code generated from traust-contracts a8d9f262dec1934f6e7573d50cbf1e67f353c6da. DO NOT EDIT.
 
 package storage
 
