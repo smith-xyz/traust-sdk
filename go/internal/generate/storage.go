@@ -576,6 +576,10 @@ var fanOutSchemas = map[string]bool{
 	"threat-model":    true,
 }
 
+var secondaryProjectors = map[string]string{
+	"report": "projectReportFindings",
+}
+
 func generateOperations(
 	storageDir, schemasDir, output, contractsRef string,
 	vocabulary *projectionVocabulary,
@@ -612,6 +616,7 @@ func generateOperations(
 		"isolation_boundaries",
 	)
 	vocabulary.use("finding", "line")
+	vocabulary.use("report_finding")
 	vocabulary.use("triage_verdict", "rationale", "severity", "vote_breakdown")
 
 	var b strings.Builder
@@ -790,7 +795,11 @@ func generateOneRowProjector(
 		"\t}); err != nil {\n\t\treturn projectionError(projection%s, projectionFieldRow, err)\n\t}\n",
 		storagePascal(table),
 	)
-	b.WriteString("\treturn nil\n}\n\n")
+	if secondary, ok := secondaryProjectors[schema]; ok {
+		fmt.Fprintf(b, "\treturn s.%s(ctx, conn, state, value)\n}\n\n", secondary)
+	} else {
+		b.WriteString("\treturn nil\n}\n\n")
+	}
 	return nil
 }
 

@@ -47,6 +47,7 @@ func TestGenerateOperationsUsesTypedArtifacts(t *testing.T) {
 		"GetTriage(ctx context.Context, bindingID string)",
 		"SaveVulnFindings(ctx context.Context, input SaveVulnFindingsInput)",
 		"func (s *sqlStore) projectReport",
+		"return s.projectReportFindings(ctx, conn, state, value)",
 		"state.bindingID",
 	} {
 		if !strings.Contains(text, want) {
