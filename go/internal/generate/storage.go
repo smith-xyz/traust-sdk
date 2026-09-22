@@ -558,6 +558,24 @@ func loadStorageProfiles(storageDir string, schemas map[string]*SchemaFile) (map
 	return document.Artifacts, nil
 }
 
+// Families that project one row PER ITEM rather than one row per artifact.
+// Their columns come from array items, not from the schema's root properties,
+// which is exactly what generateOneRowProjector requires -- so their
+// projectors are written by hand.
+//
+// Keyed on the SCHEMA name, which is why this list has to be checked against
+// the schemas that actually exist: contracts renamed threat-register to
+// threat-model in 0.24.0 and this entry kept the old name, so the generator
+// stopped skipping it and failed with "no root property for projection column
+// threat_key" -- a message that describes the symptom and not the rename.
+var fanOutSchemas = map[string]bool{
+	"layer":           true,
+	"triage":          true,
+	"vuln-findings":   true,
+	"corpus-registry": true,
+	"threat-model":    true,
+}
+
 func generateOperations(
 	storageDir, schemasDir, output, contractsRef string,
 	vocabulary *projectionVocabulary,
@@ -589,6 +607,7 @@ func generateOperations(
 		"threat",
 		"actors",
 		"evidence",
+		"attack_refs",
 		"isolation_dimensions",
 		"isolation_boundaries",
 	)
@@ -623,10 +642,7 @@ func generateOperations(
 		// artifact. They have hand-written projectors because their columns
 		// come from array items, not from the schema's root properties --
 		// which is exactly what generateOneRowProjector requires.
-		fanOut := schema == "layer" || schema == "triage" ||
-			schema == "vuln-findings" || schema == "corpus-registry" ||
-			schema == "threat-register"
-		if fanOut || profile.Projection == "" {
+		if fanOutSchemas[schema] || profile.Projection == "" {
 			continue
 		}
 		if err := generateOneRowProjector(
@@ -639,7 +655,19 @@ func generateOperations(
 			tables[profile.Projection],
 			vocabulary,
 		); err != nil {
-			return err
+			// The one-row projector only fails this way when the table is a
+			// fan-out: its columns come from array items, so they are not
+			// root properties of the schema. That means either a new fan-out
+			// family, or a renamed one whose old name is still in
+			// fanOutSchemas -- which is what happened when contracts renamed
+			// threat-register to threat-model and the raw error named a
+			// column instead of the rename.
+			return fmt.Errorf(
+				"%w\n\nschema %q projects to %q, which looks like a FAN-OUT table. "+
+					"If it is, add %q to fanOutSchemas and write its projector by hand; "+
+					"if a family was renamed, update the stale entry there",
+				err, schema, profile.Projection, schema,
+			)
 		}
 	}
 	b.WriteString("func (c *Client) saveNamed(ctx context.Context, name string, payload []byte, binding Binding) (SaveResult, error) {\n\tswitch name {\n")

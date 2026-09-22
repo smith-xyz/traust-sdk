@@ -846,3 +846,182 @@ func (c *Client) QueryPQCReadinessRollup(ctx context.Context, scopeIDs []string)
 			return c.store.queries.pqcReadinessRollupList(ctx, conn, pqcReadinessRollupListParams{scopeIds: scope})
 		}, scanPQCReadinessRollup)
 }
+
+type AdvisoryExposureRow struct {
+	ScopeID               string
+	Advisory              *string
+	Ecosystem             *string
+	Module                *string
+	FixedVersion          *string
+	VulnerableRange       *string
+	GeneratedAt           *string
+	TiersExecuted         *string
+	VulnerableSymbols     *string
+	VulnerablePackages    *string
+	AdvisorySources       *string
+	FeatureDescription    *string
+	HarnessVersion        *string
+	Options               *string
+	PortfolioGraphDB      *string
+	PortfolioGraphVersion *string
+	Repo                  *string
+	Classification        *string
+	Version               *string
+	Direct                *int64
+	Products              *string
+	BinaryLinkedLibrary   *string
+	BinaryStringScan      *string
+	BinarySymbolScan      *string
+	EvidenceLevel         *string
+	FeaturePatternMatches *string
+	Govulncheck           *string
+	GovulncheckTrace      *string
+	L1DependsOn           *string
+	L1VersionInRange      *string
+	L4PackageImported     *string
+	L4PackagesFound       *string
+	ManifestScan          *string
+	ManifestVersion       *string
+	NeedsManualTrace      *int64
+	Notes                 *string
+	SBOMScan              *string
+	SBOMShippedVersion    *string
+	SourceImportScan      *string
+	SymbolUsageScan       *string
+}
+
+func scanAdvisoryExposure(rows *sql.Rows) (result []AdvisoryExposureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row AdvisoryExposureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.Advisory, &row.Ecosystem, &row.Module,
+			&row.FixedVersion, &row.VulnerableRange, &row.GeneratedAt, &row.TiersExecuted,
+			&row.VulnerableSymbols, &row.VulnerablePackages, &row.AdvisorySources, &row.FeatureDescription,
+			&row.HarnessVersion, &row.Options, &row.PortfolioGraphDB, &row.PortfolioGraphVersion,
+			&row.Repo, &row.Classification, &row.Version, &row.Direct,
+			&row.Products, &row.BinaryLinkedLibrary, &row.BinaryStringScan, &row.BinarySymbolScan,
+			&row.EvidenceLevel, &row.FeaturePatternMatches, &row.Govulncheck, &row.GovulncheckTrace,
+			&row.L1DependsOn, &row.L1VersionInRange, &row.L4PackageImported, &row.L4PackagesFound,
+			&row.ManifestScan, &row.ManifestVersion, &row.NeedsManualTrace, &row.Notes,
+			&row.SBOMScan, &row.SBOMShippedVersion, &row.SourceImportScan, &row.SymbolUsageScan,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryAdvisoryExposure returns one row per repository an advisory reaches,
+// carrying the evidence that explains HOW each classification was reached
+// rather than the classification alone.
+func (c *Client) QueryAdvisoryExposure(ctx context.Context, scopeIDs []string) ([]AdvisoryExposureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.advisoryExposureList(ctx, conn, advisoryExposureListParams{scopeIds: scope})
+		}, scanAdvisoryExposure)
+}
+
+type ValidationExposureRow struct {
+	ScopeID           string
+	TargetEnvironment *string
+	Tree              *string
+	Ownership         *string
+	BusinessUnit      *string
+	Product           *string
+	ClaimedSeverity   *string
+	Verdict           *string
+	Attempted         *int64
+	SkipReason        *string
+	Findings          *int64
+	Subjects          *int64
+	DistinctClaims    *int64
+}
+
+func scanValidationExposure(rows *sql.Rows) (result []ValidationExposureRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row ValidationExposureRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.TargetEnvironment, &row.Tree, &row.Ownership,
+			&row.BusinessUnit, &row.Product, &row.ClaimedSeverity, &row.Verdict,
+			&row.Attempted, &row.SkipReason, &row.Findings, &row.Subjects,
+			&row.DistinctClaims,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryValidationExposure aggregates what happened when claimed findings were
+// ATTEMPTED live. verdict stays uncollapsed and attempted is derived rather
+// than filtered: not_attempted dominates, so reporting only attempts would
+// describe a fraction of the lane and read as though the rest were refuted.
+func (c *Client) QueryValidationExposure(ctx context.Context, scopeIDs []string) ([]ValidationExposureRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.validationExposureList(ctx, conn, validationExposureListParams{scopeIds: scope})
+		}, scanValidationExposure)
+}
+
+type ValidationCurrentRow struct {
+	ScopeID            string
+	SubjectID          *string
+	RunID              *string
+	TargetEnvironment  *string
+	SourceID           string
+	SourceFindingID    *string
+	Title              *string
+	ClaimedSeverity    *string
+	Surface            *string
+	Verdict            *string
+	SkipReason         *string
+	Technique          *string
+	ObservedImpact     *string
+	EvidenceGrade      *string
+	GradeRationale     *string
+	SoundnessFlag      *string
+	SeverityValidation *string
+	DeviationFromClaim *string
+	RollbackPerformed  *int64
+	ChainContext       *string
+	NotAttemptedReason *string
+	Ownership          *string
+	BusinessUnit       *string
+	Tree               *string
+	Product            *string
+	IsBranchAudit      *int64
+}
+
+func scanValidationCurrent(rows *sql.Rows) (result []ValidationCurrentRow, err error) {
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	for rows.Next() {
+		var row ValidationCurrentRow
+		if err := rows.Scan(
+			&row.ScopeID, &row.SubjectID, &row.RunID, &row.TargetEnvironment,
+			&row.SourceID, &row.SourceFindingID, &row.Title, &row.ClaimedSeverity,
+			&row.Surface, &row.Verdict, &row.SkipReason, &row.Technique,
+			&row.ObservedImpact, &row.EvidenceGrade, &row.GradeRationale, &row.SoundnessFlag,
+			&row.SeverityValidation, &row.DeviationFromClaim, &row.RollbackPerformed, &row.ChainContext,
+			&row.NotAttemptedReason, &row.Ownership, &row.BusinessUnit, &row.Tree,
+			&row.Product, &row.IsBranchAudit,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+// QueryValidationCurrent returns one row per claimed finding at the grain the
+// evidence lens works, with the owner of the subject it was validated
+// against. QueryValidationExposure aggregates this.
+func (c *Client) QueryValidationCurrent(ctx context.Context, scopeIDs []string) ([]ValidationCurrentRow, error) {
+	return scopedRead(ctx, c, scopeIDs,
+		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
+			return c.store.queries.validationCurrentList(ctx, conn, validationCurrentListParams{scopeIds: scope})
+		}, scanValidationCurrent)
+}

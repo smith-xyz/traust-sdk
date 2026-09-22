@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -154,7 +155,53 @@ func GenerateTypes(schemas map[string]*SchemaFile, enumMappings []EnumMapping, e
 			return fmt.Errorf("writing %s: %w", outPath, err)
 		}
 	}
+	if err := pruneRenamedSchemaFiles(filenames, outDir); err != nil {
+		return err
+	}
 	return generateArtifactConstructors(filenames, outDir, contractsVersion)
+}
+
+// pruneRenamedSchemaFiles deletes generated per-schema files whose schema
+// contracts no longer declares.
+//
+// Without this a rename leaves the old file behind and the package stops
+// compiling on a redeclaration, several steps away from the cause: contracts
+// renamed threat-register to threat-model, the generator wrote threat-model.go
+// beside a threat-register.go it had no reason to touch, and both declared
+// Threat. Only files carrying the generated header are considered, so a
+// hand-written file sharing the directory is never at risk.
+func pruneRenamedSchemaFiles(filenames []string, outDir string) error {
+	declared := make(map[string]bool, len(filenames))
+	for _, filename := range filenames {
+		declared[schemaOutputFilename(filename)] = true
+	}
+	// Generated files that are aggregates rather than one-per-schema.
+	declared["artifacts_gen.go"] = true
+	declared["version.go"] = true
+
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || declared[name] {
+			continue
+		}
+		path := filepath.Join(outDir, name)
+		head, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if !bytes.HasPrefix(head, []byte("// Code generated from traust-contracts")) {
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("pruning %s: %w", path, err)
+		}
+		fmt.Printf("pruned %s (no schema declares it)\n", path)
+	}
+	return nil
 }
 
 func generateArtifactConstructors(filenames []string, outDir, version string) error {

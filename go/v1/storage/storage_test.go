@@ -60,6 +60,7 @@ func bindingFor(name string) Binding {
 		"pqc-readiness",
 		"remediation",
 		"report",
+		"threat-model",
 		"triage",
 		"validation",
 		"verification",
@@ -170,9 +171,10 @@ func projectionTable(name string) string {
 		return "finding"
 	case "corpus-registry":
 		return "subject_ownership"
-	// Threat MODELS are prose Markdown; the register is their structured
-	// restatement, so the family and its table differ by more than a dash.
-	case "threat-register":
+	// One row per THREAT, not per model, so the family and its table differ
+	// by more than a dash. Was threat-register until contracts 0.24.0, when
+	// threat models gained a JSON form and became the artifact themselves.
+	case "threat-model":
 		return "threat"
 	case "operator-priv-profile":
 		return "priv_profile"
@@ -200,7 +202,7 @@ func TestAllArtifactsRetainEvidenceAndProject(t *testing.T) {
 		want := 1
 		// Fan-out families project one row per item in their sample.
 		if name == "vuln-findings" || name == "corpus-registry" ||
-			name == "threat-register" {
+			name == "threat-model" {
 			want = 2
 		}
 		// The layer sample carries three real ledger events: a confirm, a

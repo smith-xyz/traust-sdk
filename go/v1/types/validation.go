@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.22.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.32.1. DO NOT EDIT.
 
 package types
 
@@ -40,10 +40,11 @@ type DifferentialProbe struct {
 }
 
 type EvidenceArtifact struct {
-	Caption *string `json:"caption,omitempty"`
-	Path    string  `json:"path"`
-	Sha256  *string `json:"sha256,omitempty"`
-	Type    string  `json:"type"`
+	Caption  *string `json:"caption,omitempty"`
+	Path     string  `json:"path"`
+	Redacted *bool   `json:"redacted,omitempty"`
+	Sha256   *string `json:"sha256,omitempty"`
+	Type     string  `json:"type"`
 }
 
 type Fingerprint struct {
@@ -153,6 +154,7 @@ type ValidationMetadata struct {
 	ScopeBindingMode  string                      `json:"scope_binding_mode"`
 	ScopeSource       *string                     `json:"scope_source,omitempty"`
 	TargetAttestation interface{}                 `json:"target_attestation,omitempty"`
+	TargetEnvironment *string                     `json:"target_environment,omitempty"`
 	TargetFingerprint []Fingerprint               `json:"target_fingerprint"`
 }
 

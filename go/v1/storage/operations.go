@@ -1,4 +1,4 @@
-// Code generated from traust-contracts f75c2505f70a14f5edf399342ebe8a60915d26e6. DO NOT EDIT.
+// Code generated from traust-contracts b0815b68307ddd6346b5bc7c2f5d9d9f4ce2805b. DO NOT EDIT.
 
 package storage
 
@@ -1157,17 +1157,17 @@ func (s *sqlStore) projectSlaPolicy(ctx context.Context, conn *sql.Conn, state w
 	return nil
 }
 
-type SaveThreatRegisterInput struct {
+type SaveThreatModelInput struct {
 	Binding  Binding
-	Artifact types.Artifact[types.ThreatRegister]
+	Artifact types.Artifact[types.ThreatModel]
 }
 
-func (c *Client) SaveThreatRegister(ctx context.Context, input SaveThreatRegisterInput) (SaveResult, error) {
-	return saveTypedArtifact(ctx, c.store, "threat-register", input.Binding, bindingRequirements{subject: false, run: false, layer: false}, input.Artifact, c.store.projectThreatRegister)
+func (c *Client) SaveThreatModel(ctx context.Context, input SaveThreatModelInput) (SaveResult, error) {
+	return saveTypedArtifact(ctx, c.store, "threat-model", input.Binding, bindingRequirements{subject: true, run: true, layer: false}, input.Artifact, c.store.projectThreatModel)
 }
 
-func (c *Client) GetThreatRegister(ctx context.Context, bindingID string) (types.Artifact[types.ThreatRegister], error) {
-	return getTypedArtifact(ctx, c.store, "threat-register", bindingID, types.ParseThreatRegisterArtifact)
+func (c *Client) GetThreatModel(ctx context.Context, bindingID string) (types.Artifact[types.ThreatModel], error) {
+	return getTypedArtifact(ctx, c.store, "threat-model", bindingID, types.ParseThreatModelArtifact)
 }
 
 type SaveTriageInput struct {
@@ -1471,12 +1471,12 @@ func (c *Client) saveNamed(ctx context.Context, name string, payload []byte, bin
 			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
 		}
 		return c.SaveSlaPolicy(ctx, SaveSlaPolicyInput{Binding: binding, Artifact: artifact})
-	case "threat-register":
-		artifact, err := types.ParseThreatRegisterArtifact(payload)
+	case "threat-model":
+		artifact, err := types.ParseThreatModelArtifact(payload)
 		if err != nil {
 			return SaveResult{}, wrap(OperationSave, PhaseValidate, err)
 		}
-		return c.SaveThreatRegister(ctx, SaveThreatRegisterInput{Binding: binding, Artifact: artifact})
+		return c.SaveThreatModel(ctx, SaveThreatModelInput{Binding: binding, Artifact: artifact})
 	case "triage":
 		artifact, err := types.ParseTriageArtifact(payload)
 		if err != nil {

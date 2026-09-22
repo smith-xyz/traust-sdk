@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.22.0. DO NOT EDIT.
+// Code generated from traust-contracts v0.32.1. DO NOT EDIT.
 
 package types
 
@@ -304,16 +304,16 @@ func EncodeSlaPolicyArtifact(value SlaPolicy) (Artifact[SlaPolicy], error) {
 	return ParseSlaPolicyArtifact(payload)
 }
 
-func ParseThreatRegisterArtifact(payload []byte) (Artifact[ThreatRegister], error) {
-	return ParseArtifact[ThreatRegister]("threat-register", payload)
+func ParseThreatModelArtifact(payload []byte) (Artifact[ThreatModel], error) {
+	return ParseArtifact[ThreatModel]("threat-model", payload)
 }
 
-func EncodeThreatRegisterArtifact(value ThreatRegister) (Artifact[ThreatRegister], error) {
+func EncodeThreatModelArtifact(value ThreatModel) (Artifact[ThreatModel], error) {
 	payload, err := json.Marshal(value)
 	if err != nil {
-		return Artifact[ThreatRegister]{}, err
+		return Artifact[ThreatModel]{}, err
 	}
-	return ParseThreatRegisterArtifact(payload)
+	return ParseThreatModelArtifact(payload)
 }
 
 func ParseTriageArtifact(payload []byte) (Artifact[Triage], error) {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/traust-security/traust-sdk/go/v1/types"
 )
@@ -288,22 +289,69 @@ func optionalBoolAsInt(value *bool) *int64 {
 	return &stored
 }
 
-// projectThreatRegister fans a register out to one `threat` row per threat.
+// : impact weight x likelihood weight. Must stay identical to the Python
+// : side's _IMPACT_WEIGHT/_LIKELIHOOD_WEIGHT -- the two projectors write the
+// : same column and a divergence here is a silent cross-language disagreement
+// : about rank order.
+var threatImpactWeight = map[string]int64{
+	"low": 1, "medium": 2, "high": 4, "critical": 8, "existential": 16,
+}
+
+var threatLikelihoodWeight = map[string]int64{
+	"very_rare": 1, "rare": 2, "possible": 4, "likely": 8, "almost_certain": 16,
+}
+
+// threatScore is nil when either enum is unrateable. Zero would claim
+// "rated, and it came out lowest"; both enums are required, so an
+// unrecognised value means the model is off-contract and the ordering has
+// nothing to say about it.
+func threatScore(impact, likelihood string) *int64 {
+	left, okLeft := threatImpactWeight[impact]
+	right, okRight := threatLikelihoodWeight[likelihood]
+	if !okLeft || !okRight {
+		return nil
+	}
+	product := left * right
+	return &product
+}
+
+// projectThreatModel fans a model out to one `threat` row per threat.
 // Hand-written for the same reason projectCorpusRegistry is: the generator's
 // one-row projector maps ROOT schema properties to columns, and these live
 // inside threats[].
 //
-// Keyed on Key, never Id: every threat model numbers its threats from T1, so
-// Id collides across the whole model set and an Id-keyed write would keep one
-// threat per number out of tens of thousands.
-func (s *sqlStore) projectThreatRegister(
+// Keyed on `<subject>:<id>`, never on Id alone: every model numbers its
+// threats from T1, so an Id-keyed write would keep one threat per number
+// across the whole estate.
+//
+// The family was threat-register until contracts 0.24.0. Threat models had no
+// JSON form then, so the only structured artifact was a register a parser
+// emitted; they have one now and the model itself is the artifact.
+func (s *sqlStore) projectThreatModel(
 	ctx context.Context,
 	conn *sql.Conn,
 	state writeState,
-	register types.ThreatRegister,
+	model types.ThreatModel,
 ) error {
-	for _, threat := range register.Threats {
-		actors, err := optionalProjectionJSON(threat.Actors)
+	subjectID := state.binding.SubjectID
+	if subjectID == nil {
+		subjectID = model.SubjectId
+	}
+	keyPrefix := model.System
+	if subjectID != nil {
+		keyPrefix = *subjectID
+	}
+	modelName := model.Provenance.Target
+	if modelName == "" {
+		modelName = model.System
+	}
+	product := model.System
+
+	for _, threat := range model.Threats {
+		if threat.Id == "" {
+			continue
+		}
+		actors, err := optionalProjectionJSON(threat.Actor)
 		if err != nil {
 			return projectionError(projectionThreat, projectionFieldActors, err)
 		}
@@ -318,35 +366,43 @@ func (s *sqlStore) projectThreatRegister(
 		if err != nil {
 			return projectionError(projectionThreat, projectionFieldIsolationDimensions, err)
 		}
-		boundaries, err := optionalProjectionJSON(threat.IsolationBoundaries)
+		attackRefs, err := optionalProjectionJSON(threat.AttackRefs)
 		if err != nil {
-			return projectionError(projectionThreat, projectionFieldIsolationBoundaries, err)
+			return projectionError(projectionThreat, projectionFieldAttackRefs, err)
 		}
 		impact := string(threat.Impact)
 		likelihood := string(threat.Likelihood)
 		status := string(threat.Status)
 		statement := threat.Threat
+		linddun := int64(0)
+		if strings.HasPrefix(strings.ToLower(statement), "linddun:") {
+			linddun = 1
+		}
 		if err := s.queries.threatUpsert(ctx, conn, threatUpsertParams{
-			bindingId:           state.bindingID,
-			artifactDigest:      state.digest,
-			threatKey:           threat.Key,
-			threatId:            threat.Id,
-			model:               threat.Model,
-			subjectId:           threat.SubjectId,
-			product:             threat.Product,
-			statement:           &statement,
-			surface:             threat.Surface,
-			asset:               threat.Asset,
-			impact:              &impact,
-			likelihood:          &likelihood,
-			status:              &status,
-			controls:            threat.Controls,
-			actors:              actors,
-			evidence:            evidence,
-			linddun:             optionalBoolAsInt(threat.Linddun),
-			score:               optionalIntAsInt64(threat.Score),
+			bindingId:      state.bindingID,
+			artifactDigest: state.digest,
+			threatKey:      keyPrefix + ":" + threat.Id,
+			threatId:       threat.Id,
+			model:          modelName,
+			subjectId:      subjectID,
+			product:        &product,
+			statement:      &statement,
+			surface:        threat.Surface,
+			asset:          threat.Asset,
+			impact:         &impact,
+			likelihood:     &likelihood,
+			status:         &status,
+			controls:       threat.Controls,
+			actors:         actors,
+			evidence:       evidence,
+			linddun:        &linddun,
+			score:          threatScore(impact, likelihood),
+			attackRefs:     attackRefs,
+			// threat-model.schema.json declares no isolation_boundaries on a
+			// threat; the column exists for the tenant-boundary work and the
+			// Python projector writes nil here too.
+			isolationBoundaries: nil,
 			isolationDimensions: dimensions,
-			isolationBoundaries: boundaries,
 		}); err != nil {
 			return projectionError(projectionThreat, projectionFieldRow, err)
 		}

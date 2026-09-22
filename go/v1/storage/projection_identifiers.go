@@ -1,4 +1,4 @@
-// Code generated from traust-contracts f75c2505f70a14f5edf399342ebe8a60915d26e6 projection metadata. DO NOT EDIT.
+// Code generated from traust-contracts b0815b68307ddd6346b5bc7c2f5d9d9f4ce2805b projection metadata. DO NOT EDIT.
 
 package storage
 
@@ -38,6 +38,7 @@ const (
 	projectionFieldArtifact                       projectionField = "artifact"
 	projectionFieldAsvsCoverage                   projectionField = "asvs_coverage"
 	projectionFieldAttackChains                   projectionField = "attack_chains"
+	projectionFieldAttackRefs                     projectionField = "attack_refs"
 	projectionFieldBands                          projectionField = "bands"
 	projectionFieldBoundaries                     projectionField = "boundaries"
 	projectionFieldBucketThresholds               projectionField = "bucket_thresholds"
