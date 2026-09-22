@@ -361,9 +361,6 @@ type CensusPopulationRow struct {
 	Subjects       int64
 	BranchReaudits int64
 	WithReport     int64
-	// ReportKind is the unit the subjects' findings are counted in (code
-	// audit, declared-layer IaC, container image). Trailing: revision 16.
-	ReportKind *string
 }
 
 // CensusExposureRow is one row of the census_exposure view: every finding
@@ -381,8 +378,6 @@ type CensusExposureRow struct {
 	ExposureClass        string
 	Occurrences          int64
 	DistinctFingerprints int64
-	// ReportKind separates code, IaC and container units. Trailing: revision 16.
-	ReportKind *string
 }
 
 func scanCensusPopulation(rows *sql.Rows) (result []CensusPopulationRow, err error) {
@@ -391,7 +386,7 @@ func scanCensusPopulation(rows *sql.Rows) (result []CensusPopulationRow, err err
 		var row CensusPopulationRow
 		if err := rows.Scan(
 			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit,
-			&row.Subjects, &row.BranchReaudits, &row.WithReport, &row.ReportKind,
+			&row.Subjects, &row.BranchReaudits, &row.WithReport,
 		); err != nil {
 			return nil, err
 		}
@@ -407,7 +402,7 @@ func scanCensusExposure(rows *sql.Rows) (result []CensusExposureRow, err error) 
 		if err := rows.Scan(
 			&row.ScopeID, &row.Tree, &row.Ownership, &row.BusinessUnit,
 			&row.IsBranchAudit, &row.Family, &row.Severity, &row.ExposureClass,
-			&row.Occurrences, &row.DistinctFingerprints, &row.ReportKind,
+			&row.Occurrences, &row.DistinctFingerprints,
 		); err != nil {
 			return nil, err
 		}
@@ -878,12 +873,12 @@ type AdvisoryExposureRow struct {
 	BinaryStringScan      *string
 	BinarySymbolScan      *string
 	EvidenceLevel         *string
-	FeaturePatternMatches *int64
+	FeaturePatternMatches *string
 	Govulncheck           *string
 	GovulncheckTrace      *string
-	L1DependsOn           *int64
-	L1VersionInRange      *int64
-	L4PackageImported     *int64
+	L1DependsOn           *string
+	L1VersionInRange      *string
+	L4PackageImported     *string
 	L4PackagesFound       *string
 	ManifestScan          *string
 	ManifestVersion       *string
@@ -1318,192 +1313,4 @@ func (c *Client) QueryVerificationRegressionCurrent(ctx context.Context, scopeID
 		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
 			return c.store.queries.verificationRegressionCurrentList(ctx, conn, verificationRegressionCurrentListParams{scopeIds: scope})
 		}, scanVerificationRegressionCurrent)
-}
-
-// CensusDistinctRow is one finding identity at HEAD under one ownership cut,
-// from the census_distinct view: hardening kept apart from vulnerabilities,
-// Severity the highest any occurrence carried BY RANK, Open 1 when any
-// occurrence is not affirmatively closed. What distinct_exposure answers for
-// the owned open cut only, this answers for every cut.
-type CensusDistinctRow struct {
-	ScopeID     string
-	Ownership   *string
-	ReportKind  *string
-	Fingerprint string
-	Hardening   int64
-	Severity    *string
-	Open        int64
-	Occurrences int64
-	Trees       int64
-}
-
-// CensusBranchRow is one tree's branch re-audit findings split into HEAD
-// confirmations and branch-only identities, from census_branch.
-type CensusBranchRow struct {
-	ScopeID            string
-	Tree               *string
-	ReportKind         *string
-	BranchFindings     int64
-	HeadConfirmations  int64
-	BranchOnlyDistinct int64
-}
-
-// BoundaryRow is one current tenant boundary with its owner and the two
-// register orderings: Weakness sums failed (2) and partial (1) isolation
-// dimensions, OpenThreats counts the same model's unmitigated or partially
-// mitigated threats tagged to it. Orderings only, never a risk value.
-type BoundaryRow struct {
-	ScopeID            string
-	BoundaryKey        string
-	BoundaryID         string
-	SubjectID          *string
-	Product            *string
-	Interface          *string
-	Kind               *string
-	Exposure           *string
-	Complexity         *string
-	Privilege          *string
-	Encryption         *string
-	Authentication     *string
-	Connectivity       *string
-	Hygiene            *string
-	ThreatIDs          *string
-	IsolationReviewRef *string
-	Weakness           int64
-	OpenThreats        int64
-	Ownership          *string
-	BusinessUnit       *string
-	Tree               *string
-	IsBranchAudit      *int64
-}
-
-// DocVarianceRow is one current doc-vs-code discrepancy with the document
-// that made the claim (source flattened) and the owner of the subject.
-// Disposition is uncollapsed: only "open" is exposure.
-type DocVarianceRow struct {
-	ScopeID           string
-	SubjectID         *string
-	Repository        *string
-	RecordID          string
-	SourceProductSlug *string
-	SourceVersion     *string
-	SourceGuide       *string
-	SourceURL         *string
-	SourceQuote       *string
-	Claim             *string
-	CodeEvidence      *string
-	Variance          *string
-	VerifiedAt        *string
-	VerifiedAgainst   *string
-	Disposition       *string
-	DispositionNote   *string
-	FindingRefs       *string
-	ThreatRefs        *string
-	Ownership         *string
-	BusinessUnit      *string
-	Tree              *string
-	Product           *string
-	IsBranchAudit     *int64
-}
-
-func scanCensusDistinct(rows *sql.Rows) (result []CensusDistinctRow, err error) {
-	defer func() { err = errors.Join(err, rows.Close()) }()
-	for rows.Next() {
-		var row CensusDistinctRow
-		if err := rows.Scan(
-			&row.ScopeID, &row.Ownership, &row.ReportKind, &row.Fingerprint, &row.Hardening,
-			&row.Severity, &row.Open, &row.Occurrences, &row.Trees,
-		); err != nil {
-			return nil, err
-		}
-		result = append(result, row)
-	}
-	return result, rows.Err()
-}
-
-func scanCensusBranch(rows *sql.Rows) (result []CensusBranchRow, err error) {
-	defer func() { err = errors.Join(err, rows.Close()) }()
-	for rows.Next() {
-		var row CensusBranchRow
-		if err := rows.Scan(
-			&row.ScopeID, &row.Tree, &row.ReportKind, &row.BranchFindings,
-			&row.HeadConfirmations, &row.BranchOnlyDistinct,
-		); err != nil {
-			return nil, err
-		}
-		result = append(result, row)
-	}
-	return result, rows.Err()
-}
-
-func scanBoundaryCurrent(rows *sql.Rows) (result []BoundaryRow, err error) {
-	defer func() { err = errors.Join(err, rows.Close()) }()
-	for rows.Next() {
-		var row BoundaryRow
-		if err := rows.Scan(
-			&row.ScopeID, &row.BoundaryKey, &row.BoundaryID, &row.SubjectID, &row.Product,
-			&row.Interface, &row.Kind, &row.Exposure, &row.Complexity,
-			&row.Privilege, &row.Encryption, &row.Authentication, &row.Connectivity, &row.Hygiene,
-			&row.ThreatIDs, &row.IsolationReviewRef, &row.Weakness, &row.OpenThreats,
-			&row.Ownership, &row.BusinessUnit, &row.Tree, &row.IsBranchAudit,
-		); err != nil {
-			return nil, err
-		}
-		result = append(result, row)
-	}
-	return result, rows.Err()
-}
-
-func scanDocVarianceCurrent(rows *sql.Rows) (result []DocVarianceRow, err error) {
-	defer func() { err = errors.Join(err, rows.Close()) }()
-	for rows.Next() {
-		var row DocVarianceRow
-		if err := rows.Scan(
-			&row.ScopeID, &row.SubjectID, &row.Repository, &row.RecordID,
-			&row.SourceProductSlug, &row.SourceVersion, &row.SourceGuide, &row.SourceURL, &row.SourceQuote,
-			&row.Claim, &row.CodeEvidence, &row.Variance, &row.VerifiedAt, &row.VerifiedAgainst,
-			&row.Disposition, &row.DispositionNote, &row.FindingRefs, &row.ThreatRefs,
-			&row.Ownership, &row.BusinessUnit, &row.Tree, &row.Product, &row.IsBranchAudit,
-		); err != nil {
-			return nil, err
-		}
-		result = append(result, row)
-	}
-	return result, rows.Err()
-}
-
-// QueryCensusDistinct returns one row per finding identity at HEAD under each
-// ownership cut, hardening apart, with the highest severity by rank.
-func (c *Client) QueryCensusDistinct(ctx context.Context, scopeIDs []string) ([]CensusDistinctRow, error) {
-	return scopedRead(ctx, c, scopeIDs,
-		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
-			return c.store.queries.censusDistinctList(ctx, conn, censusDistinctListParams{scopeIds: scope})
-		}, scanCensusDistinct)
-}
-
-// QueryCensusBranch returns branch re-audit findings per tree, split into HEAD
-// confirmations and branch-only identities.
-func (c *Client) QueryCensusBranch(ctx context.Context, scopeIDs []string) ([]CensusBranchRow, error) {
-	return scopedRead(ctx, c, scopeIDs,
-		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
-			return c.store.queries.censusBranchList(ctx, conn, censusBranchListParams{scopeIds: scope})
-		}, scanCensusBranch)
-}
-
-// QueryBoundaryCurrent returns the current tenant boundaries with their owner,
-// weakness ordering and open-threat count.
-func (c *Client) QueryBoundaryCurrent(ctx context.Context, scopeIDs []string) ([]BoundaryRow, error) {
-	return scopedRead(ctx, c, scopeIDs,
-		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
-			return c.store.queries.boundaryCurrentList(ctx, conn, boundaryCurrentListParams{scopeIds: scope})
-		}, scanBoundaryCurrent)
-}
-
-// QueryDocVarianceCurrent returns the current doc-vs-code discrepancies, one
-// row per record, with the claiming document flattened and the owner joined.
-func (c *Client) QueryDocVarianceCurrent(ctx context.Context, scopeIDs []string) ([]DocVarianceRow, error) {
-	return scopedRead(ctx, c, scopeIDs,
-		func(ctx context.Context, conn *sql.Conn, scope string) (*sql.Rows, error) {
-			return c.store.queries.docVarianceCurrentList(ctx, conn, docVarianceCurrentListParams{scopeIds: scope})
-		}, scanDocVarianceCurrent)
 }

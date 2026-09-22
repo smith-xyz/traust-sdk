@@ -410,36 +410,24 @@ func bootstrapRank(section, name string) int {
 			return 0
 		case "report_current.sql":
 			return 1
-		// The policy family's report_current; current_finding reads it.
-		case "policy_report_current.sql":
-			return 2
 		case "ownership_current.sql":
-			return 3
+			return 2
 		case "current_finding.sql":
-			return 4
-		// Both read current_finding and sort before it alphabetically.
-		case "census_distinct.sql":
-			return 5
-		case "census_branch.sql":
-			return 6
+			return 3
 		case "threat_current.sql":
-			return 7
+			return 4
 		case "finding_first_seen.sql":
-			return 8
+			return 5
 		case "finding_timeline.sql":
-			return 9
+			return 6
 		case "pqc_posture.sql":
-			return 10
+			return 7
 		case "sla_clock.sql":
-			return 11
+			return 8
 		case "sla_threshold.sql":
-			return 12
-		case "pattern_exposure.sql":
-			return 13
-		case "attack_coverage.sql":
-			return 14
+			return 9
 		default:
-			return 15
+			return 10
 		}
 	}
 	if section != "schema" {
@@ -471,19 +459,6 @@ func splitStatements(s string) ([]string, error) {
 	}
 	return out, nil
 }
-
-// goKeywords are the identifiers a column may legitimately be named after
-// and Go may not: threat_boundary.interface is the first, and the generator
-// emitted `interface string` into a params struct and produced invalid Go.
-// The column keeps its contract name; only the generated identifier bends.
-var goKeywords = map[string]bool{
-	"break": true, "case": true, "chan": true, "const": true, "continue": true,
-	"default": true, "defer": true, "else": true, "fallthrough": true, "for": true,
-	"func": true, "go": true, "goto": true, "if": true, "import": true,
-	"interface": true, "map": true, "package": true, "range": true, "return": true,
-	"select": true, "struct": true, "switch": true, "type": true, "var": true,
-}
-
 func sqlIdent(s string) string {
 	parts := strings.FieldsFunc(s, func(r rune) bool { return r == '.' || r == '-' || r == '_' })
 	for i := range parts {
@@ -493,11 +468,7 @@ func sqlIdent(s string) string {
 			parts[i] = storagePascal(parts[i])
 		}
 	}
-	ident := strings.Join(parts, "")
-	if goKeywords[ident] {
-		ident += "_"
-	}
-	return ident
+	return strings.Join(parts, "")
 }
 
 func generateStorageSamples(source, target string) error {

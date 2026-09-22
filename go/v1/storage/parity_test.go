@@ -14,13 +14,12 @@ import (
 // here (or the reverse) means one language considers it a consumption surface
 // and the other does not.
 var intermediateViews = map[string]string{
-	"binding_current":       "the latest-binding filter every other view joins",
-	"current_finding":       "the spine open/hardening/distinct/census all read",
-	"report_current":        "one report per subject, composed into current_finding",
-	"ownership_current":     "the owner join, composed into every scoped view",
-	"finding_first_seen":    "the open-clock, composed into finding_timeline",
-	"sla_clock":             "the policy clock, composed into finding_sla",
-	"policy_report_current": "one policy report per subject, composed into current_finding",
+	"binding_current":    "the latest-binding filter every other view joins",
+	"current_finding":    "the spine open/hardening/distinct/census all read",
+	"report_current":     "one report per subject, composed into current_finding",
+	"ownership_current":  "the owner join, composed into every scoped view",
+	"finding_first_seen": "the open-clock, composed into finding_timeline",
+	"sla_clock":          "the policy clock, composed into finding_sla",
 }
 
 // exported name for a view, matching the Query* convention.

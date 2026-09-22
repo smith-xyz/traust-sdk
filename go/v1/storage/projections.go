@@ -151,20 +151,10 @@ func (s *sqlStore) projectLayer(
 			sourceType:      &source,
 			sourceRef:       &event.Source.Ref,
 			actorKind:       &actorKind,
-			// The other eight actor fields the layer schema declares. WHO
-			// decided is what a countersign audit asks; only kind reached SQL.
-			actorIdentity:         event.Source.Actor.Identity,
-			actorLdapVerified:     optionalBoolAsInt(event.Source.Actor.LdapVerified),
-			actorIdentityVerified: optionalBoolAsInt(event.Source.Actor.IdentityVerified),
-			actorIdentityProvider: event.Source.Actor.IdentityProvider,
-			actorIdentityIssuer:   event.Source.Actor.IdentityIssuer,
-			actorIdentitySubject:  event.Source.Actor.IdentitySubject,
-			actorEmployeeStatus:   event.Source.Actor.EmployeeStatus,
-			actorDisplayName:      event.Source.Actor.DisplayName,
-			validity:              validity,
-			resolution:            resolution,
-			evidenceGrade:         event.EvidenceGrade,
-			autoAcceptTier:        optionalBoolAsInt(event.AutoAcceptTier),
+			validity:        validity,
+			resolution:      resolution,
+			evidenceGrade:   event.EvidenceGrade,
+			autoAcceptTier:  optionalBoolAsInt(event.AutoAcceptTier),
 		}); err != nil {
 			return projectionError(projectionLayerEvent, projectionFieldRow, err)
 		}
@@ -278,7 +268,6 @@ func (s *sqlStore) projectCorpusRegistry(
 			ref:            subject.Ref,
 			refKind:        refKind,
 			isBranchAudit:  optionalBoolAsInt(subject.IsBranchAudit),
-			reportKind:     subject.ReportKind,
 		}); err != nil {
 			return projectionError(projectionSubjectOwnership, projectionFieldRow, err)
 		}
