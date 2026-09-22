@@ -27,6 +27,7 @@ const (
 	projectionPrivProfile                         projectionName  = "priv_profile"
 	projectionRemediation                         projectionName  = "remediation"
 	projectionReport                              projectionName  = "report"
+	projectionReportFinding                       projectionName  = "report_finding"
 	projectionRiskRatingMethodology               projectionName  = "risk_rating_methodology"
 	projectionSlaPolicy                           projectionName  = "sla_policy"
 	projectionSubjectOwnership                    projectionName  = "subject_ownership"

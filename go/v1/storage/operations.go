@@ -1047,7 +1047,7 @@ func (s *sqlStore) projectReport(ctx context.Context, conn *sql.Conn, state writ
 	}); err != nil {
 		return projectionError(projectionReport, projectionFieldRow, err)
 	}
-	return nil
+	return s.projectReportFindings(ctx, conn, state, value)
 }
 
 type SaveRiskRatingMethodologyInput struct {

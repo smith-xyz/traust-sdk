@@ -2,6 +2,19 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.14.1]
+
+### Fixed
+
+- Report saves now populate per-finding storage rows in the same transaction as
+  the report and exact evidence, making saved findings available to SQL readers.
+  Dispositions, optional flags and analytical fields retain their original values.
+- Regeneration preserves the secondary report projection. Regression coverage
+  checks populated and empty reports, idempotent retries and child-write rollback.
+- Previously saved bindings are not backfilled by retrying: `AlreadyBound`
+  returns before projection. Existing stores require a separately reviewed
+  backfill or a clean re-import; no schema revision reset is included.
+
 ## [0.3.0]
 
 ## Changes
