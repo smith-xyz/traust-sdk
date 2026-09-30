@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -9,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/traust-security/traust-sdk/go/v1/types"
@@ -23,7 +25,7 @@ func openTestStorage(t *testing.T) *Client {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	client, err := NewClient(context.Background(), db)
+	client, err := NewClient(context.Background(), db, newMemoryObjects())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,6 +34,37 @@ func openTestStorage(t *testing.T) *Client {
 	}
 	return client
 }
+
+// memoryObjects is an in-memory ObjectStore for tests.
+type memoryObjects struct {
+	mu      sync.Mutex
+	objects map[string][]byte
+	putErr  error
+}
+
+func newMemoryObjects() *memoryObjects { return &memoryObjects{objects: map[string][]byte{}} }
+
+func (m *memoryObjects) PutArtifact(_ context.Context, digest string, payload []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.putErr != nil {
+		return m.putErr
+	}
+	m.objects[ObjectKey("", digest)] = append([]byte(nil), payload...)
+	return nil
+}
+
+func (m *memoryObjects) GetArtifact(_ context.Context, digest string) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	payload, ok := m.objects[ObjectKey("", digest)]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	return append([]byte(nil), payload...), nil
+}
+
+func objectsOf(client *Client) *memoryObjects { return client.store.objects.(*memoryObjects) }
 
 func sqlDB(client *Client) *sql.DB { return client.store.db }
 
@@ -183,7 +216,7 @@ func projectionTable(name string) string {
 	}
 }
 
-func TestAllArtifactsRecordEvidenceAndProject(t *testing.T) {
+func TestAllArtifactsRetainEvidenceAndProject(t *testing.T) {
 	ctx := context.Background()
 	client := openTestStorage(t)
 	samples := sampleArtifacts(t)
@@ -192,11 +225,9 @@ func TestAllArtifactsRecordEvidenceAndProject(t *testing.T) {
 		if err != nil {
 			t.Fatalf("save %s: %v", name, err)
 		}
-		var size int64
-		if err := sqlDB(client).QueryRow(
-			"SELECT byte_size FROM artifact_evidence WHERE digest = ?", result.Digest,
-		).Scan(&size); err != nil || size != int64(len(payload)) {
-			t.Fatalf("evidence %s: byte_size = %d (%v), want %d", name, size, err, len(payload))
+		evidence, err := client.GetEvidence(ctx, result.Digest)
+		if err != nil || !bytes.Equal(evidence, payload) {
+			t.Fatalf("evidence %s: %v", name, err)
 		}
 	}
 	for name := range samples {
@@ -222,7 +253,7 @@ func TestAllArtifactsRecordEvidenceAndProject(t *testing.T) {
 	}
 }
 
-func TestSaveRecordsDigestAndBinding(t *testing.T) {
+func TestSaveAndTypedReadExactEvidence(t *testing.T) {
 	ctx := context.Background()
 	client := openTestStorage(t)
 	payload := readFixture(t, "storagetest/testdata/vuln-findings-populated.test.json")
@@ -241,8 +272,9 @@ func TestSaveRecordsDigestAndBinding(t *testing.T) {
 	if result.Digest != hex.EncodeToString(want[:]) || result.BindingID == "" || result.AlreadyBound {
 		t.Fatalf("result = %+v", result)
 	}
-	if _, err := client.GetVulnFindings(ctx, result.BindingID); !errors.Is(err, ErrArtifactBytesNotRetained) {
-		t.Fatalf("typed read = %v, want ErrArtifactBytesNotRetained", err)
+	stored, err := client.GetVulnFindings(ctx, result.BindingID)
+	if err != nil || !bytes.Equal(stored.Payload(), payload) {
+		t.Fatalf("typed read: %v", err)
 	}
 	record, err := client.GetBinding(ctx, result.BindingID)
 	if err != nil || record.Digest != result.Digest || record.ArtifactName != "vuln-findings" {
@@ -310,7 +342,7 @@ func TestProfilesRequireRunAndLayerContext(t *testing.T) {
 	}
 }
 
-func TestTypedReadGuardsBinding(t *testing.T) {
+func TestTypedReadGuardsBindingAndEvidence(t *testing.T) {
 	ctx := context.Background()
 	client := openTestStorage(t)
 	payload := sampleArtifacts(t)["vuln-findings"]
@@ -327,8 +359,11 @@ func TestTypedReadGuardsBinding(t *testing.T) {
 	if _, err := client.GetTriage(ctx, result.BindingID); !errors.Is(err, ErrArtifactTypeMismatch) {
 		t.Fatalf("type mismatch = %v", err)
 	}
-	if _, err := client.GetEvidence(ctx, result.Digest); !errors.Is(err, ErrArtifactBytesNotRetained) {
-		t.Fatalf("GetEvidence = %v, want ErrArtifactBytesNotRetained", err)
+	objects := objectsOf(client)
+	key := ObjectKey("", result.Digest)
+	objects.objects[key] = append(objects.objects[key], ' ')
+	if _, err := client.GetEvidence(ctx, result.Digest); !errors.Is(err, ErrEvidenceCorrupt) {
+		t.Fatalf("corruption = %v", err)
 	}
 }
 

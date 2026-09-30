@@ -174,7 +174,7 @@ if err != nil {
 }
 defer db.Close()
 
-client, err := storage.NewClient(ctx, db)
+client, err := storage.NewClient(ctx, db, objects) // objects: your storage.ObjectStore
 if err != nil {
     return err
 }
@@ -196,15 +196,21 @@ result, err := client.SaveVulnFindings(ctx, storage.SaveVulnFindingsInput{
 Every schema has named typed save and read operations. A named save validates the
 source bytes, computes their SHA-256 digest, records globally deduplicated
 `artifact_evidence` (digest and byte size), and creates a context-specific
-`artifact_binding` atomically. storage/v1 does not retain artifact bytes, so typed
-reads return `storage.ErrArtifactBytesNotRetained`.
+`artifact_binding` atomically.
+
+The database never holds artifact bytes; `NewClient` requires a
+`storage.ObjectStore` for them. The SDK doesn't assume where they live — implement
+the two-method interface over whatever you run (a bucket, a directory, ...), the
+same way you bring the `*sql.DB`. Save writes the bytes under
+`storage.ObjectKey(prefix, digest)` (`<prefix>sha256/<digest>`) before the database
+commit, and typed reads check them against the bound digest.
 `SaveResult.AlreadyBound` reports only whether that binding existed; evidence-level
 deduplication remains private.
 
 The exact-evidence boundary is the named Save call. Callers may perform optional
 processing, such as asking Ledger to stamp finding fingerprints, before creating
-the artifact passed to storage. Storage records the digest of those accepted bytes
-but does not compute fingerprints or treat them as storage-owned identity. When Ledger is
+the artifact passed to storage. Storage preserves those accepted bytes but does
+not compute fingerprints or treat them as storage-owned identity. When Ledger is
 present, consumers join disposition data by the binding's `layer_id` and the
 artifact-relative finding ID; fingerprints remain report evidence or
 Ledger-owned state rather than storage join keys.

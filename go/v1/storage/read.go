@@ -97,10 +97,20 @@ func getTypedArtifact[T any](
 	return artifact, nil
 }
 
-// readEvidence reports that artifact bytes are unavailable: since contracts
-// 0.37, storage/v1 records only each artifact's digest and byte size.
-func (s *sqlStore) readEvidence(_ context.Context, _ *sql.Conn, _ string) ([]byte, error) {
-	return nil, wrap(OperationRead, PhaseRead, ErrArtifactBytesNotRetained)
+func (s *sqlStore) readEvidence(ctx context.Context, _ *sql.Conn, digest string) ([]byte, error) {
+	payload, err := s.objects.GetArtifact(ctx, digest)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, wrap(OperationRead, PhaseRead, ErrNotFound)
+		}
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	// The object store is outside the database's integrity guarantees, so the
+	// bytes are checked against the digest they were bound under.
+	if storedDigest, _ := identifyArtifact(payload); storedDigest != digest {
+		return nil, wrap(OperationRead, PhaseRead, ErrEvidenceCorrupt)
+	}
+	return payload, nil
 }
 
 // QueryFindingsSummary returns severity-and-verdict buckets for the Security Posture dashboard.

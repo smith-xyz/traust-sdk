@@ -2,6 +2,29 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.16.0]
+
+### Changed
+
+- **`NewClient(ctx, db, objects)` requires an `ObjectStore`** for artifact
+  bytes; a nil store returns `ErrNilObjectStore`. The SDK doesn't assume where
+  bytes live: callers implement the interface over their own storage, the same
+  way they bring the `*sql.DB`.
+  - Save writes the bytes under `ObjectKey` before the database transaction,
+    so a committed binding always has its bytes. A failed put aborts the save.
+  - Typed `Get*` and `GetEvidence` read the bytes back and verify them against
+    the bound digest (`ErrEvidenceCorrupt` on mismatch, `ErrNotFound` when
+    missing).
+
+### Added
+
+- `ObjectStore` interface (`PutArtifact`, `GetArtifact` by digest) and
+  `ObjectKey` (`<prefix>sha256/<digest>`), the cross-language key layout.
+
+### Removed
+
+- `ErrArtifactBytesNotRetained` (introduced in 0.15.0).
+
 ## [0.15.0]
 
 ### Changed

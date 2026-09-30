@@ -79,6 +79,13 @@ func (s *sqlStore) writeArtifact(
 	project func(context.Context, *sql.Conn, writeState) error,
 ) (result SaveResult, err error) {
 	digest, lockKey := identifyArtifact(input.payload)
+	// Bytes go to the object store first. The key is the content digest, so a
+	// retry rewrites the same object, and a binding the database commits always
+	// has its bytes behind it. A failed database write can leave an object with
+	// no binding; the caller's object lifecycle policy owns that cleanup.
+	if err = s.objects.PutArtifact(ctx, digest, input.payload); err != nil {
+		return result, wrap(OperationSave, PhaseEvidence, err)
+	}
 	state := writeState{
 		digest:    digest,
 		lockKey:   lockKey,
@@ -190,8 +197,9 @@ func (s *sqlStore) insertEvidence(
 	input artifactWrite,
 	state writeState,
 ) error {
-	// storage/v1 records the digest and byte size only. The digest is the
-	// primary key, so identical bytes always land on the same row.
+	// storage/v1 records the digest and byte size only; the bytes are in the
+	// caller's ObjectStore. The digest is the primary key, so identical bytes
+	// always land on the same row.
 	if err := s.queries.artifactEvidenceUpsert(ctx, conn, artifactEvidenceUpsertParams{
 		digest:          state.digest,
 		byteSize:        int64(len(input.payload)),
