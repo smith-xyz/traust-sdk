@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.48.1. DO NOT EDIT.
+// Code generated from traust-contracts 6501442e448bb5a78b7e58c6745d0eea37d0e7ac. DO NOT EDIT.
 
 package types
 
@@ -18,6 +18,7 @@ type PqcBlockers struct {
 }
 
 type Finding struct {
+	BlockedExternal   interface{}              `json:"blocked_external,omitempty"`
 	Category          interface{}              `json:"category"`
 	Cwes              []string                 `json:"cwes"`
 	Description       string                   `json:"description"`
@@ -67,9 +68,11 @@ type PqcBlockersMetadataAdditional struct {
 }
 
 type PqcBlockersRemediationRoadmapItem struct {
-	Action    string   `json:"action"`
-	Addresses []string `json:"addresses"`
-	Priority  string   `json:"priority"`
+	Action          string      `json:"action"`
+	Addresses       []string    `json:"addresses"`
+	BlockedExternal interface{} `json:"blocked_external,omitempty"`
+	Effort          interface{} `json:"effort,omitempty"`
+	Priority        string      `json:"priority"`
 }
 
 type PqcBlockersSeverityCriteriaItem struct {

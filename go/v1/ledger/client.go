@@ -3,6 +3,7 @@ package ledger
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -209,7 +210,48 @@ func (c *Client) Whoami(ctx context.Context) (types.Actor, error) {
 	return out, nil
 }
 
-// ListLayers returns all layer IDs known to the ledger service.
+// InitializeLayer creates layerID from a complete shell under its product_repo.
+// It never replaces an existing layer.
+func (c *Client) InitializeLayer(ctx context.Context, layerID string, input InitializeInput) (InitializeResponse, error) {
+	raw, err := json.Marshal(input)
+	if err != nil {
+		return InitializeResponse{}, fmt.Errorf("initialize: marshal: %w", err)
+	}
+	path := fmt.Sprintf("/v1/ledger/layers/%s/initialize", url.PathEscape(layerID))
+	body, err := c.p.Post(ctx, path, raw)
+	if err != nil {
+		return InitializeResponse{}, fmt.Errorf("initialize: %w", err)
+	}
+	var out InitializeResponse
+	if err := json.Unmarshal(body, &out); err != nil {
+		return InitializeResponse{}, fmt.Errorf("initialize: decode response: %w", err)
+	}
+	return out, nil
+}
+
+// FindLayer returns the layer that belongs to productRepoID; found is false
+// when the ledger has none.
+func (c *Client) FindLayer(ctx context.Context, productRepoID string) (ref LayerRef, found bool, err error) {
+	path := "/v1/ledger/layers?" + url.Values{"product_repo_id": {productRepoID}}.Encode()
+	body, err := c.p.Query(ctx, http.MethodGet, path)
+	var status *StatusError
+	if errors.As(err, &status) && status.StatusCode == http.StatusNotFound {
+		return LayerRef{}, false, nil
+	}
+	if err != nil {
+		return LayerRef{}, false, fmt.Errorf("query: find layer: %w", err)
+	}
+	var out LayerListResponse
+	if err := json.Unmarshal(body, &out); err != nil {
+		return LayerRef{}, false, fmt.Errorf("query: decode layer list response: %w", err)
+	}
+	if len(out.Layers) != 1 {
+		return LayerRef{}, false, fmt.Errorf("query: find layer: %d layers for one product_repo", len(out.Layers))
+	}
+	return out.Layers[0], true, nil
+}
+
+// ListLayers returns every layer known to the ledger service with its product_repo.
 func (c *Client) ListLayers(ctx context.Context) (LayerListResponse, error) {
 	body, err := c.p.Query(ctx, http.MethodGet, "/v1/ledger/layers")
 	if err != nil {

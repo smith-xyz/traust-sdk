@@ -57,11 +57,7 @@ func TestHTTPClient_BatchSubmitLane(t *testing.T) {
 
 func TestHTTPClient_EventLane(t *testing.T) {
 	var gotPath, gotAuth string
-	var envelope struct {
-		Kind             string          `json:"kind"`
-		ContractsVersion string          `json:"contracts_version"`
-		Event            json.RawMessage `json:"event"`
-	}
+	var envelope map[string]json.RawMessage
 	var event struct {
 		LayerID    string `json:"layer_id"`
 		FindingRef string `json:"finding_ref"`
@@ -74,7 +70,7 @@ func TestHTTPClient_EventLane(t *testing.T) {
 		gotAuth = r.Header.Get("Authorization")
 		body, _ := io.ReadAll(r.Body)
 		mustNoErr(t, json.Unmarshal(body, &envelope))
-		mustNoErr(t, json.Unmarshal(envelope.Event, &event))
+		mustNoErr(t, json.Unmarshal(envelope["event"], &event))
 		_, _ = w.Write([]byte(`{"id":"cs-1","status":"accepted"}`))
 	}))
 	defer srv.Close()
@@ -97,8 +93,11 @@ func TestHTTPClient_EventLane(t *testing.T) {
 	if gotPath != "/v1/ledger/events" {
 		t.Fatalf("expected /v1/ledger/events, got %s", gotPath)
 	}
-	if envelope.Kind != "countersign" {
-		t.Fatalf("expected kind countersign in envelope, got %s", envelope.Kind)
+	if string(envelope["kind"]) != `"countersign"` {
+		t.Fatalf("expected kind countersign in envelope, got %s", envelope["kind"])
+	}
+	if len(envelope) != 2 {
+		t.Fatalf("envelope carries only kind and event, got %v", envelope)
 	}
 	if event.LayerID != "repo-a" {
 		t.Fatalf("expected layer_id repo-a in event, got %s", event.LayerID)

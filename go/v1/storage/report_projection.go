@@ -27,6 +27,7 @@ func (s *sqlStore) projectReportFindings(ctx context.Context, conn *sql.Conn, st
 			effectiveSeverity: projectionEnum(finding.EffectiveSeverity),
 			origin:            projectionEnum(finding.Origin),
 			remediationEffort: projectionEnum(finding.RemediationEffort),
+			blockedExternal:   optionalBoolAsInt(finding.BlockedExternal),
 			pqcClassification: projectionEnum(finding.PqcClassification),
 			fingerprintAlgo:   finding.FingerprintAlgo, isolationBoundary: finding.IsolationBoundary,
 		}

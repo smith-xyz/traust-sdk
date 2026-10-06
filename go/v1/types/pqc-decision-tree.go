@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.48.1. DO NOT EDIT.
+// Code generated from traust-contracts 6501442e448bb5a78b7e58c6745d0eea37d0e7ac. DO NOT EDIT.
 
 package types
 
@@ -64,8 +64,9 @@ type PqcDecisionTreeRemediationEffort struct {
 }
 
 type PqcDecisionTreeRemediationEffortRulesItem struct {
-	Effort enums.RemediationEffort `json:"effort"`
-	When   string                  `json:"when"`
+	BlockedExternal interface{}             `json:"blocked_external,omitempty"`
+	Effort          enums.RemediationEffort `json:"effort"`
+	When            string                  `json:"when"`
 }
 
 type PqcDecisionTreeServerSideCaveat struct {

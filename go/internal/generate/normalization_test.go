@@ -37,7 +37,7 @@ func TestGeneratedNormalizationBehavior(t *testing.T) {
 		if err := os.WriteFile(path, document, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := generateEnum(path, outDir); err != nil {
+		if err := generateEnum(path, outDir, "test-ref"); err != nil {
 			t.Fatalf("registry %d: %v", i, err)
 		}
 	}

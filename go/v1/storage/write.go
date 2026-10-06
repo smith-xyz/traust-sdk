@@ -238,6 +238,8 @@ func (s *sqlStore) insertBinding(
 		layerId:             state.binding.LayerID,
 		supersedesBindingId: state.binding.SupersedesBindingID,
 		boundAt:             nowUTC(),
+		productRepoId:       state.binding.ProductRepoID,
+		commitSha:           state.binding.CommitSHA,
 	}); err != nil {
 		return wrap(OperationSave, PhaseBinding, err)
 	}
@@ -265,6 +267,8 @@ func (s *sqlStore) getBinding(
 		&record.Binding.SupersedesBindingID,
 		&record.BoundAt,
 		&record.Binding.Role,
+		&record.Binding.ProductRepoID,
+		&record.Binding.CommitSHA,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return BindingRecord{}, false, nil
@@ -299,7 +303,8 @@ func (s *sqlStore) validatePredecessor(
 		!sameOptional(predecessor.Binding.SubjectID, state.binding.SubjectID) ||
 		!sameOptional(predecessor.Binding.RunID, state.binding.RunID) ||
 		!sameOptional(predecessor.Binding.LayerID, state.binding.LayerID) ||
-		!sameOptional(predecessor.Binding.Role, state.binding.Role) {
+		!sameOptional(predecessor.Binding.Role, state.binding.Role) ||
+		!sameOptional(predecessor.Binding.ProductRepoID, state.binding.ProductRepoID) {
 		return wrap(OperationSave, PhaseBinding, ErrBindingMismatch)
 	}
 	return nil
@@ -313,7 +318,9 @@ func sameBinding(record BindingRecord, name string, state writeState) bool {
 		sameOptional(record.Binding.RunID, state.binding.RunID) &&
 		sameOptional(record.Binding.LayerID, state.binding.LayerID) &&
 		sameOptional(record.Binding.SupersedesBindingID, state.binding.SupersedesBindingID) &&
-		sameOptional(record.Binding.Role, state.binding.Role)
+		sameOptional(record.Binding.Role, state.binding.Role) &&
+		sameOptional(record.Binding.ProductRepoID, state.binding.ProductRepoID) &&
+		sameOptional(record.Binding.CommitSHA, state.binding.CommitSHA)
 }
 
 // registerLocations records where the caller already wrote the bytes. Repeats

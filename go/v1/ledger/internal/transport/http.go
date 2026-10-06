@@ -21,9 +21,8 @@ import (
 const eventsPath = "/v1/ledger/events"
 
 type eventEnvelope struct {
-	Kind             string          `json:"kind"`
-	ContractsVersion string          `json:"contracts_version"`
-	Event            json.RawMessage `json:"event"`
+	Kind  string          `json:"kind"`
+	Event json.RawMessage `json:"event"`
 }
 
 // StatusError is returned when the ledger service responds with a non-2xx status.
@@ -79,12 +78,8 @@ func New(baseURL string, opts ...Option) *HTTPProvider {
 
 // Ingest wraps the payload in the human-lane event envelope and POSTs to
 // POST /v1/ledger/events.
-func (p *HTTPProvider) Ingest(ctx context.Context, kind, contractsVersion string, payload []byte) ([]byte, error) {
-	body, err := json.Marshal(eventEnvelope{
-		Kind:             kind,
-		ContractsVersion: contractsVersion,
-		Event:            payload,
-	})
+func (p *HTTPProvider) Ingest(ctx context.Context, kind string, payload []byte) ([]byte, error) {
+	body, err := json.Marshal(eventEnvelope{Kind: kind, Event: payload})
 	if err != nil {
 		return nil, fmt.Errorf("ingest: marshal envelope: %w", err)
 	}

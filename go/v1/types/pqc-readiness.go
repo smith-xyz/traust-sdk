@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.48.1. DO NOT EDIT.
+// Code generated from traust-contracts 6501442e448bb5a78b7e58c6745d0eea37d0e7ac. DO NOT EDIT.
 
 package types
 
@@ -45,6 +45,7 @@ type DomainChecksItemCryptoGovernance struct {
 
 type PqcReadinessClockItemsItem struct {
 	BlastRadius       *enums.PqcBlastRadius    `json:"blast_radius,omitempty"`
+	BlockedExternal   interface{}              `json:"blocked_external,omitempty"`
 	DeprecatedAfter   interface{}              `json:"deprecated_after,omitempty"`
 	DisallowedAfter   interface{}              `json:"disallowed_after"`
 	FactIds           []string                 `json:"fact_ids"`
@@ -89,6 +90,7 @@ type PqcReadinessProvenanceSummary struct {
 type PqcReadinessRemediationsItem struct {
 	Action            string                       `json:"action"`
 	BlastRadius       *enums.PqcBlastRadius        `json:"blast_radius,omitempty"`
+	BlockedExternal   *bool                        `json:"blocked_external,omitempty"`
 	BlockedOn         interface{}                  `json:"blocked_on,omitempty"`
 	Category          enums.PqcRemediationCategory `json:"category"`
 	Deadline          interface{}                  `json:"deadline,omitempty"`

@@ -150,7 +150,7 @@ func (s *sqlStore) resolve(ctx context.Context, record BindingRecord) ([]byte, e
 	if len(record.References) == 0 {
 		return nil, wrap(OperationRead, PhaseRead, ErrNotFound)
 	}
-	meta := ObjectMeta{Digest: record.Digest, Size: record.ByteSize, ArtifactName: record.ArtifactName, ContractsVersion: storageFormatVersion}
+	meta := ObjectMeta{Digest: record.Digest, Size: record.ByteSize, ArtifactName: record.ArtifactName}
 	var failures []error
 	corrupt := false
 	for _, reference := range record.References {

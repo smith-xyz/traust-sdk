@@ -3,15 +3,14 @@ package skills
 import "context"
 
 // SkillMeta identifies a skill invocation to the Provider. It carries the skill
-// name and the contracts version so the Provider can route or version-stamp as
+// name and the pinned contracts commit so the Provider can route or stamp as
 // needed without importing schema packages.
 type SkillMeta struct {
 	// Name is the harness skill identifier (e.g. NameScan, NameTriage).
 	Name string
 
-	// ContractsVersion is the traust-contracts semver these types were
-	// generated from (e.g. "0.3.0").
-	ContractsVersion string
+	// ContractsRef is the traust-contracts commit these types were generated from.
+	ContractsRef string
 }
 
 // Provider runs a skill somewhere and returns the raw result bytes.

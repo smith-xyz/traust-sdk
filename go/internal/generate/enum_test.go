@@ -34,7 +34,7 @@ func writeEnumDef(t *testing.T, dir, body string) string {
 func TestGenerateEnumSanitisesValues(t *testing.T) {
 	dir := t.TempDir()
 	src := writeEnumDef(t, dir, `{"name": "assessment_basis", "values": ["source", "sbom-only", "source+runtime"]}`)
-	if err := generateEnum(src, dir); err != nil {
+	if err := generateEnum(src, dir, "test-ref"); err != nil {
 		t.Fatalf("generateEnum: %v", err)
 	}
 	out, err := os.ReadFile(filepath.Join(dir, "assessment_basis.go"))
@@ -49,8 +49,30 @@ func TestGenerateEnumSanitisesValues(t *testing.T) {
 func TestGenerateEnumRejectsConstantCollision(t *testing.T) {
 	dir := t.TempDir()
 	src := writeEnumDef(t, dir, `{"name": "clash", "values": ["a+b", "a-b"]}`)
-	err := generateEnum(src, dir)
+	err := generateEnum(src, dir, "test-ref")
 	if err == nil || !strings.Contains(err.Error(), "both map to constant") {
 		t.Fatalf("want collision error, got %v", err)
+	}
+}
+
+func TestGenerateEnumSuffixesLowercaseCaseVariants(t *testing.T) {
+	dir := t.TempDir()
+	src := writeEnumDef(t, dir, `{"name": "effort", "values": ["S", "M", "s", "m", "xl"]}`)
+	if err := generateEnum(src, dir, "test-ref"); err != nil {
+		t.Fatalf("generateEnum: %v", err)
+	}
+	out, err := os.ReadFile(filepath.Join(dir, "effort.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`EffortS      Effort = "S"`,
+		`EffortSLower Effort = "s"`,
+		`EffortMLower Effort = "m"`,
+		`EffortXlLower Effort = "xl"`,
+	} {
+		if !strings.Contains(strings.Join(strings.Fields(string(out)), " "), strings.Join(strings.Fields(want), " ")) {
+			t.Fatalf("missing %q:\n%s", want, out)
+		}
 	}
 }

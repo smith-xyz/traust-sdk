@@ -23,8 +23,7 @@ const (
 // IngestMeta carries routing metadata that the Provider needs to dispatch a
 // human-lane submission.
 type IngestMeta struct {
-	Kind             IngestKind
-	ContractsVersion string
+	Kind IngestKind
 }
 
 // Provider submits validated payloads to the platform and returns raw response

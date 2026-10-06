@@ -67,6 +67,16 @@ func (p *StaticProvider) WithEventsResponse(layerID string, resp ledger.EventsRe
 	return p.withResponse(fmt.Sprintf("/v1/ledger/layers/%s/events", layerID), resp)
 }
 
+// WithLayerListResponse sets the response for GET /v1/ledger/layers.
+func (p *StaticProvider) WithLayerListResponse(resp ledger.LayerListResponse) *StaticProvider {
+	return p.withResponse("/v1/ledger/layers", resp)
+}
+
+// WithFindLayerResponse sets the response for GET /v1/ledger/layers?product_repo_id=.
+func (p *StaticProvider) WithFindLayerResponse(productRepoID string, resp ledger.LayerListResponse) *StaticProvider {
+	return p.withResponse("/v1/ledger/layers?product_repo_id="+productRepoID, resp)
+}
+
 // WithError makes all Query calls return the given error.
 func (p *StaticProvider) WithError(err error) *StaticProvider {
 	p.err = err

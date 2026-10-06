@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -318,7 +319,9 @@ func isRowQuery(name string) bool {
 	if multiRowGetQuery(name) {
 		return false
 	}
-	return strings.HasSuffix(name, ".exists.sql") || strings.HasSuffix(name, ".get.sql")
+	return strings.HasSuffix(name, ".exists.sql") ||
+		strings.HasSuffix(name, ".get.sql") ||
+		strings.HasSuffix(name, ".find.sql")
 }
 
 // isRowsQuery reports multi-row reads. Contracts reserve `.list.sql` for scoped
@@ -415,50 +418,46 @@ func rewriteSQL(s, d string) ([]string, string) {
 	})
 	return names, strings.TrimSpace(out)
 }
+
+// firstTables and viewOrder mirror bootstrap_files in traust-contracts
+// storage/sql.py (first_tables and VIEW_ORDER); the two must stay in step.
+// PostgreSQL resolves foreign keys and view references at CREATE time, so
+// alphabetical order fails there while silently succeeding on SQLite.
+var (
+	firstTables = []string{
+		"product.sql",
+		"repo.sql",
+		"product_repo.sql",
+		"artifact_evidence.sql",
+		"artifact_binding.sql",
+		"artifact_location.sql",
+	}
+	viewOrder = []string{
+		"binding_current.sql",
+		"report_current.sql",
+		"ownership_current.sql",
+		"current_finding.sql",
+		"threat_current.sql",
+		"validation_current.sql",
+		"finding_first_seen.sql",
+		"finding_timeline.sql",
+		"pqc_posture.sql",
+		"sla_clock.sql",
+		"sla_threshold.sql",
+		"pattern_exposure.sql",
+		"attack_coverage.sql",
+	}
+)
+
 func bootstrapRank(section, name string) int {
-	// Views that other views select FROM must be created first.
-	// Alphabetical order is NOT dependency order: current_finding sorts
-	// before report_current but selects from it, and PostgreSQL resolves a
-	// view's references at CREATE time while SQLite does not -- so the
-	// alphabetical order failed only on PostgreSQL. Mirrors VIEW_ORDER in
-	// traust-contracts sql.py; the two must stay in step.
+	order := firstTables
 	if section == "views" {
-		switch name {
-		case "binding_current.sql":
-			return 0
-		case "report_current.sql":
-			return 1
-		case "ownership_current.sql":
-			return 2
-		case "current_finding.sql":
-			return 3
-		case "threat_current.sql":
-			return 4
-		case "finding_first_seen.sql":
-			return 5
-		case "finding_timeline.sql":
-			return 6
-		case "pqc_posture.sql":
-			return 7
-		case "sla_clock.sql":
-			return 8
-		case "sla_threshold.sql":
-			return 9
-		default:
-			return 10
-		}
+		order = viewOrder
 	}
-	if section != "schema" {
-		return 2
+	if i := slices.Index(order, name); i >= 0 {
+		return i
 	}
-	switch name {
-	case "artifact_evidence.sql":
-		return 0
-	case "artifact_binding.sql":
-		return 1
-	default:
-		return 2
-	}
+	return len(order)
 }
 
 func splitStatements(s string) ([]string, error) {
