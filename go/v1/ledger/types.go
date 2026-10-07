@@ -88,7 +88,19 @@ type ListEventsOpts struct {
 	Offset     int
 }
 
+// LayerRef names a layer and the storage product_repo it belongs to. File-backed
+// ledgers carry no product_repo.
+type LayerRef struct {
+	LayerID       string  `json:"layer_id"`
+	ProductRepoID *string `json:"product_repo_id,omitempty"`
+}
+
 // LayerListResponse is returned by GET /v1/ledger/layers.
 type LayerListResponse struct {
-	Layers []string `json:"layers"`
+	Layers []LayerRef `json:"layers"`
+}
+
+// InitializeResponse is returned by POST /v1/ledger/layers/{layer_id}/initialize.
+type InitializeResponse struct {
+	LayerID string `json:"layer_id"`
 }

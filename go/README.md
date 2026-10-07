@@ -142,6 +142,18 @@ resp, err = client.SubmitCountersign(ctx, ledger.CountersignInput{
 signResp, err := client.SignLayer(ctx, "repo-a", ledger.SignOpts{})
 ```
 
+Layers are created explicitly, each under the storage product_repo it belongs
+to, and found again by that product_repo:
+
+```go
+_, err = client.InitializeLayer(ctx, "repo-a", ledger.InitializeInput{
+    ProductRepoID: &productRepoID,
+    Layer:         shell, // complete types.Layer with metadata and no events
+})
+ref, found, err := client.FindLayer(ctx, productRepoID) // found=false on 404
+layers, err := client.ListLayers(ctx)                   // []LayerRef{LayerID, ProductRepoID}
+```
+
 Machine-lane report kinds: `triage`, `validation`. Human-lane event kinds:
 `countersign`, `severity`. Additional operations: `BatchSubmit`,
 `ResolveReviewItem`, `ComputeFingerprints`, `StampEventIdentities`, and
@@ -262,6 +274,27 @@ and a client built without a resolver with `storage.ErrNoResolver`.
 `GetBinding` returns the role, references and `ByteSize` without fetching.
 `SaveResult.AlreadyBound` reports only whether that binding existed;
 evidence-level deduplication remains private.
+
+The registry anchors artifacts to what a product ships. Register products, repos
+and the product_repo pairing (ref `""` is the default branch); each call is
+idempotent on its natural key and returns the stored ID. `FindProductRepo` reads
+without creating, so loaders can reject what the registry does not know:
+
+```go
+productID, err := client.RegisterProduct(ctx, "volsync", nil)
+repoID, err := client.RegisterRepo(ctx, "https://github.com/backube/volsync")
+productRepoID, err := client.RegisterProductRepo(ctx, storage.ProductRepo{
+    ProductID: productID, RepoID: repoID, Ref: "release-0.14",
+})
+id, found, err := client.FindProductRepo(ctx, "volsync", "https://github.com/backube/volsync", "release-0.14")
+```
+
+`RegisterProductRepoVersion` and `RegisterRepoOwner` record inventory
+attributes and refresh on re-registration. `Binding.ProductRepoID` attaches an
+artifact to a registered product_repo (a foreign key) and `Binding.CommitSHA`
+records the commit it describes. Neither is part of the binding ID; a re-save
+must repeat both, and a supersession must keep the product_repo while the commit
+may change.
 
 `Binding.Role` separates bindings that are otherwise identical, such as a
 `report` that is the `baseline` audit and one that is its `cumulative`

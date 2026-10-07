@@ -50,7 +50,7 @@ type httpAdapter struct {
 }
 
 func (a *httpAdapter) Ingest(ctx context.Context, meta IngestMeta, payload []byte) ([]byte, error) {
-	return a.t.Ingest(ctx, string(meta.Kind), meta.ContractsVersion, payload)
+	return a.t.Ingest(ctx, string(meta.Kind), payload)
 }
 
 func (a *httpAdapter) Submit(ctx context.Context, layerID string, payload []byte) ([]byte, error) {

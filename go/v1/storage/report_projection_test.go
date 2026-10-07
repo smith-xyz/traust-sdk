@@ -26,7 +26,7 @@ func populatedReport(t *testing.T) []byte {
 				"attack_pattern": "Synthetic pattern", "cvss": map[string]any{"score": 8.1, "vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"},
 				"evidence":           []any{map[string]any{"code": "synthetic", "language": "text"}},
 				"effective_severity": "critical", "origin": "vuln-scan", "source_findings": []any{"source:FIND-001"},
-				"passes": []any{1, 2}, "remediation_effort": "moderate", "pqc_classification": "pqc-adoption",
+				"passes": []any{1, 2}, "remediation_effort": "moderate", "blocked_external": true, "pqc_classification": "pqc-adoption",
 				"isolation_boundary": "test-boundary", "isolation_dimensions": []any{"privilege"},
 				"dependency": map[string]any{"advisory": "TEST-001", "module": "test-module"},
 				"disposition": map[string]any{
@@ -79,7 +79,10 @@ func checkReportProjection(t *testing.T, client *Client, db *sql.DB, prefix stri
 		"peach_references": true, "capec": true, "cvss": true, "evidence": true,
 		"source_findings": true, "passes": true, "isolation_dimensions": true, "dependency": true,
 	}
-	flagFields := map[string]bool{"conflict": true, "fp_overridden": true, "fp_reassertion_blocked": true, "refuted_awaiting_signoff": true}
+	flagFields := map[string]bool{
+		"conflict": true, "fp_overridden": true, "fp_reassertion_blocked": true,
+		"refuted_awaiting_signoff": true, "blocked_external": true,
+	}
 	count := 0
 	for rows.Next() {
 		if count >= len(findings) {

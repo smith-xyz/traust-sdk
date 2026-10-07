@@ -8,10 +8,9 @@ import (
 // ObjectMeta describes the exact bytes a Resolver is asked to fetch.
 // Digest and Size are what the bytes must match; the rest is advisory.
 type ObjectMeta struct {
-	Digest           string
-	Size             int64
-	ArtifactName     string
-	ContractsVersion string
+	Digest       string
+	Size         int64
+	ArtifactName string
 }
 
 // Resolver fetches artifact bytes from a location the caller registered at Save.

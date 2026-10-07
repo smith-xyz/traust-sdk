@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.48.1. DO NOT EDIT.
+// Code generated from traust-contracts 6501442e448bb5a78b7e58c6745d0eea37d0e7ac. DO NOT EDIT.
 
 package types
 
@@ -151,6 +151,7 @@ type ReportDispositionSeverityOverride struct {
 type ReportFinding struct {
 	AsvsReferences      []string                   `json:"asvs_references,omitempty"`
 	AttackPattern       *string                    `json:"attack_pattern,omitempty"`
+	BlockedExternal     *bool                      `json:"blocked_external,omitempty"`
 	Capec               []string                   `json:"capec,omitempty"`
 	Category            *string                    `json:"category,omitempty"`
 	Cvss                *ReportFindingCvss         `json:"cvss,omitempty"`
@@ -226,10 +227,11 @@ type ReportMetadataLocBreakdown struct {
 }
 
 type RoadmapItem struct {
-	Action    string   `json:"action"`
-	Addresses []string `json:"addresses"`
-	Effort    *string  `json:"effort,omitempty"`
-	Priority  string   `json:"priority"`
+	Action          string   `json:"action"`
+	Addresses       []string `json:"addresses"`
+	BlockedExternal *bool    `json:"blocked_external,omitempty"`
+	Effort          *string  `json:"effort,omitempty"`
+	Priority        string   `json:"priority"`
 }
 
 type ScannerEntry struct {

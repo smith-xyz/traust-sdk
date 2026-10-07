@@ -100,3 +100,11 @@ type SeverityInput struct {
 type SignOpts struct {
 	Rekor bool
 }
+
+// InitializeInput is the body for POST /v1/ledger/layers/{layer_id}/initialize:
+// a complete layer shell and the storage product_repo it belongs to. Database
+// ledgers require ProductRepoID; file ledgers accept nil.
+type InitializeInput struct {
+	ProductRepoID *string     `json:"product_repo_id"`
+	Layer         types.Layer `json:"layer"`
+}

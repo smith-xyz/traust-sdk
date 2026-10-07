@@ -19,6 +19,11 @@ type Binding struct {
 	// "baseline" audit or its "cumulative" restatement. Allowed values come
 	// from the artifact's profile; it is part of the binding identity.
 	Role *string `json:"role,omitempty"`
+	// ProductRepoID is the registered product_repo that owns the artifact. It
+	// is not part of the binding identity and must match across a supersession.
+	ProductRepoID *string `json:"product_repo_id,omitempty"`
+	// CommitSHA is the commit the artifact describes; not part of the identity.
+	CommitSHA *string `json:"commit_sha,omitempty"`
 }
 
 type BindingRecord struct {
@@ -69,6 +74,8 @@ func validateBinding(binding Binding, requirements bindingRequirements) error {
 		binding.LayerID,
 		binding.SupersedesBindingID,
 		binding.Role,
+		binding.ProductRepoID,
+		binding.CommitSHA,
 	} {
 		if value != nil && !validBindingText(*value) {
 			return ErrInvalidIdentifier

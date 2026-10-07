@@ -1,4 +1,4 @@
-// Code generated from traust-contracts v0.48.1. DO NOT EDIT.
+// Code generated from traust-contracts 6501442e448bb5a78b7e58c6745d0eea37d0e7ac. DO NOT EDIT.
 
 package types
 
@@ -55,10 +55,11 @@ type HistoryEntry struct {
 }
 
 type Mitigation struct {
-	ClosesClass enums.MitigationClosesClass `json:"closes_class"`
-	Effort      enums.MitigationEffort      `json:"effort"`
-	Mitigation  string                      `json:"mitigation"`
-	ThreatIds   []string                    `json:"threat_ids"`
+	BlockedExternal *bool                       `json:"blocked_external,omitempty"`
+	ClosesClass     enums.MitigationClosesClass `json:"closes_class"`
+	Effort          enums.MitigationEffort      `json:"effort"`
+	Mitigation      string                      `json:"mitigation"`
+	ThreatIds       []string                    `json:"threat_ids"`
 }
 
 type OwaspRiskRating struct {

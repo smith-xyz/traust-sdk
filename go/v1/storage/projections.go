@@ -48,6 +48,13 @@ func optionalProjectionText(value any) (*string, error) {
 	return &text, nil
 }
 
+// projectedText escapes NULs, which PostgreSQL TEXT cannot store, so the
+// projection stays portable across dialects (contracts _projected_text).
+func projectedText(value string) *string {
+	escaped := strings.ReplaceAll(value, "\x00", `\u0000`)
+	return &escaped
+}
+
 func projectionJSON(value any) (string, error) {
 	payload, err := json.Marshal(value)
 	if err != nil {
@@ -121,23 +128,56 @@ func (s *sqlStore) projectLayer(
 			value := string(*event.Disposition.Resolution)
 			resolution = &value
 		}
-		if err := s.queries.layerEventUpsert(ctx, conn, layerEventUpsertParams{
-			bindingId:       state.bindingID,
-			artifactDigest:  state.digest,
-			eventId:         event.EventId,
-			findingRef:      event.FindingRef,
-			fingerprint:     event.Fingerprint,
-			fingerprintAlgo: event.FingerprintAlgo,
-			recordedAt:      event.RecordedAt,
-			occurredAt:      event.OccurredAt,
-			sourceType:      &source,
-			sourceRef:       &event.Source.Ref,
-			actorKind:       &actorKind,
-			validity:        validity,
-			resolution:      resolution,
-			evidenceGrade:   event.EvidenceGrade,
-			autoAcceptTier:  optionalBoolAsInt(event.AutoAcceptTier),
-		}); err != nil {
+		params := layerEventUpsertParams{
+			bindingId:        state.bindingID,
+			artifactDigest:   state.digest,
+			eventId:          event.EventId,
+			findingRef:       event.FindingRef,
+			fingerprint:      event.Fingerprint,
+			fingerprintAlgo:  event.FingerprintAlgo,
+			recordedAt:       event.RecordedAt,
+			occurredAt:       event.OccurredAt,
+			sourceType:       &source,
+			sourceRef:        &event.Source.Ref,
+			actorKind:        &actorKind,
+			validity:         validity,
+			resolution:       resolution,
+			evidenceGrade:    event.EvidenceGrade,
+			autoAcceptTier:   optionalBoolAsInt(event.AutoAcceptTier),
+			rationale:        projectedText(event.Rationale),
+			harnessVersion:   event.HarnessVersion,
+			sourceReportedBy: event.Source.ReportedBy,
+			severity:         projectionEnum(event.Disposition.Severity),
+			embargo:          projectionEnum(event.Disposition.Embargo),
+		}
+		if risk := event.RiskWeight; risk != nil {
+			tenancy := string(risk.TenancyProfile)
+			params.riskLambda = &risk.Lambda
+			params.riskWeightsVersion = &risk.WeightsVersion
+			params.riskTenancyProfile = &tenancy
+			params.riskProfileSource = &risk.ProfileSource
+		}
+		var evidenceRefs any
+		if event.EvidenceRefs != nil {
+			evidenceRefs = event.EvidenceRefs
+		}
+		for _, field := range []struct {
+			name   projectionField
+			value  any
+			target **string
+		}{
+			{"evidence_refs", evidenceRefs, &params.evidenceRefs},
+			{"alias", event.Alias, &params.alias},
+			{"finding", event.Finding, &params.finding},
+			{"restatement", event.Restatement, &params.restatement},
+		} {
+			encoded, err := optionalProjectionJSON(field.value)
+			if err != nil {
+				return projectionError(projectionLayerEvent, field.name, err)
+			}
+			*field.target = encoded
+		}
+		if err := s.queries.layerEventUpsert(ctx, conn, params); err != nil {
 			return projectionError(projectionLayerEvent, projectionFieldRow, err)
 		}
 	}

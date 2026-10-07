@@ -24,15 +24,18 @@ var (
 	ErrEvidenceCorrupt      = errors.New("storage evidence digest mismatch")
 	ErrRoleNotAllowed       = errors.New("storage artifact role is not allowed")
 	ErrInvalidReference     = errors.New("storage artifact reference is invalid")
+	ErrRegistryValueMissing = errors.New("storage registry value is required")
+	ErrRegistryRowMissing   = errors.New("storage registry row not found after upsert")
 )
 
 type Operation string
 
 const (
-	OperationInit  Operation = "init"
-	OperationSave  Operation = "save"
-	OperationRead  Operation = "read"
-	OperationQuery Operation = "query"
+	OperationInit     Operation = "init"
+	OperationSave     Operation = "save"
+	OperationRead     Operation = "read"
+	OperationQuery    Operation = "query"
+	OperationRegister Operation = "register"
 )
 
 type Phase string
@@ -52,6 +55,7 @@ const (
 	PhaseProject   Phase = "project"
 	PhaseScope     Phase = "scope"
 	PhaseRead      Phase = "read"
+	PhaseRegistry  Phase = "registry"
 	PhaseCommit    Phase = "commit"
 )
 

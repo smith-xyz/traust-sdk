@@ -32,7 +32,7 @@ type Skill[In, Out any] struct {
 //	var MySkill = skills.NewSkill[MyInput, types.Report]("my-custom-audit", "", "report")
 func NewSkill[In, Out any](name, inputSchema, outputSchema string) Skill[In, Out] {
 	return Skill[In, Out]{
-		Meta:         SkillMeta{Name: name, ContractsVersion: types.ContractsVersion},
+		Meta:         SkillMeta{Name: name, ContractsRef: types.ContractsRef},
 		inputSchema:  inputSchema,
 		outputSchema: outputSchema,
 	}

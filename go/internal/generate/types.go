@@ -206,7 +206,7 @@ func pruneRenamedSchemaFiles(filenames []string, outDir string) error {
 
 func generateArtifactConstructors(filenames []string, outDir, version string) error {
 	var b strings.Builder
-	fmt.Fprintf(&b, "// Code generated from traust-contracts v%s. DO NOT EDIT.\n\npackage types\n\n", version)
+	fmt.Fprintf(&b, "// Code generated from traust-contracts %s. DO NOT EDIT.\n\npackage types\n\n", version)
 	b.WriteString("import \"encoding/json\"\n\n")
 	for _, filename := range filenames {
 		schema := strings.TrimSuffix(filename, ".schema.json")
@@ -356,7 +356,7 @@ func (fg *fileGen) emit() (string, error) {
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "// Code generated from traust-contracts v%s. DO NOT EDIT.\n\n", fg.version)
+	fmt.Fprintf(&b, "// Code generated from traust-contracts %s. DO NOT EDIT.\n\n", fg.version)
 	fmt.Fprint(&b, "package types\n\n")
 
 	if fg.usesEnums {

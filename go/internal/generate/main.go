@@ -41,7 +41,7 @@ func main() {
 			continue
 		}
 		src := filepath.Join(*enumsDir, entry.Name())
-		if err := generateEnum(src, *outDir); err != nil {
+		if err := generateEnum(src, *outDir, *contractsRef); err != nil {
 			log.Fatalf("generating from %s: %v", entry.Name(), err)
 		}
 		generated = append(generated, entry.Name())
@@ -65,19 +65,17 @@ func main() {
 		if err != nil {
 			log.Fatalf("loading enum mappings: %v", err)
 		}
-		contractsVersion := readVersion(filepath.Join(*schemasDir, "..", "..", "VERSION"))
-		if err := GenerateTypes(schemas, enumMappings, enumsPkg, *typesDir, contractsVersion); err != nil {
+		if err := GenerateTypes(schemas, enumMappings, enumsPkg, *typesDir, *contractsRef); err != nil {
 			log.Fatalf("generating types: %v", err)
 		}
-		if err := generateVersionFile(*typesDir, contractsVersion); err != nil {
+		if err := generateVersionFile(*typesDir, *contractsRef); err != nil {
 			log.Fatalf("generating version.go: %v", err)
 		}
 		fmt.Printf("generated %d type files in %s\n", len(schemas), *typesDir)
 	}
 
 	if *schemasDir != "" && *validateFile != "" {
-		contractsVersion := readVersion(filepath.Join(*schemasDir, "..", "..", "VERSION"))
-		if err := GenerateSchemasEmbed(*schemasDir, *validateFile, contractsVersion); err != nil {
+		if err := GenerateSchemasEmbed(*schemasDir, *validateFile, *contractsRef); err != nil {
 			log.Fatalf("generating schemas embed: %v", err)
 		}
 		fmt.Printf("generated schemas map in %s\n", *validateFile)
@@ -91,19 +89,13 @@ func main() {
 	}
 }
 
-func generateVersionFile(typesDir, contractsVersion string) error {
+// generateVersionFile records the pinned traust-contracts commit the SDK was generated from.
+func generateVersionFile(typesDir, contractsRef string) error {
 	content := fmt.Sprintf(
-		"// Code generated from traust-contracts v%s. DO NOT EDIT.\n\npackage types\n\nconst ContractsVersion = %q\n",
-		contractsVersion, contractsVersion,
+		"// Code generated from traust-contracts %s. DO NOT EDIT.\n\npackage types\n\n"+
+			"// ContractsRef is the pinned traust-contracts commit.\nconst ContractsRef = %q\n",
+		contractsRef, contractsRef,
 	)
 	path := filepath.Join(typesDir, "version.go")
 	return formatAndWrite(path, []byte(content))
-}
-
-func readVersion(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(data))
 }

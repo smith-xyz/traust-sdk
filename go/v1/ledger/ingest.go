@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/traust-security/traust-sdk/go/v1/ledger/internal/check"
-	"github.com/traust-security/traust-sdk/go/v1/types"
 	"github.com/traust-security/traust-sdk/go/v1/validate"
 )
 
@@ -22,10 +21,7 @@ func (o submissionOp[In]) Submit(ctx context.Context, p Provider, in In) (Submit
 		return zero, ingestErr(o.kind, PhaseMarshal, err)
 	}
 
-	resp, err := p.Ingest(ctx, IngestMeta{
-		Kind:             o.kind,
-		ContractsVersion: types.ContractsVersion,
-	}, raw)
+	resp, err := p.Ingest(ctx, IngestMeta{Kind: o.kind}, raw)
 	return decodeSubmitResponse(resp, err, o.kind)
 }
 
