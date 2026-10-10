@@ -35,7 +35,7 @@ func (c *Client) SubmitVerificationReport(ctx context.Context, in VerificationRe
 	return verificationOp.Submit(ctx, c.p, in)
 }
 
-// BatchSubmit sends pre-formed events via POST /v1/ledger/layers/{layer_id}/submit.
+// BatchSubmit sends pre-formed events via POST /v1/ledger/layer/submit?layer_id=.
 func (c *Client) BatchSubmit(ctx context.Context, layerID string, input BatchSubmitInput) (SubmitResponse, error) {
 	return BatchSubmit(ctx, c.p, layerID, input)
 }
@@ -86,7 +86,7 @@ func (c *Client) Health(ctx context.Context) (HealthResponse, error) {
 
 // GetLayer returns the full layer document for layerID.
 func (c *Client) GetLayer(ctx context.Context, layerID string) (types.Layer, error) {
-	path := fmt.Sprintf("/v1/ledger/layers/%s", layerID)
+	path := LayerPath(LayerOpDocument, layerID, nil)
 	body, err := c.p.Query(ctx, http.MethodGet, path)
 	if err != nil {
 		return types.Layer{}, fmt.Errorf("query: get layer: %w", err)
@@ -101,7 +101,7 @@ func (c *Client) GetLayer(ctx context.Context, layerID string) (types.Layer, err
 
 // GetFindings returns resolved finding dispositions for layerID.
 func (c *Client) GetFindings(ctx context.Context, layerID string) (FindingsResponse, error) {
-	path := fmt.Sprintf("/v1/ledger/layers/%s/findings", layerID)
+	path := LayerPath(LayerOpFindings, layerID, nil)
 	body, err := c.p.Query(ctx, http.MethodGet, path)
 	if err != nil {
 		return FindingsResponse{}, fmt.Errorf("query: get findings: %w", err)
@@ -145,7 +145,6 @@ func (c *Client) ListFindings(ctx context.Context, opts ListFindingsOpts) (BulkF
 
 // ListEvents returns the raw event log for layerID with optional filtering.
 func (c *Client) ListEvents(ctx context.Context, layerID string, opts ListEventsOpts) (EventsResponse, error) {
-	path := fmt.Sprintf("/v1/ledger/layers/%s/events", layerID)
 	values := url.Values{}
 	if opts.FindingRef != nil && *opts.FindingRef != "" {
 		values.Set("finding_ref", *opts.FindingRef)
@@ -159,9 +158,7 @@ func (c *Client) ListEvents(ctx context.Context, layerID string, opts ListEvents
 	if opts.Offset > 0 {
 		values.Set("offset", strconv.Itoa(opts.Offset))
 	}
-	if encoded := values.Encode(); encoded != "" {
-		path += "?" + encoded
-	}
+	path := LayerPath(LayerOpEvents, layerID, values)
 
 	body, err := c.p.Query(ctx, http.MethodGet, path)
 	if err != nil {
@@ -177,10 +174,11 @@ func (c *Client) ListEvents(ctx context.Context, layerID string, opts ListEvents
 
 // VerifyLayer checks layer integrity and optional signatures.
 func (c *Client) VerifyLayer(ctx context.Context, layerID string, opts VerifyOpts) (VerifyResponse, error) {
-	path := fmt.Sprintf("/v1/ledger/layers/%s/verify", layerID)
+	values := url.Values{}
 	if opts.CheckSignatures {
-		path += "?check_signatures=true"
+		values.Set("check_signatures", "true")
 	}
+	path := LayerPath(LayerOpVerify, layerID, values)
 
 	body, err := c.p.Query(ctx, http.MethodGet, path)
 	if err != nil {

@@ -2,6 +2,26 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.20.0]
+
+### Changed (breaking)
+
+- **Layer calls are query-addressed.** `GetLayer`, `GetFindings`, `ListEvents`,
+  `VerifyLayer`, `BatchSubmit`, `ResolveReviewItem`, `StampEventIdentities` and
+  `SignLayer` now call `/v1/ledger/layer<op>?layer_id=…` instead of splicing the
+  ID into `/v1/ledger/layers/{layer_id}…`. The ID is query-encoded, so opaque
+  database IDs with `:` and `/` (migrated corpus layers such as
+  `corpus:layer:<subject>`) reach the right layer. **Requires traust-ledger
+  0.10.0** (traust-ledger#71); older services do not serve these routes.
+  Countersign/severity (`POST /v1/ledger/events`) and `InitializeLayer` are
+  unchanged.
+
+### Added
+
+- `ledger.LayerPath(op, layerID, extra)` and `LayerOp*` constants: the single
+  route builder, also used by the `querytest`/`ingesttest` doubles so canned
+  responses match the exact path the client sends.
+
 ## [0.19.0]
 
 Unreleased registry reader review candidate; no release or ledger activation.

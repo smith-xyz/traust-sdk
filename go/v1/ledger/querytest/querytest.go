@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/traust-security/traust-sdk/go/v1/enums"
@@ -42,14 +43,14 @@ func (p *StaticProvider) WithHealthResponse(resp ledger.HealthResponse) *StaticP
 	return p.withResponse("/healthz", resp)
 }
 
-// WithLayerResponse sets the response for GET /v1/ledger/layers/{layerID}.
+// WithLayerResponse sets the response for GET /v1/ledger/layer?layer_id={layerID}.
 func (p *StaticProvider) WithLayerResponse(layerID string, resp types.Layer) *StaticProvider {
-	return p.withResponse(fmt.Sprintf("/v1/ledger/layers/%s", layerID), resp)
+	return p.withResponse(ledger.LayerPath(ledger.LayerOpDocument, layerID, nil), resp)
 }
 
-// WithFindingsResponse sets the response for GET /v1/ledger/layers/{layerID}/findings.
+// WithFindingsResponse sets the response for GET /v1/ledger/layer/findings?layer_id={layerID}.
 func (p *StaticProvider) WithFindingsResponse(layerID string, resp ledger.FindingsResponse) *StaticProvider {
-	return p.withResponse(fmt.Sprintf("/v1/ledger/layers/%s/findings", layerID), resp)
+	return p.withResponse(ledger.LayerPath(ledger.LayerOpFindings, layerID, nil), resp)
 }
 
 // WithBulkFindingsResponse sets the response for GET /v1/ledger/findings.
@@ -57,14 +58,14 @@ func (p *StaticProvider) WithBulkFindingsResponse(resp ledger.BulkFindingsRespon
 	return p.withResponse("/v1/ledger/findings", resp)
 }
 
-// WithVerifyResponse sets the response for GET /v1/ledger/layers/{layerID}/verify.
+// WithVerifyResponse sets the response for GET /v1/ledger/layer/verify?layer_id={layerID}.
 func (p *StaticProvider) WithVerifyResponse(layerID string, resp ledger.VerifyResponse) *StaticProvider {
-	return p.withResponse(fmt.Sprintf("/v1/ledger/layers/%s/verify", layerID), resp)
+	return p.withResponse(ledger.LayerPath(ledger.LayerOpVerify, layerID, nil), resp)
 }
 
-// WithEventsResponse sets the response for GET /v1/ledger/layers/{layerID}/events.
+// WithEventsResponse sets the response for GET /v1/ledger/layer/events?layer_id={layerID}.
 func (p *StaticProvider) WithEventsResponse(layerID string, resp ledger.EventsResponse) *StaticProvider {
-	return p.withResponse(fmt.Sprintf("/v1/ledger/layers/%s/events", layerID), resp)
+	return p.withResponse(ledger.LayerPath(ledger.LayerOpEvents, layerID, nil), resp)
 }
 
 // WithLayerListResponse sets the response for GET /v1/ledger/layers.
@@ -93,7 +94,13 @@ func (p *StaticProvider) Query(_ context.Context, method, path string) ([]byte, 
 		return resp, nil
 	}
 	if i := strings.Index(path, "?"); i >= 0 {
-		if resp, ok := p.responses[path[:i]]; ok {
+		// Layer routes are keyed by path plus layer_id; other query options
+		// (limit, offset, filters) do not change the canned response.
+		key := path[:i]
+		if values, err := url.ParseQuery(path[i+1:]); err == nil && values.Has("layer_id") {
+			key += "?" + url.Values{"layer_id": {values.Get("layer_id")}}.Encode()
+		}
+		if resp, ok := p.responses[key]; ok {
 			return resp, nil
 		}
 	}

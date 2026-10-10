@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/traust-security/traust-sdk/go/v1/ledger"
+	"github.com/traust-security/traust-sdk/go/v1/ledger/querytest"
 )
 
 func mustNoErr(t *testing.T, err error) {
@@ -20,11 +21,12 @@ func mustNoErr(t *testing.T, err error) {
 }
 
 func TestHTTPClient_BatchSubmitLane(t *testing.T) {
-	var gotPath string
+	var gotPath, gotLayer string
 	var body ledger.BatchSubmitInput
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
+		gotLayer = r.URL.Query().Get("layer_id")
 		raw, _ := io.ReadAll(r.Body)
 		mustNoErr(t, json.Unmarshal(raw, &body))
 		_, _ = w.Write([]byte(`{"id":"batch-ok","status":"accepted"}`))
@@ -44,7 +46,7 @@ func TestHTTPClient_BatchSubmitLane(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if gotPath != "/v1/ledger/layers/repo-a/submit" {
+	if gotPath != "/v1/ledger/layer/submit" || gotLayer != "repo-a" {
 		t.Fatalf("expected batch submit path, got %s", gotPath)
 	}
 	if body.SourceRef != "findings/repo-a/triage.json" {
@@ -162,7 +164,7 @@ func TestHTTPClient_ResolveAndFingerprint(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
 		switch r.URL.Path {
-		case "/v1/ledger/layers/repo-a/resolve":
+		case "/v1/ledger/layer/resolve":
 			_, _ = w.Write([]byte(`{"resolved":true,"key":"k"}`))
 		case "/v1/ledger/fingerprint":
 			_, _ = w.Write([]byte(`{"findings":[],"stamped_count":0}`))
@@ -206,7 +208,7 @@ func TestHTTPClient_SignLayer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if gotPath != "/v1/ledger/layers/repo-a/sign" {
+	if gotPath != "/v1/ledger/layer/sign" {
 		t.Fatalf("expected sign path, got %s", gotPath)
 	}
 	if gotMethod != "POST" {
@@ -233,7 +235,7 @@ func TestHTTPClient_SignLayerRekor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if gotQuery != "rekor=true" {
+	if gotQuery != "layer_id=repo-a&rekor=true" {
 		t.Fatalf("expected rekor=true query, got %q", gotQuery)
 	}
 }
@@ -307,5 +309,89 @@ func TestHTTPClient_KindInEnvelopeNotHeader(t *testing.T) {
 
 	if gotKindHeader != "" {
 		t.Fatal("kind should be in body envelope, not in headers")
+	}
+}
+
+// TestHTTPClient_OpaqueLayerIDRoundTrip proves every layer-addressed call carries a
+// migrated corpus ID (':' and '/') intact as the layer_id query value.
+func TestHTTPClient_OpaqueLayerIDRoundTrip(t *testing.T) {
+	const layerID = "corpus:layer:org/repo__main/repo__main"
+	type seen struct{ method, path, layerID string }
+	var got []seen
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, seen{r.Method, r.URL.Path, r.URL.Query().Get("layer_id")})
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	client := ledger.NewHTTPClient(srv.URL)
+	ctx := context.Background()
+	calls := []struct {
+		name   string
+		method string
+		path   string
+		call   func() error
+	}{
+		{"GetLayer", http.MethodGet, "/v1/ledger/layer", func() error {
+			_, err := client.GetLayer(ctx, layerID)
+			return err
+		}},
+		{"GetFindings", http.MethodGet, "/v1/ledger/layer/findings", func() error {
+			_, err := client.GetFindings(ctx, layerID)
+			return err
+		}},
+		{"ListEvents", http.MethodGet, "/v1/ledger/layer/events", func() error {
+			_, err := client.ListEvents(ctx, layerID, ledger.ListEventsOpts{Limit: 5})
+			return err
+		}},
+		{"VerifyLayer", http.MethodGet, "/v1/ledger/layer/verify", func() error {
+			_, err := client.VerifyLayer(ctx, layerID, ledger.VerifyOpts{CheckSignatures: true})
+			return err
+		}},
+		{"BatchSubmit", http.MethodPost, "/v1/ledger/layer/submit", func() error {
+			_, err := client.BatchSubmit(ctx, layerID, ledger.BatchSubmitInput{})
+			return err
+		}},
+		{"ResolveReviewItem", http.MethodPost, "/v1/ledger/layer/resolve", func() error {
+			_, err := client.ResolveReviewItem(ctx, layerID, ledger.ResolveInput{Key: "k"})
+			return err
+		}},
+		{"StampEventIdentities", http.MethodPost, "/v1/ledger/layer/stamp", func() error {
+			_, err := client.StampEventIdentities(ctx, layerID, ledger.StampInput{})
+			return err
+		}},
+		{"SignLayer", http.MethodPost, "/v1/ledger/layer/sign", func() error {
+			_, err := client.SignLayer(ctx, layerID, ledger.SignOpts{Rekor: true})
+			return err
+		}},
+	}
+	for _, tt := range calls {
+		t.Run(tt.name, func(t *testing.T) {
+			got = nil
+			if err := tt.call(); err != nil {
+				t.Fatalf("%s: %v", tt.name, err)
+			}
+			want := seen{tt.method, tt.path, layerID}
+			if len(got) != 1 || got[0] != want {
+				t.Fatalf("%s: got %+v, want %+v", tt.name, got, want)
+			}
+		})
+	}
+}
+
+// TestQueryTestDouble_MatchesOpaqueLayerRoutes keeps the querytest double aligned with
+// the query-addressed routes, including extra options such as limit.
+func TestQueryTestDouble_MatchesOpaqueLayerRoutes(t *testing.T) {
+	const layerID = "corpus:layer:org/repo__main/repo__main"
+	provider := querytest.NewStaticProvider().
+		WithEventsResponse(layerID, ledger.EventsResponse{LayerID: layerID, Total: 3})
+	resp, err := ledger.NewClient(provider).ListEvents(
+		context.Background(), layerID, ledger.ListEventsOpts{Limit: 2},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.LayerID != layerID || resp.Total != 3 {
+		t.Fatalf("unexpected response: %+v", resp)
 	}
 }
