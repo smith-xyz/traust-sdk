@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/traust-security/traust-sdk/go/v1/ledger/internal/check"
 	"github.com/traust-security/traust-sdk/go/v1/validate"
@@ -150,7 +151,7 @@ func validateReportField(raw []byte, schema string) error {
 	return nil
 }
 
-// BatchSubmit sends pre-formed events to POST /v1/ledger/layers/{layer_id}/submit.
+// BatchSubmit sends pre-formed events to POST /v1/ledger/layer/submit?layer_id=.
 func BatchSubmit(ctx context.Context, p Provider, layerID string, input BatchSubmitInput) (SubmitResponse, error) {
 	raw, err := json.Marshal(input)
 	if err != nil {
@@ -166,7 +167,7 @@ func ResolveReviewItem(ctx context.Context, p Provider, layerID string, input Re
 	if err != nil {
 		return ResolveResponse{}, fmt.Errorf("ingest resolve marshal: %w", err)
 	}
-	path := fmt.Sprintf("/v1/ledger/layers/%s/resolve", layerID)
+	path := LayerPath(LayerOpResolve, layerID, nil)
 	resp, err := p.Post(ctx, path, raw)
 	return decodeResolveResponse(resp, err)
 }
@@ -182,7 +183,7 @@ func ComputeFingerprints(ctx context.Context, p Provider, input FingerprintInput
 }
 
 // StampEventIdentities backfills event fingerprints on a layer via
-// POST /v1/ledger/layers/{layer_id}/stamp. The ledger stamps each event whose
+// POST /v1/ledger/layer/stamp?layer_id=. The ledger stamps each event whose
 // finding_ref appears in input.Fingerprints (never overwriting an existing
 // fingerprint) and re-signs the layer, returning the new root and count stamped.
 func StampEventIdentities(ctx context.Context, p Provider, layerID string, input StampInput) (StampResponse, error) {
@@ -190,17 +191,18 @@ func StampEventIdentities(ctx context.Context, p Provider, layerID string, input
 	if err != nil {
 		return StampResponse{}, fmt.Errorf("ingest stamp marshal: %w", err)
 	}
-	path := fmt.Sprintf("/v1/ledger/layers/%s/stamp", layerID)
+	path := LayerPath(LayerOpStamp, layerID, nil)
 	resp, err := p.Post(ctx, path, raw)
 	return decodeStampResponse(resp, err)
 }
 
 // SignLayer requests the ledger service to sign a layer's merkle tree.
 func SignLayer(ctx context.Context, p Provider, layerID string, opts SignOpts) (SignResponse, error) {
-	path := fmt.Sprintf("/v1/ledger/layers/%s/sign", layerID)
+	values := url.Values{}
 	if opts.Rekor {
-		path += "?rekor=true"
+		values.Set("rekor", "true")
 	}
+	path := LayerPath(LayerOpSign, layerID, values)
 	resp, err := p.Post(ctx, path, nil)
 	return decodeSignResponse(resp, err)
 }

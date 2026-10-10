@@ -78,9 +78,9 @@ func (p *StaticProvider) WithPostResponse(path string, resp interface{}) *Static
 	return p
 }
 
-// WithSignResponse sets the response for POST /v1/ledger/layers/{layerID}/sign.
+// WithSignResponse sets the response for POST /v1/ledger/layer/sign?layer_id={layerID}.
 func (p *StaticProvider) WithSignResponse(layerID string, resp ledger.SignResponse) *StaticProvider {
-	return p.WithPostResponse(fmt.Sprintf("/v1/ledger/layers/%s/sign", layerID), resp)
+	return p.WithPostResponse(ledger.LayerPath(ledger.LayerOpSign, layerID, nil), resp)
 }
 
 // WithError makes all Provider calls return the given error.

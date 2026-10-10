@@ -3,8 +3,8 @@
 // Wire contract:
 //
 //	POST /v1/ledger/events                        — human lane (countersign, severity)
-//	POST /v1/ledger/layers/{layer_id}/submit      — machine lane batch submit
-//	POST /v1/ledger/layers/{layer_id}/resolve     — resolve needs_review item
+//	POST /v1/ledger/layer/submit?layer_id=        — machine lane batch submit
+//	POST /v1/ledger/layer/resolve?layer_id=       — resolve needs_review item
 //	POST /v1/ledger/fingerprint                   — stamp finding fingerprints
 package transport
 
@@ -16,6 +16,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/traust-security/traust-sdk/go/v1/ledger/internal/route"
 )
 
 const eventsPath = "/v1/ledger/events"
@@ -86,9 +88,9 @@ func (p *HTTPProvider) Ingest(ctx context.Context, kind string, payload []byte) 
 	return p.post(ctx, eventsPath, body)
 }
 
-// Submit POSTs a batch-submit body to POST /v1/ledger/layers/{layer_id}/submit.
+// Submit POSTs a batch-submit body to POST /v1/ledger/layer/submit?layer_id=.
 func (p *HTTPProvider) Submit(ctx context.Context, layerID string, payload []byte) ([]byte, error) {
-	path := fmt.Sprintf("/v1/ledger/layers/%s/submit", layerID)
+	path := route.Layer(route.Submit, layerID, nil)
 	return p.post(ctx, path, payload)
 }
 

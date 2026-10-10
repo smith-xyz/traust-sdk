@@ -434,7 +434,7 @@ func TestSubmitTriageReport_SchemaValidation(t *testing.T) {
 }
 
 func TestResolveReviewItem_RoundTrip(t *testing.T) {
-	path := "/v1/ledger/layers/repo-a/resolve"
+	path := "/v1/ledger/layer/resolve?layer_id=repo-a"
 	provider := ingesttest.NewStaticProvider().
 		WithPostResponse(path, ledger.ResolveResponse{Resolved: true, Key: `["a","b","c","d"]`})
 	client := ledger.NewClient(provider)
@@ -456,7 +456,7 @@ func TestResolveReviewItem_RoundTrip(t *testing.T) {
 }
 
 func TestSignLayer_RoundTrip(t *testing.T) {
-	path := "/v1/ledger/layers/repo-a/sign"
+	path := "/v1/ledger/layer/sign?layer_id=repo-a"
 	provider := ingesttest.NewStaticProvider().
 		WithPostResponse(path, ledger.SignResponse{Status: "signed", Method: "cosign", LayerID: "repo-a"})
 	client := ledger.NewClient(provider)
@@ -474,7 +474,7 @@ func TestSignLayer_RoundTrip(t *testing.T) {
 }
 
 func TestSignLayer_WithRekor(t *testing.T) {
-	path := "/v1/ledger/layers/repo-a/sign?rekor=true"
+	path := "/v1/ledger/layer/sign?layer_id=repo-a&rekor=true"
 	provider := ingesttest.NewStaticProvider().
 		WithPostResponse(path, ledger.SignResponse{Status: "signed", Method: "cosign", LayerID: "repo-a"})
 	client := ledger.NewClient(provider)
@@ -542,7 +542,7 @@ func TestSubmitCountersign_RoundTrip(t *testing.T) {
 }
 
 func TestStampEventIdentities_RoundTrip(t *testing.T) {
-	path := "/v1/ledger/layers/repo-a/stamp"
+	path := "/v1/ledger/layer/stamp?layer_id=repo-a"
 	root := "root-abc"
 	provider := ingesttest.NewStaticProvider().
 		WithPostResponse(path, ledger.StampResponse{MerkleRoot: &root, LayerID: "repo-a", Stamped: 1})
