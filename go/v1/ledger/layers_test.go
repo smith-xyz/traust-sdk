@@ -7,10 +7,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/traust-security/traust-sdk/go/v1/enums"
 	"github.com/traust-security/traust-sdk/go/v1/ledger"
 	"github.com/traust-security/traust-sdk/go/v1/ledger/querytest"
+	"github.com/traust-security/traust-sdk/go/v1/types"
 )
 
 const productRepoID = "3f2b6c1e-8d4a-4e2b-9c1f-0a1b2c3d4e5f"
@@ -113,5 +117,102 @@ func TestListLayersDecodesProductRepoPairs(t *testing.T) {
 	mustNoErr(t, err)
 	if len(resp.Layers) != 2 || *resp.Layers[0].ProductRepoID != productRepoID || resp.Layers[1].ProductRepoID != nil {
 		t.Fatalf("layers = %+v", resp.Layers)
+	}
+	if calls := provider.Calls(); len(calls) != 1 || calls[0].Path != "/v1/ledger/layers" {
+		t.Fatalf("calls = %+v", calls)
+	}
+}
+
+func TestListLayersRendersPluggableFilters(t *testing.T) {
+	provider := querytest.NewStaticProvider().WithLayerListResponse(ledger.LayerListResponse{})
+	_, err := ledger.NewClient(provider).ListLayers(
+		context.Background(),
+		ledger.ReviewStatusIn("pending", "rejected"),
+		ledger.LayerIDs("layer-a", "layer-b"),
+		ledger.UpdatedSince(time.Date(2026, 10, 13, 16, 0, 0, 0, time.UTC)),
+		ledger.WithReviews(),
+	)
+	mustNoErr(t, err)
+	calls := provider.Calls()
+	if len(calls) != 1 {
+		t.Fatalf("calls = %+v", calls)
+	}
+	query := calls[0].Path
+	for _, want := range []string{
+		"filter=review_status%3Ain%3Apending%2Crejected",
+		"filter=layer_id%3Ain%3Alayer-a%2Clayer-b",
+		"filter=updated_at%3Agte%3A2026-10-13T16%3A00%3A00Z",
+		"include_reviews=true",
+	} {
+		if !strings.Contains(query, want) {
+			t.Fatalf("query %q missing %q", query, want)
+		}
+	}
+}
+
+func TestListLayersRawFilterPassesThrough(t *testing.T) {
+	provider := querytest.NewStaticProvider().WithLayerListResponse(ledger.LayerListResponse{})
+	_, err := ledger.NewClient(provider).ListLayers(
+		context.Background(),
+		ledger.RawFilter("merkle_epoch", "gte", "42"),
+	)
+	mustNoErr(t, err)
+	if calls := provider.Calls(); len(calls) != 1 || !strings.Contains(calls[0].Path, "filter=merkle_epoch%3Agte%3A42") {
+		t.Fatalf("calls = %+v", calls)
+	}
+}
+
+func TestListLayersRejectsInvalidFilters(t *testing.T) {
+	provider := querytest.NewStaticProvider().WithLayerListResponse(ledger.LayerListResponse{})
+	if _, err := ledger.NewClient(provider).ListLayers(context.Background(), ledger.ReviewStatus("")); err == nil {
+		t.Fatal("empty eq value should error")
+	}
+	if _, err := ledger.NewClient(provider).ListLayers(context.Background(), ledger.LayerIDs()); err == nil {
+		t.Fatal("empty in-list should error")
+	}
+	if _, err := ledger.NewClient(provider).ListLayers(context.Background(), ledger.LayerIDs("a", "b,c")); err == nil {
+		t.Fatal("separator in in-list member should error")
+	}
+	if _, err := ledger.NewClient(provider).ListLayers(context.Background(), ledger.UpdatedSince(time.Time{})); err == nil {
+		t.Fatal("zero timestamp should error")
+	}
+	if calls := provider.Calls(); len(calls) != 0 {
+		t.Fatalf("invalid filters must not reach the wire: %+v", calls)
+	}
+}
+
+func TestListLayersDecodesEmbeddedReviewItems(t *testing.T) {
+	status := enums.ReviewItemStatusPending
+	findingRef := "FIND-001"
+	owner := productRepoID
+	provider := querytest.NewStaticProvider().WithLayerListResponse(ledger.LayerListResponse{
+		Layers: []ledger.LayerRef{
+			{
+				LayerID:       "db-layer",
+				ProductRepoID: &owner,
+				NeedsReview: []types.ReviewItem{
+					{
+						Author:              "reporter@example.test",
+						QueuedAt:            "2026-10-13T16:00:00Z",
+						Quote:               "suspect",
+						SourceRef:           "scan-001",
+						Status:              status,
+						SuggestedFindingRef: &findingRef,
+					},
+				},
+			},
+		},
+	})
+	resp, err := ledger.NewClient(provider).ListLayers(
+		context.Background(),
+		ledger.ReviewStatus("pending"),
+	)
+	mustNoErr(t, err)
+	if len(resp.Layers) != 1 || len(resp.Layers[0].NeedsReview) != 1 {
+		t.Fatalf("layers = %+v", resp.Layers)
+	}
+	item := resp.Layers[0].NeedsReview[0]
+	if item.Status != status || item.SuggestedFindingRef == nil || *item.SuggestedFindingRef != findingRef {
+		t.Fatalf("item = %+v", item)
 	}
 }

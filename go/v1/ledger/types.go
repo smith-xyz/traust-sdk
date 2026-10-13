@@ -89,10 +89,12 @@ type ListEventsOpts struct {
 }
 
 // LayerRef names a layer and the storage product_repo it belongs to. File-backed
-// ledgers carry no product_repo.
+// ledgers carry no product_repo. NeedsReview is present only when the listing
+// requested review items (ReviewStatus / ReviewStatusIn / WithReviews).
 type LayerRef struct {
-	LayerID       string  `json:"layer_id"`
-	ProductRepoID *string `json:"product_repo_id,omitempty"`
+	LayerID       string             `json:"layer_id"`
+	ProductRepoID *string            `json:"product_repo_id,omitempty"`
+	NeedsReview   []types.ReviewItem `json:"needs_review,omitempty"`
 }
 
 // LayerListResponse is returned by GET /v1/ledger/layers.
