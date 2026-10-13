@@ -26,6 +26,7 @@ var (
 	ErrInvalidReference     = errors.New("storage artifact reference is invalid")
 	ErrRegistryValueMissing = errors.New("storage registry value is required")
 	ErrRegistryRowMissing   = errors.New("storage registry row not found after upsert")
+	ErrRegistryLimitInvalid = errors.New("storage registry enumeration limit is invalid")
 )
 
 type Operation string
