@@ -2,6 +2,26 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.21.0]
+
+### Added
+
+- **Typed, pluggable layer-listing filters.** `ListLayers` accepts any
+  combination of `LayerListFilter` values: `ReviewStatus`/`ReviewStatusIn`,
+  `ReviewQueueReason`, `LayerID`/`LayerIDs`, `ProductRepoID`,
+  `MerkleEpochAtLeast`/`MerkleEpochAtMost`, `UpdatedSince`/`UpdatedUntil`,
+  `WithReviews` (embed `needs_review` queues), and `RawFilter` — the escape
+  hatch for registry keys this SDK version does not model. Each filter
+  renders into the ledger's allowlisted `filter=key:op:value` registry;
+  existing `ListLayers(ctx)` call sites compile unchanged. Invalid filters
+  (empty values, list separators inside `in` members, zero timestamps) are
+  rejected before reaching the wire. **Requires traust-ledger#86** (commit
+  `ebd5f4b`; the ledger is pinned by commit downstream) for the filter
+  endpoint; unfiltered listings and `FindLayer` are unchanged.
+- `LayerRef.NeedsReview []types.ReviewItem`: matching queue entries are
+  embedded in listing responses when review filters or `WithReviews`
+  request them.
+
 ## [0.20.0]
 
 ### Changed (breaking)

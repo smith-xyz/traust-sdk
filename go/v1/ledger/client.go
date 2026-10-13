@@ -249,9 +249,26 @@ func (c *Client) FindLayer(ctx context.Context, productRepoID string) (ref Layer
 	return out.Layers[0], true, nil
 }
 
-// ListLayers returns every layer known to the ledger service with its product_repo.
-func (c *Client) ListLayers(ctx context.Context) (LayerListResponse, error) {
-	body, err := c.p.Query(ctx, http.MethodGet, "/v1/ledger/layers")
+// ListLayers returns layers matching the given pluggable filters; with no
+// filters, every layer known to the ledger service with its product_repo.
+// Each filter renders into the ledger's allowlisted key:op:value registry;
+// typed constructors (ReviewStatus, LayerIDs, UpdatedSince, ...) model the
+// known keys and RawFilter reaches the rest.
+func (c *Client) ListLayers(ctx context.Context, filters ...LayerListFilter) (LayerListResponse, error) {
+	values := url.Values{}
+	for _, f := range filters {
+		if f == nil {
+			continue
+		}
+		if err := f.apply(values); err != nil {
+			return LayerListResponse{}, fmt.Errorf("query: list layers: %w", err)
+		}
+	}
+	path := "/v1/ledger/layers"
+	if len(values) > 0 {
+		path += "?" + values.Encode()
+	}
+	body, err := c.p.Query(ctx, http.MethodGet, path)
 	if err != nil {
 		return LayerListResponse{}, fmt.Errorf("query: list layers: %w", err)
 	}
