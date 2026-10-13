@@ -2,6 +2,25 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.22.0]
+
+### Added
+
+- **Registry enumeration.** `QueryProducts` and `QueryProductRepos` enumerate
+  the product/repo registry through new `.search.sql` contract reads (filtered
+  by product slug or repo-URL LIKE pattern, with limit/offset). Until now the
+  registry was register-plus-point-lookup only, which forced consumers that
+  need a working set (e.g. Source Code Intelligence) to mirror registry rows
+  in their own tables.
+- `RegistryFilter` validates limits; `ErrRegistryLimitInvalid` reports a
+  non-positive limit or negative offset.
+
+### Changed
+
+- Generated storage assets are pinned to contracts commit `a150b2b5` (the
+  storage-revision-1 registry-enumeration backport). Storage revision stays
+  1: existing databases boot on this SDK without migration.
+
 ## [0.21.0]
 
 ### Added

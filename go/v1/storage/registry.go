@@ -182,6 +182,151 @@ func (c *Client) FindProductRepo(ctx context.Context, slug, repoURL, ref string)
 	return id, true, nil
 }
 
+// RegistryProduct is a registered product as enumeration returns it.
+// RegisteredAt is the RFC 3339 timestamp of the first registration.
+type RegistryProduct struct {
+	ProductID    string
+	Slug         string
+	Segment      *string
+	RegisteredAt string
+}
+
+// RegistryProductRepo is a registered product_repo joined with its product and
+// repo, as enumeration returns it. Ref "" is the default branch.
+type RegistryProductRepo struct {
+	ProductRepoID string
+	ProductSlug   string
+	Segment       *string
+	RepoURL       string
+	Ref           string
+	SubService    *string
+	ResourceType  *string
+	RegisteredAt  string
+}
+
+// RegistryFilter selects registry rows for enumeration. A nil ProductSlug or
+// RepoURLPattern matches everything; RepoURLPattern uses SQL LIKE syntax
+// (percent wildcards) and matches case-insensitively. Limit must be positive.
+type RegistryFilter struct {
+	ProductSlug    *string
+	RepoURLPattern *string
+	Limit          int
+	Offset         int
+}
+
+func (f RegistryFilter) validate() error {
+	if f.Limit <= 0 {
+		return wrap(OperationRead, PhaseInput, ErrRegistryLimitInvalid)
+	}
+	if f.Offset < 0 {
+		return wrap(OperationRead, PhaseInput, ErrRegistryLimitInvalid)
+	}
+	if f.ProductSlug != nil {
+		if err := registryText(*f.ProductSlug, true); err != nil {
+			return wrap(OperationRead, PhaseInput, err)
+		}
+	}
+	if f.RepoURLPattern != nil {
+		if err := registryText(*f.RepoURLPattern, true); err != nil {
+			return wrap(OperationRead, PhaseInput, err)
+		}
+	}
+	return nil
+}
+
+// filterPair expands one optional filter into the (flag, value) placeholder
+// pair the search queries expect: an empty flag disables the condition.
+func filterPair(value *string) (flag, actual string) {
+	if value == nil {
+		return "", ""
+	}
+	return *value, *value
+}
+
+// QueryProducts enumerates registered products ordered by slug.
+func (c *Client) QueryProducts(ctx context.Context, filter RegistryFilter) ([]RegistryProduct, error) {
+	if c == nil || c.store == nil {
+		return nil, wrap(OperationRead, PhaseInput, ErrNilDatabase)
+	}
+	if err := filter.validate(); err != nil {
+		return nil, err
+	}
+	conn, err := c.store.db.Conn(ctx)
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseConnect, err)
+	}
+	defer func() { _ = conn.Close() }()
+	slugFlag, slug := filterPair(filter.ProductSlug)
+	rows, err := c.store.queries.productSearch(ctx, conn, productSearchParams{
+		slugFilter: slugFlag, slug: slug,
+		limit: int64(filter.Limit), offset: int64(filter.Offset),
+	})
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := []RegistryProduct{}
+	for rows.Next() {
+		var p RegistryProduct
+		if err := rows.Scan(&p.ProductID, &p.Slug, &p.Segment, &p.RegisteredAt); err != nil {
+			return nil, wrap(OperationRead, PhaseRead, err)
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	return out, nil
+}
+
+// QueryProductRepos enumerates registered product_repos joined with their
+// product and repo, ordered by product slug, repo URL, then ref.
+func (c *Client) QueryProductRepos(ctx context.Context, filter RegistryFilter) ([]RegistryProductRepo, error) {
+	if c == nil || c.store == nil {
+		return nil, wrap(OperationRead, PhaseInput, ErrNilDatabase)
+	}
+	if err := filter.validate(); err != nil {
+		return nil, err
+	}
+	conn, err := c.store.db.Conn(ctx)
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseConnect, err)
+	}
+	defer func() { _ = conn.Close() }()
+	slugFlag, slug := filterPair(filter.ProductSlug)
+	patternFlag, pattern := filterPair(filter.RepoURLPattern)
+	rows, err := c.store.queries.productRepoSearch(ctx, conn, productRepoSearchParams{
+		slugFilter: slugFlag, slug: slug,
+		repoUrlFilter: patternFlag, repoUrlPattern: pattern,
+		limit: int64(filter.Limit), offset: int64(filter.Offset),
+	})
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := []RegistryProductRepo{}
+	for rows.Next() {
+		var row RegistryProductRepo
+		if err := rows.Scan(
+			&row.ProductRepoID,
+			&row.ProductSlug,
+			&row.Segment,
+			&row.RepoURL,
+			&row.Ref,
+			&row.SubService,
+			&row.ResourceType,
+			&row.RegisteredAt,
+		); err != nil {
+			return nil, wrap(OperationRead, PhaseRead, err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	return out, nil
+}
+
 type registryWrite func(conn *sql.Conn, store *sqlStore, registeredAt string) (string, error)
 
 func (c *Client) register(ctx context.Context, write registryWrite) (string, error) {

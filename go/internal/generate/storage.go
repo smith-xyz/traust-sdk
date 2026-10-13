@@ -275,9 +275,10 @@ func generateSQL(source, ddlOutput, queriesOutput, ref string) error {
 		for _, arg := range query.args {
 			typ := colmap[arg]
 			if typ == "" {
-				if arg == "lock_key" {
+				switch arg {
+				case "lock_key", "limit", "offset":
 					typ = "int64"
-				} else {
+				default:
 					typ = "string"
 				}
 			}
@@ -326,9 +327,11 @@ func isRowQuery(name string) bool {
 
 // isRowsQuery reports multi-row reads. Contracts reserve `.list.sql` for scoped
 // views, so a keyed read that can return several rows is named `.get.sql`
-// there and listed here explicitly.
+// there and listed here explicitly. `.search.sql` reads enumerate the
+// registry (tables, not views) and always return several rows.
 func isRowsQuery(name string) bool {
-	return strings.HasSuffix(name, ".list.sql") || multiRowGetQuery(name)
+	return strings.HasSuffix(name, ".list.sql") || strings.HasSuffix(name, ".search.sql") ||
+		multiRowGetQuery(name)
 }
 
 func multiRowGetQuery(name string) bool {

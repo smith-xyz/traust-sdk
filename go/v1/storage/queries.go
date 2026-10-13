@@ -1,4 +1,4 @@
-// Code generated from traust-contracts 6501442e448bb5a78b7e58c6745d0eea37d0e7ac SQL queries. DO NOT EDIT.
+// Code generated from traust-contracts a150b2b56cee34857c7bfd12aa5c39fdcf033a8e SQL queries. DO NOT EDIT.
 
 package storage
 
@@ -998,6 +998,24 @@ func (q queries) productGet(ctx context.Context, conn *sql.Conn, p productGetPar
 	return conn.QueryRowContext(ctx, statement, p.slug)
 }
 
+const productSearchPostgres = "SELECT product_id,\n       slug,\n       segment,\n       registered_at\nFROM traust_storage.product\nWHERE ($1 = '' OR slug = $2)\nORDER BY slug\nLIMIT $3 OFFSET $4;"
+const productSearchSQLite = "SELECT product_id,\n       slug,\n       segment,\n       registered_at\nFROM product\nWHERE (? = '' OR slug = ?)\nORDER BY slug\nLIMIT ? OFFSET ?;"
+
+type productSearchParams struct {
+	slugFilter string
+	slug       string
+	limit      int64
+	offset     int64
+}
+
+func (q queries) productSearch(ctx context.Context, conn *sql.Conn, p productSearchParams) (*sql.Rows, error) {
+	statement := productSearchSQLite
+	if q.dialect == dialectPostgres {
+		statement = productSearchPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.slugFilter, p.slug, p.limit, p.offset)
+}
+
 const productUpsertPostgres = "INSERT INTO traust_storage.product (\n    product_id,\n    slug,\n    segment,\n    registered_at\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4\n)\nON CONFLICT (slug) DO UPDATE SET\n    segment = EXCLUDED.segment;"
 const productUpsertSQLite = "INSERT INTO product (\n    product_id,\n    slug,\n    segment,\n    registered_at\n)\nVALUES (\n    ?,\n    ?,\n    ?,\n    ?\n)\nON CONFLICT (slug) DO UPDATE SET\n    segment = EXCLUDED.segment;"
 
@@ -1049,6 +1067,26 @@ func (q queries) productRepoGet(ctx context.Context, conn *sql.Conn, p productRe
 		statement = productRepoGetPostgres
 	}
 	return conn.QueryRowContext(ctx, statement, p.productId, p.repoId, p.ref)
+}
+
+const productRepoSearchPostgres = "SELECT pr.product_repo_id,\n       p.slug,\n       p.segment,\n       r.repo_url,\n       pr.ref,\n       pr.sub_service,\n       pr.resource_type,\n       pr.registered_at\nFROM traust_storage.product_repo pr\nJOIN traust_storage.product p ON p.product_id = pr.product_id\nJOIN traust_storage.repo r ON r.repo_id = pr.repo_id\nWHERE ($1 = '' OR p.slug = $2)\n  AND ($3 = '' OR r.repo_url ILIKE $4)\nORDER BY p.slug, r.repo_url, pr.ref\nLIMIT $5 OFFSET $6;"
+const productRepoSearchSQLite = "SELECT pr.product_repo_id,\n       p.slug,\n       p.segment,\n       r.repo_url,\n       pr.ref,\n       pr.sub_service,\n       pr.resource_type,\n       pr.registered_at\nFROM product_repo pr\nJOIN product p ON p.product_id = pr.product_id\nJOIN repo r ON r.repo_id = pr.repo_id\nWHERE (? = '' OR p.slug = ?)\n  AND (? = '' OR r.repo_url LIKE ?)\nORDER BY p.slug, r.repo_url, pr.ref\nLIMIT ? OFFSET ?;"
+
+type productRepoSearchParams struct {
+	slugFilter     string
+	slug           string
+	repoUrlFilter  string
+	repoUrlPattern string
+	limit          int64
+	offset         int64
+}
+
+func (q queries) productRepoSearch(ctx context.Context, conn *sql.Conn, p productRepoSearchParams) (*sql.Rows, error) {
+	statement := productRepoSearchSQLite
+	if q.dialect == dialectPostgres {
+		statement = productRepoSearchPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.slugFilter, p.slug, p.repoUrlFilter, p.repoUrlPattern, p.limit, p.offset)
 }
 
 const productRepoUpsertPostgres = "INSERT INTO traust_storage.product_repo (\n    product_repo_id,\n    product_id,\n    repo_id,\n    ref,\n    sub_service,\n    resource_type,\n    registered_at\n)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4,\n    $5,\n    $6,\n    $7\n)\nON CONFLICT (product_id, repo_id, ref) DO UPDATE SET\n    sub_service = EXCLUDED.sub_service,\n    resource_type = EXCLUDED.resource_type;"
