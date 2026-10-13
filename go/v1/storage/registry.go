@@ -204,6 +204,60 @@ type RegistryProductRepo struct {
 	RegisteredAt  string
 }
 
+// ProductScope is the product anchoring of one artifact binding: the
+// product_repo the binding is anchored to, joined with its product. Bindings
+// without a product_repo anchor are absent from the result.
+type ProductScope struct {
+	BindingID     string
+	ProductRepoID string
+	ProductID     string
+	ProductSlug   string
+	Ref           string
+	Segment       string
+}
+
+// GetProductScopes resolves the product anchoring of every given artifact
+// binding in one read. Bindings that are not anchored to a product_repo are
+// absent from the returned map.
+func (c *Client) GetProductScopes(ctx context.Context, bindingIDs []string) (map[string]ProductScope, error) {
+	if c == nil || c.store == nil {
+		return nil, wrap(OperationRead, PhaseInput, ErrNilDatabase)
+	}
+	ids, err := scopeValue(bindingIDs)
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseInput, err)
+	}
+	conn, err := c.store.db.Conn(ctx)
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseConnect, err)
+	}
+	defer func() { _ = conn.Close() }()
+	rows, err := c.store.queries.productScopeList(ctx, conn, productScopeListParams{bindingIds: ids})
+	if err != nil {
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	defer func() { _ = rows.Close() }()
+	scopes := make(map[string]ProductScope, len(bindingIDs))
+	for rows.Next() {
+		var scope ProductScope
+		if err := rows.Scan(
+			&scope.BindingID,
+			&scope.ProductRepoID,
+			&scope.ProductID,
+			&scope.ProductSlug,
+			&scope.Ref,
+			&scope.Segment,
+		); err != nil {
+			return nil, wrap(OperationRead, PhaseRead, err)
+		}
+		scopes[scope.BindingID] = scope
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrap(OperationRead, PhaseRead, err)
+	}
+	return scopes, nil
+}
+
 // RegistryFilter selects registry rows for enumeration. A nil ProductSlug or
 // RepoURLPattern matches everything; RepoURLPattern uses SQL LIKE syntax
 // (percent wildcards) and matches case-insensitively. Limit must be positive.

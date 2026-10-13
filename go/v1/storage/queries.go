@@ -1044,6 +1044,21 @@ type productRepoFindParams struct {
 	ref     string
 }
 
+const productScopeListPostgres = "SELECT b.binding_id,\n       pr.product_repo_id,\n       p.product_id,\n       p.slug,\n       pr.ref,\n       COALESCE(p.segment, '')\nFROM traust_storage.artifact_binding b\nJOIN traust_storage.product_repo pr ON pr.product_repo_id = b.product_repo_id\nJOIN traust_storage.product p ON p.product_id = pr.product_id\nWHERE b.binding_id IN (\n    SELECT jsonb_array_elements_text($1::jsonb)\n);"
+const productScopeListSQLite = "SELECT b.binding_id,\n       pr.product_repo_id,\n       p.product_id,\n       p.slug,\n       pr.ref,\n       COALESCE(p.segment, '')\nFROM artifact_binding b\nJOIN product_repo pr ON pr.product_repo_id = b.product_repo_id\nJOIN product p ON p.product_id = pr.product_id\nWHERE b.binding_id IN (SELECT value FROM json_each(?));"
+
+type productScopeListParams struct {
+	bindingIds string
+}
+
+func (q queries) productScopeList(ctx context.Context, conn *sql.Conn, p productScopeListParams) (*sql.Rows, error) {
+	statement := productScopeListSQLite
+	if q.dialect == dialectPostgres {
+		statement = productScopeListPostgres
+	}
+	return conn.QueryContext(ctx, statement, p.bindingIds)
+}
+
 func (q queries) productRepoFind(ctx context.Context, conn *sql.Conn, p productRepoFindParams) *sql.Row {
 	statement := productRepoFindSQLite
 	if q.dialect == dialectPostgres {
