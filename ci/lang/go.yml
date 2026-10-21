@@ -5,7 +5,7 @@
     LANG: go
     LANG_DIR: go
     # ubi go-toolset often sets GOTOOLCHAIN=local; ci.py overrides from go.mod.
-    GOTOOLCHAIN: go1.26.6
+    GOTOOLCHAIN: go1.26.10
   image: registry.access.redhat.com/ubi9/go-toolset:latest
   rules:
     - exists:

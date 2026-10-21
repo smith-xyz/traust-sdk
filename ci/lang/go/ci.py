@@ -15,7 +15,7 @@ from pathlib import Path
 
 # --- pins (bump deliberately) ---
 
-DEFAULT_TOOLCHAIN = "go1.26.6"
+DEFAULT_TOOLCHAIN = "go1.26.10"
 GOVULNCHECK_VERSION = "v1.1.4"
 GOSEC_VERSION = "v2.22.2"
 
