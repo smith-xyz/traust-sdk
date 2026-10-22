@@ -2,6 +2,17 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.23.1]
+
+### Fixed
+
+- Contract generation preserves required nullable enum fields and resolves nested
+  schema references used by shared classifier definitions.
+- Generated enums retain historical public symbols when deprecated and canonical
+  spellings share a Go name.
+- Ledger conversion and storage projection accept generated evidence-grade enums;
+  evidence-grade projection does not allocate a copied string.
+
 ## [0.23.0]
 
 ### Added

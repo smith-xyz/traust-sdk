@@ -409,14 +409,14 @@ func (fg *fileGen) goType(node *SchemaNode, required bool, parentStruct, fieldNa
 		if err != nil {
 			return "", err
 		}
-		return wrapOptional(base, required), nil
+		return wrapOptional(base, required && !nullableEnum(node.ResolvedRef)), nil
 	}
 
 	base, err := fg.goTypeBase(node, parentStruct, fieldName)
 	if err != nil {
 		return "", err
 	}
-	return wrapOptional(base, required), nil
+	return wrapOptional(base, required && !nullableEnum(node)), nil
 }
 
 func (fg *fileGen) goTypeForResolved(node *SchemaNode, ref, parentStruct, fieldName string) (string, error) {
@@ -527,6 +527,25 @@ func (fg *fileGen) mapType(valueNode *SchemaNode, parentStruct, fieldName string
 
 func isEnumOnlyDef(node *SchemaNode) bool {
 	return len(node.Enum) > 0 && len(node.Properties) == 0
+}
+
+func nullableEnum(node *SchemaNode) bool {
+	if !node.EnumHasNull {
+		return false
+	}
+	switch kinds := node.Type.(type) {
+	case nil:
+		return true
+	case string:
+		return kinds == "null"
+	case []string:
+		for _, kind := range kinds {
+			if kind == "null" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func wrapOptional(goType string, required bool) string {
