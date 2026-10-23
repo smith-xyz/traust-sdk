@@ -93,12 +93,30 @@ func (r *typeRegistry) defStructName(filename, defKey string) string {
 
 func (r *typeRegistry) structNameForRef(ref, sourceFile string) string {
 	targetFile := refTargetFile(ref, sourceFile)
-	defKey := refDefKey(ref)
-	fk := targetFile + "#" + defKey
-	if name, ok := r.defNames[fk]; ok {
-		return name
+	_, fragment, found := strings.Cut(ref, "#")
+	if !found {
+		return toPascalCase(ref)
 	}
-	return toPascalCase(defKey)
+	parts := strings.Split(strings.TrimPrefix(fragment, "/"), "/")
+	if len(parts) < 2 {
+		return toPascalCase(fragment)
+	}
+	defKey := strings.ReplaceAll(strings.ReplaceAll(parts[1], "~1", "/"), "~0", "~")
+	name := r.defStructName(targetFile, defKey)
+	for i := 2; i+1 < len(parts) && parts[i] == "properties"; {
+		fieldName := strings.ReplaceAll(strings.ReplaceAll(parts[i+1], "~1", "/"), "~0", "~")
+		i += 2
+		for i < len(parts) && (parts[i] == "items" || parts[i] == "additionalProperties") {
+			if parts[i] == "items" {
+				fieldName += "_item"
+			} else {
+				fieldName += "_entry"
+			}
+			i++
+		}
+		name = r.allocateInline(targetFile, schemaStructName(targetFile), name, fieldName)
+	}
+	return name
 }
 
 func inlineSuffix(fieldName string) string {
@@ -405,11 +423,23 @@ func (fg *fileGen) goType(node *SchemaNode, required bool, parentStruct, fieldNa
 		if node.ResolvedRef == nil {
 			return wrapOptional("interface{}", required), nil
 		}
-		base, err := fg.goTypeForResolved(node.ResolvedRef, node.Ref, parentStruct, fieldName)
+		ref := node.Ref
+		if strings.HasPrefix(ref, "#") {
+			ref = node.RefSource + ref
+		}
+		resolved := node.ResolvedRef
+		for resolved.Ref != "" && resolved.ResolvedRef != nil {
+			ref = resolved.Ref
+			if strings.HasPrefix(ref, "#") {
+				ref = resolved.RefSource + ref
+			}
+			resolved = resolved.ResolvedRef
+		}
+		base, err := fg.goTypeForResolved(resolved, ref, parentStruct, fieldName)
 		if err != nil {
 			return "", err
 		}
-		return wrapOptional(base, required && !nullableEnum(node.ResolvedRef)), nil
+		return wrapOptional(base, required && !nullableEnum(resolved)), nil
 	}
 
 	base, err := fg.goTypeBase(node, parentStruct, fieldName)
@@ -498,19 +528,6 @@ func (fg *fileGen) enumOrString(values []string) string {
 		return "enums." + mapping.GoType
 	}
 	return "string"
-}
-
-func refDefKey(ref string) string {
-	hash := strings.Index(ref, "#")
-	if hash < 0 {
-		return ref
-	}
-	fragment := strings.TrimPrefix(ref[hash+1:], "/")
-	parts := strings.Split(fragment, "/")
-	if len(parts) >= 2 {
-		return parts[len(parts)-1]
-	}
-	return fragment
 }
 
 func (fg *fileGen) mapType(valueNode *SchemaNode, parentStruct, fieldName string) string {

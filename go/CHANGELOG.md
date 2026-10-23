@@ -2,6 +2,15 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.23.2]
+
+### Fixed
+
+- Resolve shared schema property references with their source namespace and
+  correct inline object names, preserving nested metadata and enum typing.
+- Compile and exercise a generated artifact consumer for property-reference
+  round trips and invalid-value rejection. The contracts/storage pin is unchanged.
+
 ## [0.23.1]
 
 ### Fixed
