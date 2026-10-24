@@ -2,6 +2,22 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.24.0]
+
+### Fixed
+
+- Synchronize checked-in generated types with the nullable-enum generator repair.
+  Impact evidence, layer evidence grades, triage verification verdicts and
+  validation evidence now retain their registered enum types after generation.
+
+### Changed
+
+- Go callers constructing these fields must use pointers to their generated
+  enum types rather than pointers to strings. JSON field names and values are
+  unchanged; optional null and absent values remain supported.
+- The embedded contracts/storage pin is unchanged. This regeneration completes
+  the generator checkpoint; it does not adopt the classifier storage layout.
+
 ## [0.23.2]
 
 ### Fixed
