@@ -151,6 +151,12 @@ const (
 	OutcomeSucceeded Outcome = "succeeded"
 )
 
+// Defines values for PrecedentStrength.
+const (
+	HumanCountersigned  PrecedentStrength = "human_countersigned"
+	MachineRefutedSound PrecedentStrength = "machine_refuted_sound"
+)
+
 // Defines values for RestatementReason.
 const (
 	BaselineRewrite RestatementReason = "baseline_rewrite"
@@ -263,6 +269,37 @@ const (
 	MrComment   SourceChannel = "mr_comment"
 )
 
+// Defines values for SourceType.
+const (
+	SourceTypeCommit             SourceType = "commit"
+	SourceTypeFuzzReport         SourceType = "fuzz_report"
+	SourceTypeImpactReport       SourceType = "impact_report"
+	SourceTypeInteractive        SourceType = "interactive"
+	SourceTypeJira               SourceType = "jira"
+	SourceTypeMrComment          SourceType = "mr_comment"
+	SourceTypeRebaseline         SourceType = "rebaseline"
+	SourceTypeRestatement        SourceType = "restatement"
+	SourceTypeTriageReport       SourceType = "triage_report"
+	SourceTypeValidationReport   SourceType = "validation_report"
+	SourceTypeVerificationReport SourceType = "verification_report"
+	SourceTypeVulnScanReport     SourceType = "vuln_scan_report"
+)
+
+// Defines values for ValidationRecordingPolicy.
+const (
+	Current    ValidationRecordingPolicy = "current"
+	Historical ValidationRecordingPolicy = "historical"
+)
+
+// Defines values for ValidationVerdict.
+const (
+	ValidationVerdictBlockedByScope ValidationVerdict = "blocked_by_scope"
+	ValidationVerdictConfirmed      ValidationVerdict = "confirmed"
+	ValidationVerdictInconclusive   ValidationVerdict = "inconclusive"
+	ValidationVerdictNotAttempted   ValidationVerdict = "not_attempted"
+	ValidationVerdictRefuted        ValidationVerdict = "refuted"
+)
+
 // Defines values for Validity.
 const (
 	ValidityConfirmed     Validity = "confirmed"
@@ -272,6 +309,17 @@ const (
 	ValidityNotAffected   Validity = "not_affected"
 	ValidityNotVerified   Validity = "not_verified"
 	ValidityTruePositive  Validity = "true_positive"
+)
+
+// Defines values for VerificationVerdict.
+const (
+	VerificationVerdictFalsePositive     VerificationVerdict = "false_positive"
+	VerificationVerdictNewApproach       VerificationVerdict = "new_approach"
+	VerificationVerdictPartiallyResolved VerificationVerdict = "partially_resolved"
+	VerificationVerdictRegression        VerificationVerdict = "regression"
+	VerificationVerdictResolved          VerificationVerdict = "resolved"
+	VerificationVerdictRiskAccepted      VerificationVerdict = "risk_accepted"
+	VerificationVerdictUnresolved        VerificationVerdict = "unresolved"
 )
 
 // ActorKind defines model for ActorKind.
@@ -304,6 +352,13 @@ type AffectedDependency struct {
 	ImageId         *openapi_types.UUID `json:"image_id"`
 	RepositoryRefId *openapi_types.UUID `json:"repository_ref_id"`
 	Vulnerable      bool                `json:"vulnerable"`
+}
+
+// ArtifactRef defines model for ArtifactRef.
+type ArtifactRef struct {
+	Digest string             `json:"digest"`
+	Id     openapi_types.UUID `json:"id"`
+	Name   string             `json:"name"`
 }
 
 // Assessment 3a · what was examined: a ref (and image), by an assessor, with what outcome.
@@ -523,6 +578,12 @@ type Finding_Kind struct {
 	union json.RawMessage
 }
 
+// FindingContext defines model for FindingContext.
+type FindingContext struct {
+	Baseline   *[]FindingView `json:"baseline,omitempty"`
+	Precedents *[]Precedent   `json:"precedents,omitempty"`
+}
+
 // FindingKind defines model for FindingKind.
 type FindingKind string
 
@@ -534,6 +595,12 @@ type FindingLabel struct {
 	Label     string              `json:"label"`
 	Taxonomy  string              `json:"taxonomy"`
 	UpdatedAt *time.Time          `json:"updated_at"`
+}
+
+// FindingVerdict defines model for FindingVerdict.
+type FindingVerdict struct {
+	FindingId openapi_types.UUID  `json:"finding_id"`
+	Verdict   VerificationVerdict `json:"verdict"`
 }
 
 // FindingView defines model for FindingView.
@@ -691,6 +758,28 @@ type PageRunOrder struct {
 	Next  *string    `json:"next"`
 }
 
+// Precedent defines model for Precedent.
+type Precedent struct {
+	// Decision A judgement on a finding; corrections are new decisions (restates_id).
+	Decision Decision `json:"decision"`
+
+	// Reason Why a prior verdict applies: the same function in the same (vendor-normalized) file.
+	Reason     PrecedentReason `json:"reason"`
+	Similarity float32         `json:"similarity"`
+}
+
+// PrecedentReason Why a prior verdict applies: the same function in the same (vendor-normalized) file.
+type PrecedentReason struct {
+	Path string `json:"path"`
+
+	// Strength What a precedent may save: a person's verdict earns fewer votes; a machine's annotates.
+	Strength PrecedentStrength `json:"strength"`
+	Symbol   string            `json:"symbol"`
+}
+
+// PrecedentStrength What a precedent may save: a person's verdict earns fewer votes; a machine's annotates.
+type PrecedentStrength string
+
 // Principal defines model for Principal.
 type Principal struct {
 	Display    string          `json:"display"`
@@ -717,6 +806,22 @@ type Product struct {
 	Name      string              `json:"name"`
 	Slug      string              `json:"slug"`
 	UpdatedAt *time.Time          `json:"updated_at"`
+}
+
+// Provenance defines model for Provenance.
+type Provenance struct {
+	Artifact   *ArtifactRef       `json:"artifact,omitempty"`
+	OccurredAt time.Time          `json:"occurred_at"`
+	RunId      openapi_types.UUID `json:"run_id"`
+	Source     SourceType         `json:"source"`
+}
+
+// RecordValidation defines model for RecordValidation.
+type RecordValidation struct {
+	Bindings   ValidationRecordInput `json:"bindings"`
+	Payload    string                `json:"payload"`
+	Provenance Provenance            `json:"provenance"`
+	RunOrderId openapi_types.UUID    `json:"run_order_id"`
 }
 
 // RefDependency A package at one version in an SBOM: a commit's manifest or an image's.
@@ -864,12 +969,66 @@ type Signing string
 // SourceChannel defines model for SourceChannel.
 type SourceChannel string
 
+// SourceType defines model for SourceType.
+type SourceType string
+
+// SubjectRef What a skill works on: a commit of a repository, and the assessment when there is one.
+type SubjectRef struct {
+	AssessmentId    *openapi_types.UUID `json:"assessment_id"`
+	RepositoryId    openapi_types.UUID  `json:"repository_id"`
+	RepositoryRefId openapi_types.UUID  `json:"repository_ref_id"`
+	RepositoryUrl   string              `json:"repository_url"`
+	Sha             string              `json:"sha"`
+}
+
+// TargetAttestation defines model for TargetAttestation.
+type TargetAttestation struct {
+	Attested             bool                   `json:"attested"`
+	AdditionalProperties map[string]interface{} `json:"-"`
+}
+
 // Team defines model for Team.
 type Team struct {
 	CreatedAt *time.Time          `json:"created_at"`
 	Id        *openapi_types.UUID `json:"id"`
 	Name      string              `json:"name"`
 	UpdatedAt *time.Time          `json:"updated_at"`
+}
+
+// TriageInput defines model for TriageInput.
+type TriageInput struct {
+	Assessor   string         `json:"assessor"`
+	Findings   FindingContext `json:"findings"`
+	Items      []TriageItem   `json:"items"`
+	PreparedAt time.Time      `json:"prepared_at"`
+
+	// Subject What a skill works on: a commit of a repository, and the assessment when there is one.
+	Subject SubjectRef `json:"subject"`
+}
+
+// TriageItem One reported finding to judge: the finding, how this assessment reported it, and where.
+type TriageItem struct {
+	// Finding 3b · one weakness or vulnerability in a repository, identified by fingerprint.
+	Finding   Finding     `json:"finding"`
+	Locations *[]Location `json:"locations,omitempty"`
+
+	// Occurrence A finding as one assessment reported it.
+	Occurrence Occurrence   `json:"occurrence"`
+	Precedents *[]Precedent `json:"precedents,omitempty"`
+}
+
+// TriageRecordBody defines model for TriageRecordBody.
+type TriageRecordBody struct {
+	Payload    string             `json:"payload"`
+	Provenance Provenance         `json:"provenance"`
+	RunOrderId openapi_types.UUID `json:"run_order_id"`
+}
+
+// TriageRecordResult defines model for TriageRecordResult.
+type TriageRecordResult struct {
+	ArtifactId   openapi_types.UUID `json:"artifact_id"`
+	AssessmentId openapi_types.UUID `json:"assessment_id"`
+	Decisions    []Decision         `json:"decisions"`
 }
 
 // ValidationError defines model for ValidationError.
@@ -892,8 +1051,82 @@ type ValidationError_Loc_Item struct {
 	union json.RawMessage
 }
 
+// ValidationFindingBinding defines model for ValidationFindingBinding.
+type ValidationFindingBinding struct {
+	FindingId openapi_types.UUID `json:"finding_id"`
+	SourceId  string             `json:"source_id"`
+}
+
+// ValidationFindingResult defines model for ValidationFindingResult.
+type ValidationFindingResult struct {
+	ArtifactId    openapi_types.UUID    `json:"artifact_id"`
+	AssessmentId  openapi_types.UUID    `json:"assessment_id"`
+	DecisionId    *openapi_types.UUID   `json:"decision_id"`
+	EvidenceGrade *EvidenceGrade        `json:"evidence_grade,omitempty"`
+	FindingId     openapi_types.UUID    `json:"finding_id"`
+	Rationale     *string               `json:"rationale"`
+	ReviewItemIds *[]openapi_types.UUID `json:"review_item_ids,omitempty"`
+	ReviewReasons *[]ReviewReason       `json:"review_reasons,omitempty"`
+	SoundnessFlag *string               `json:"soundness_flag"`
+	SourceId      string                `json:"source_id"`
+	SourceReport  string                `json:"source_report"`
+	Verdict       ValidationVerdict     `json:"verdict"`
+}
+
+// ValidationRecordInput defines model for ValidationRecordInput.
+type ValidationRecordInput struct {
+	InstallFailed     *bool                      `json:"install_failed,omitempty"`
+	InstallFailure    *string                    `json:"install_failure"`
+	Policy            *ValidationRecordingPolicy `json:"policy,omitempty"`
+	Sources           []ValidationSourceBinding  `json:"sources"`
+	TargetAttestation *TargetAttestation         `json:"target_attestation,omitempty"`
+}
+
+// ValidationRecordResult defines model for ValidationRecordResult.
+type ValidationRecordResult struct {
+	ArtifactIds         []openapi_types.UUID      `json:"artifact_ids"`
+	AssessmentIds       []openapi_types.UUID      `json:"assessment_ids"`
+	EvidenceArtifactIds []openapi_types.UUID      `json:"evidence_artifact_ids"`
+	Findings            []ValidationFindingResult `json:"findings"`
+}
+
+// ValidationRecordingPolicy defines model for ValidationRecordingPolicy.
+type ValidationRecordingPolicy string
+
+// ValidationSourceBinding defines model for ValidationSourceBinding.
+type ValidationSourceBinding struct {
+	ArtifactId   openapi_types.UUID          `json:"artifact_id"`
+	AssessmentId openapi_types.UUID          `json:"assessment_id"`
+	Findings     *[]ValidationFindingBinding `json:"findings,omitempty"`
+	SourceReport string                      `json:"source_report"`
+}
+
+// ValidationVerdict defines model for ValidationVerdict.
+type ValidationVerdict string
+
 // Validity defines model for Validity.
 type Validity string
+
+// Verification One verification run of a repository's findings against a patched commit.
+type Verification struct {
+	Artifact        ArtifactRef           `json:"artifact"`
+	RegressionIds   *[]openapi_types.UUID `json:"regression_ids,omitempty"`
+	RepositoryRefId openapi_types.UUID    `json:"repository_ref_id"`
+	Verdicts        []FindingVerdict      `json:"verdicts"`
+	VerificationId  openapi_types.UUID    `json:"verification_id"`
+	VerifiedAt      time.Time             `json:"verified_at"`
+	WorkItemIds     *[]openapi_types.UUID `json:"work_item_ids,omitempty"`
+}
+
+// VerificationRecordBody defines model for VerificationRecordBody.
+type VerificationRecordBody struct {
+	Payload    string             `json:"payload"`
+	Provenance Provenance         `json:"provenance"`
+	RunOrderId openapi_types.UUID `json:"run_order_id"`
+}
+
+// VerificationVerdict defines model for VerificationVerdict.
+type VerificationVerdict string
 
 // VerifyResult defines model for VerifyResult.
 type VerifyResult struct {
@@ -973,6 +1206,9 @@ type ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams str
 	Kind *AssessmentKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
+// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody defines body for RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost for application/json ContentType.
+type RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody = TriageRecordBody
+
 // RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody defines body for RestateV1DecisionsDecisionIdRestatementPost for application/json ContentType.
 type RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody = RestatementBody
 
@@ -987,6 +1223,78 @@ type CompleteV1OrdersOrderIdCompletePostJSONRequestBody = CompleteRequest
 
 // HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody defines body for HeartbeatV1OrdersOrderIdHeartbeatPost for application/json ContentType.
 type HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody = LeaseRequest
+
+// RecordValidationV1ValidationRecordsPostJSONRequestBody defines body for RecordValidationV1ValidationRecordsPost for application/json ContentType.
+type RecordValidationV1ValidationRecordsPostJSONRequestBody = RecordValidation
+
+// RecordVerificationV1VerificationRecordsPostJSONRequestBody defines body for RecordVerificationV1VerificationRecordsPost for application/json ContentType.
+type RecordVerificationV1VerificationRecordsPostJSONRequestBody = VerificationRecordBody
+
+// Getter for additional properties for TargetAttestation. Returns the specified
+// element and whether it was found
+func (a TargetAttestation) Get(fieldName string) (value interface{}, found bool) {
+	if a.AdditionalProperties != nil {
+		value, found = a.AdditionalProperties[fieldName]
+	}
+	return
+}
+
+// Setter for additional properties for TargetAttestation
+func (a *TargetAttestation) Set(fieldName string, value interface{}) {
+	if a.AdditionalProperties == nil {
+		a.AdditionalProperties = make(map[string]interface{})
+	}
+	a.AdditionalProperties[fieldName] = value
+}
+
+// Override default JSON handling for TargetAttestation to handle AdditionalProperties
+func (a *TargetAttestation) UnmarshalJSON(b []byte) error {
+	object := make(map[string]json.RawMessage)
+	err := json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["attested"]; found {
+		err = json.Unmarshal(raw, &a.Attested)
+		if err != nil {
+			return fmt.Errorf("error reading 'attested': %w", err)
+		}
+		delete(object, "attested")
+	}
+
+	if len(object) != 0 {
+		a.AdditionalProperties = make(map[string]interface{})
+		for fieldName, fieldBuf := range object {
+			var fieldVal interface{}
+			err := json.Unmarshal(fieldBuf, &fieldVal)
+			if err != nil {
+				return fmt.Errorf("error unmarshaling field %s: %w", fieldName, err)
+			}
+			a.AdditionalProperties[fieldName] = fieldVal
+		}
+	}
+	return nil
+}
+
+// Override default JSON handling for TargetAttestation to handle AdditionalProperties
+func (a TargetAttestation) MarshalJSON() ([]byte, error) {
+	var err error
+	object := make(map[string]json.RawMessage)
+
+	object["attested"], err = json.Marshal(a.Attested)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'attested': %w", err)
+	}
+
+	for fieldName, field := range a.AdditionalProperties {
+		object[fieldName], err = json.Marshal(field)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling '%s': %w", fieldName, err)
+		}
+	}
+	return json.Marshal(object)
+}
 
 // AsAssessmentKind returns the union data inside the Assessment_Kind as a AssessmentKind
 func (t Assessment_Kind) AsAssessmentKind() (AssessmentKind, error) {
@@ -1758,6 +2066,14 @@ type ClientInterface interface {
 	// GetAssessmentV1AssessmentsAssessmentIdGet request
 	GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PrepareTriageV1AssessmentsAssessmentIdTriageInputGet request
+	PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody request with any body
+	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDecisionV1DecisionsDecisionIdGet request
 	GetDecisionV1DecisionsDecisionIdGet(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1864,6 +2180,16 @@ type ClientInterface interface {
 	// ListRefsV1RepositoriesRepositoryIdRefsGet request
 	ListRefsV1RepositoriesRepositoryIdRefsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RecordValidationV1ValidationRecordsPostWithBody request with any body
+	RecordValidationV1ValidationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RecordValidationV1ValidationRecordsPost(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecordVerificationV1VerificationRecordsPostWithBody request with any body
+	RecordVerificationV1VerificationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RecordVerificationV1VerificationRecordsPost(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// WhoamiV1WhoamiGet request
 	WhoamiV1WhoamiGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
@@ -1918,6 +2244,42 @@ func (c *Client) ListAssessmentsV1AssessmentsGet(ctx context.Context, params *Li
 
 func (c *Client) GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(c.Server, assessmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest(c.Server, assessmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(c.Server, assessmentId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequest(c.Server, assessmentId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2372,6 +2734,54 @@ func (c *Client) ListRefsV1RepositoriesRepositoryIdRefsGet(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
+func (c *Client) RecordValidationV1ValidationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordValidationV1ValidationRecordsPostRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordValidationV1ValidationRecordsPost(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordValidationV1ValidationRecordsPostRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordVerificationV1VerificationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordVerificationV1VerificationRecordsPostRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordVerificationV1VerificationRecordsPost(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordVerificationV1VerificationRecordsPostRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) WhoamiV1WhoamiGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewWhoamiV1WhoamiGetRequest(c.Server)
 	if err != nil {
@@ -2625,6 +3035,87 @@ func NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(server string, assessme
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest generates requests for PrepareTriageV1AssessmentsAssessmentIdTriageInputGet
+func NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "assessment_id", runtime.ParamLocationPath, assessmentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/assessments/%s/triage-input", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequest calls the generic RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost builder with application/json body
+func NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequest(server string, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(server, assessmentId, "application/json", bodyReader)
+}
+
+// NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody generates requests for RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost with any type of body
+func NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(server string, assessmentId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "assessment_id", runtime.ParamLocationPath, assessmentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/assessments/%s/triage-records", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4172,6 +4663,86 @@ func NewListRefsV1RepositoriesRepositoryIdRefsGetRequest(server string, reposito
 	return req, nil
 }
 
+// NewRecordValidationV1ValidationRecordsPostRequest calls the generic RecordValidationV1ValidationRecordsPost builder with application/json body
+func NewRecordValidationV1ValidationRecordsPostRequest(server string, body RecordValidationV1ValidationRecordsPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRecordValidationV1ValidationRecordsPostRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRecordValidationV1ValidationRecordsPostRequestWithBody generates requests for RecordValidationV1ValidationRecordsPost with any type of body
+func NewRecordValidationV1ValidationRecordsPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/validation-records")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRecordVerificationV1VerificationRecordsPostRequest calls the generic RecordVerificationV1VerificationRecordsPost builder with application/json body
+func NewRecordVerificationV1VerificationRecordsPostRequest(server string, body RecordVerificationV1VerificationRecordsPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRecordVerificationV1VerificationRecordsPostRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRecordVerificationV1VerificationRecordsPostRequestWithBody generates requests for RecordVerificationV1VerificationRecordsPost with any type of body
+func NewRecordVerificationV1VerificationRecordsPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/verification-records")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewWhoamiV1WhoamiGetRequest generates requests for WhoamiV1WhoamiGet
 func NewWhoamiV1WhoamiGetRequest(server string) (*http.Request, error) {
 	var err error
@@ -4256,6 +4827,14 @@ type ClientWithResponsesInterface interface {
 
 	// GetAssessmentV1AssessmentsAssessmentIdGetWithResponse request
 	GetAssessmentV1AssessmentsAssessmentIdGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentV1AssessmentsAssessmentIdGetResponse, error)
+
+	// PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse request
+	PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error)
+
+	// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse request with any body
+	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error)
+
+	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error)
 
 	// GetDecisionV1DecisionsDecisionIdGetWithResponse request
 	GetDecisionV1DecisionsDecisionIdGetWithResponse(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDecisionV1DecisionsDecisionIdGetResponse, error)
@@ -4362,6 +4941,16 @@ type ClientWithResponsesInterface interface {
 
 	// ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse request
 	ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRefsV1RepositoriesRepositoryIdRefsGetResponse, error)
+
+	// RecordValidationV1ValidationRecordsPostWithBodyWithResponse request with any body
+	RecordValidationV1ValidationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error)
+
+	RecordValidationV1ValidationRecordsPostWithResponse(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error)
+
+	// RecordVerificationV1VerificationRecordsPostWithBodyWithResponse request with any body
+	RecordVerificationV1VerificationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error)
+
+	RecordVerificationV1VerificationRecordsPostWithResponse(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error)
 
 	// WhoamiV1WhoamiGetWithResponse request
 	WhoamiV1WhoamiGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiV1WhoamiGetResponse, error)
@@ -4483,6 +5072,59 @@ func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TriageInput
+	JSON401      *Problem
+	JSON404      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TriageRecordResult
+	JSON401      *Problem
+	JSON403      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *Problem
+	JSON500      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5284,6 +5926,60 @@ func (r ListRefsV1RepositoriesRepositoryIdRefsGetResponse) StatusCode() int {
 	return 0
 }
 
+type RecordValidationV1ValidationRecordsPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ValidationRecordResult
+	JSON401      *Problem
+	JSON403      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r RecordValidationV1ValidationRecordsPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecordValidationV1ValidationRecordsPostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RecordVerificationV1VerificationRecordsPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Verification
+	JSON401      *Problem
+	JSON403      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r RecordVerificationV1VerificationRecordsPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecordVerificationV1VerificationRecordsPostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type WhoamiV1WhoamiGetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5350,6 +6046,32 @@ func (c *ClientWithResponses) GetAssessmentV1AssessmentsAssessmentIdGetWithRespo
 		return nil, err
 	}
 	return ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp)
+}
+
+// PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse request returning *PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse
+func (c *ClientWithResponses) PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error) {
+	rsp, err := c.PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx, assessmentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse(rsp)
+}
+
+// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse
+func (c *ClientWithResponses) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error) {
+	rsp, err := c.RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(ctx, assessmentId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error) {
+	rsp, err := c.RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx, assessmentId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp)
 }
 
 // GetDecisionV1DecisionsDecisionIdGetWithResponse request returning *GetDecisionV1DecisionsDecisionIdGetResponse
@@ -5680,6 +6402,40 @@ func (c *ClientWithResponses) ListRefsV1RepositoriesRepositoryIdRefsGetWithRespo
 	return ParseListRefsV1RepositoriesRepositoryIdRefsGetResponse(rsp)
 }
 
+// RecordValidationV1ValidationRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordValidationV1ValidationRecordsPostResponse
+func (c *ClientWithResponses) RecordValidationV1ValidationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error) {
+	rsp, err := c.RecordValidationV1ValidationRecordsPostWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordValidationV1ValidationRecordsPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) RecordValidationV1ValidationRecordsPostWithResponse(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error) {
+	rsp, err := c.RecordValidationV1ValidationRecordsPost(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordValidationV1ValidationRecordsPostResponse(rsp)
+}
+
+// RecordVerificationV1VerificationRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordVerificationV1VerificationRecordsPostResponse
+func (c *ClientWithResponses) RecordVerificationV1VerificationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error) {
+	rsp, err := c.RecordVerificationV1VerificationRecordsPostWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordVerificationV1VerificationRecordsPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) RecordVerificationV1VerificationRecordsPostWithResponse(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error) {
+	rsp, err := c.RecordVerificationV1VerificationRecordsPost(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordVerificationV1VerificationRecordsPostResponse(rsp)
+}
+
 // WhoamiV1WhoamiGetWithResponse request returning *WhoamiV1WhoamiGetResponse
 func (c *ClientWithResponses) WhoamiV1WhoamiGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiV1WhoamiGetResponse, error) {
 	rsp, err := c.WhoamiV1WhoamiGet(ctx, reqEditors...)
@@ -5897,6 +6653,121 @@ func ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp *http.Response) 
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse parses an HTTP response from a PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse call
+func ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse(rsp *http.Response) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageInput
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse parses an HTTP response from a RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse call
+func ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp *http.Response) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 403:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 500:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TriageRecordResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
@@ -7366,6 +8237,128 @@ func ParseListRefsV1RepositoriesRepositoryIdRefsGetResponse(rsp *http.Response) 
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRecordValidationV1ValidationRecordsPostResponse parses an HTTP response from a RecordValidationV1ValidationRecordsPostWithResponse call
+func ParseRecordValidationV1ValidationRecordsPostResponse(rsp *http.Response) (*RecordValidationV1ValidationRecordsPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecordValidationV1ValidationRecordsPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 403:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ValidationRecordResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRecordVerificationV1VerificationRecordsPostResponse parses an HTTP response from a RecordVerificationV1VerificationRecordsPostWithResponse call
+func ParseRecordVerificationV1VerificationRecordsPostResponse(rsp *http.Response) (*RecordVerificationV1VerificationRecordsPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecordVerificationV1VerificationRecordsPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 403:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Verification
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
