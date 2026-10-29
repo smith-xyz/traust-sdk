@@ -158,6 +158,16 @@ func checkResponse(statusCode int, body []byte, contentType string) error {
 	return problemFromResponse(statusCode, body, contentType)
 }
 
+// CheckResponse turns a failed generated response into a *ProblemError: nil
+// for 2xx, otherwise the RFC 7807 document when the server sent one (or a
+// ProblemError carrying the raw body when it did not). Consumers call it
+// with the generated response's fields:
+//
+//	CheckResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type"))
+func CheckResponse(statusCode int, body []byte, contentType string) error {
+	return checkResponse(statusCode, body, contentType)
+}
+
 // retryTransport retries idempotent requests (GET/HEAD) on 429 and
 // 502/503/504 and on transport errors, at most retries extra attempts with
 // doubling backoff. Other methods and statuses pass through untouched.
