@@ -354,6 +354,16 @@ type AffectedDependency struct {
 	Vulnerable      bool                `json:"vulnerable"`
 }
 
+// Artifact A document an assessment produced (or imported); bytes live at uri.
+type Artifact struct {
+	AssessmentId *openapi_types.UUID `json:"assessment_id"`
+	CreatedAt    *time.Time          `json:"created_at"`
+	Digest       string              `json:"digest"`
+	Id           *openapi_types.UUID `json:"id"`
+	Kind         string              `json:"kind"`
+	Uri          string              `json:"uri"`
+}
+
 // ArtifactRef defines model for ArtifactRef.
 type ArtifactRef struct {
 	Digest string             `json:"digest"`
@@ -384,8 +394,31 @@ type Assessment_Kind struct {
 	union json.RawMessage
 }
 
+// AssessmentIntakeBindings defines model for AssessmentIntakeBindings.
+type AssessmentIntakeBindings struct {
+	Findings map[string]openapi_types.UUID `json:"findings"`
+}
+
 // AssessmentKind defines model for AssessmentKind.
 type AssessmentKind string
+
+// AssessmentRecordRequest defines model for AssessmentRecordRequest.
+type AssessmentRecordRequest struct {
+	AssessorVersion string             `json:"assessor_version"`
+	Payload         string             `json:"payload"`
+	Provenance      Provenance         `json:"provenance"`
+	RepositoryRefId openapi_types.UUID `json:"repository_ref_id"`
+	RunOrderId      openapi_types.UUID `json:"run_order_id"`
+}
+
+// AssessmentRecordResult defines model for AssessmentRecordResult.
+type AssessmentRecordResult struct {
+	ArtifactId   openapi_types.UUID `json:"artifact_id"`
+	AssessmentId openapi_types.UUID `json:"assessment_id"`
+
+	// Intake Each candidate's finding by its report label, and the findings this intake created.
+	Intake IntakeResult `json:"intake"`
+}
 
 // Checkpoint A layer after restamping its root; `warning` is what the caller must surface.
 type Checkpoint struct {
@@ -621,6 +654,12 @@ type FindingView struct {
 	SlaDue     *time.Time  `json:"sla_due"`
 }
 
+// Gap Something that must be fixed before onboarding can run.
+type Gap struct {
+	Reason  string `json:"reason"`
+	Subject string `json:"subject"`
+}
+
 // HTTPValidationError defines model for HTTPValidationError.
 type HTTPValidationError struct {
 	Detail *[]ValidationError `json:"detail,omitempty"`
@@ -633,6 +672,12 @@ type Health struct {
 
 // IdentitySource defines model for IdentitySource.
 type IdentitySource string
+
+// IntakeResult Each candidate's finding by its report label, and the findings this intake created.
+type IntakeResult struct {
+	Created  *[]openapi_types.UUID         `json:"created,omitempty"`
+	Findings map[string]openapi_types.UUID `json:"findings"`
+}
 
 // JobResult defines model for JobResult.
 type JobResult struct {
@@ -702,6 +747,43 @@ type Occurrence struct {
 	Severity     ScannerSeverity     `json:"severity"`
 }
 
+// OnboardingPlan defines model for OnboardingPlan.
+type OnboardingPlan struct {
+	ExistingRepositoryIds *[]openapi_types.UUID `json:"existing_repository_ids,omitempty"`
+	Gaps                  *[]Gap                `json:"gaps,omitempty"`
+	New                   *[]RepositorySpec     `json:"new,omitempty"`
+	Orders                *[]PlannedOrder       `json:"orders,omitempty"`
+}
+
+// OnboardingRequest `label` names the product when it is not registered yet; `org` lists on `host`;
+// `baseline` names the pack's assets to order for every repository.
+type OnboardingRequest struct {
+	Baseline     *[]string         `json:"baseline,omitempty"`
+	Host         *string           `json:"host,omitempty"`
+	Label        *string           `json:"label"`
+	Org          *string           `json:"org"`
+	Product      string            `json:"product"`
+	Repositories *[]RepositorySpec `json:"repositories,omitempty"`
+}
+
+// OnboardingResult defines model for OnboardingResult.
+type OnboardingResult struct {
+	OrderIds      *[]openapi_types.UUID `json:"order_ids,omitempty"`
+	ProductId     openapi_types.UUID    `json:"product_id"`
+	RepositoryIds *[]openapi_types.UUID `json:"repository_ids,omitempty"`
+}
+
+// OrderRequest What admission puts on the queue: one asset for one partition, routed or not.
+type OrderRequest struct {
+	Asset        string              `json:"asset"`
+	EventSource  *string             `json:"event_source"`
+	Lane         *string             `json:"lane"`
+	Priority     int                 `json:"priority"`
+	RepositoryId *openapi_types.UUID `json:"repository_id"`
+	Rule         *string             `json:"rule"`
+	RunBatchId   *openapi_types.UUID `json:"run_batch_id"`
+}
+
 // Outcome defines model for Outcome.
 type Outcome string
 
@@ -756,6 +838,12 @@ type PageReviewCase struct {
 type PageRunOrder struct {
 	Items []RunOrder `json:"items"`
 	Next  *string    `json:"next"`
+}
+
+// PlannedOrder defines model for PlannedOrder.
+type PlannedOrder struct {
+	Asset string `json:"asset"`
+	Repo  string `json:"repo"`
 }
 
 // Precedent defines model for Precedent.
@@ -861,6 +949,13 @@ type RepositoryRef struct {
 	RepositoryId   openapi_types.UUID  `json:"repository_id"`
 	Sha            string              `json:"sha"`
 	UpdatedAt      *time.Time          `json:"updated_at"`
+}
+
+// RepositorySpec defines model for RepositorySpec.
+type RepositorySpec struct {
+	Refs *[]string `json:"refs,omitempty"`
+	Team *string   `json:"team"`
+	Url  string    `json:"url"`
 }
 
 // RestatementBody An administrator's correction; the decision is the path, never the body.
@@ -971,6 +1066,14 @@ type SourceChannel string
 
 // SourceType defines model for SourceType.
 type SourceType string
+
+// StartRecordingRequest defines model for StartRecordingRequest.
+type StartRecordingRequest struct {
+	LeaseSeconds int `json:"lease_seconds"`
+
+	// Order What admission puts on the queue: one asset for one partition, routed or not.
+	Order OrderRequest `json:"order"`
+}
 
 // SubjectRef What a skill works on: a commit of a repository, and the assessment when there is one.
 type SubjectRef struct {
@@ -1206,6 +1309,9 @@ type ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams str
 	Kind *AssessmentKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
+// RecordAssessmentV1AssessmentRecordsPostJSONRequestBody defines body for RecordAssessmentV1AssessmentRecordsPost for application/json ContentType.
+type RecordAssessmentV1AssessmentRecordsPostJSONRequestBody = AssessmentRecordRequest
+
 // RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody defines body for RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost for application/json ContentType.
 type RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody = TriageRecordBody
 
@@ -1215,8 +1321,17 @@ type RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody = RestatementBod
 // DecideV1FindingsFindingIdDecisionsPostJSONRequestBody defines body for DecideV1FindingsFindingIdDecisionsPost for application/json ContentType.
 type DecideV1FindingsFindingIdDecisionsPostJSONRequestBody = DecisionBody
 
+// OnboardV1OnboardingPostJSONRequestBody defines body for OnboardV1OnboardingPost for application/json ContentType.
+type OnboardV1OnboardingPostJSONRequestBody = OnboardingRequest
+
+// PlanOnboardingV1OnboardingPlanPostJSONRequestBody defines body for PlanOnboardingV1OnboardingPlanPost for application/json ContentType.
+type PlanOnboardingV1OnboardingPlanPostJSONRequestBody = OnboardingRequest
+
 // ClaimV1OrdersClaimPostJSONRequestBody defines body for ClaimV1OrdersClaimPost for application/json ContentType.
 type ClaimV1OrdersClaimPostJSONRequestBody = ClaimRequest
+
+// StartV1OrdersStartPostJSONRequestBody defines body for StartV1OrdersStartPost for application/json ContentType.
+type StartV1OrdersStartPostJSONRequestBody = StartRecordingRequest
 
 // CompleteV1OrdersOrderIdCompletePostJSONRequestBody defines body for CompleteV1OrdersOrderIdCompletePost for application/json ContentType.
 type CompleteV1OrdersOrderIdCompletePostJSONRequestBody = CompleteRequest
@@ -2060,11 +2175,25 @@ type ClientInterface interface {
 	// PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet request
 	PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetArtifactV1ArtifactsArtifactIdGet request
+	GetArtifactV1ArtifactsArtifactIdGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetArtifactContentV1ArtifactsArtifactIdContentGet request
+	GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecordAssessmentV1AssessmentRecordsPostWithBody request with any body
+	RecordAssessmentV1AssessmentRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RecordAssessmentV1AssessmentRecordsPost(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAssessmentsV1AssessmentsGet request
 	ListAssessmentsV1AssessmentsGet(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAssessmentV1AssessmentsAssessmentIdGet request
 	GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet request
+	GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PrepareTriageV1AssessmentsAssessmentIdTriageInputGet request
 	PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2111,6 +2240,16 @@ type ClientInterface interface {
 	// VerifyLayerV1LedgerLayersLayerIdVerificationGet request
 	VerifyLayerV1LedgerLayersLayerIdVerificationGet(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// OnboardV1OnboardingPostWithBody request with any body
+	OnboardV1OnboardingPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	OnboardV1OnboardingPost(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PlanOnboardingV1OnboardingPlanPostWithBody request with any body
+	PlanOnboardingV1OnboardingPlanPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PlanOnboardingV1OnboardingPlanPost(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListOrdersV1OrdersGet request
 	ListOrdersV1OrdersGet(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2118,6 +2257,11 @@ type ClientInterface interface {
 	ClaimV1OrdersClaimPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ClaimV1OrdersClaimPost(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartV1OrdersStartPostWithBody request with any body
+	StartV1OrdersStartPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartV1OrdersStartPost(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOrderV1OrdersOrderIdGet request
 	GetOrderV1OrdersOrderIdGet(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2230,6 +2374,54 @@ func (c *Client) PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet(ctx context.C
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetArtifactV1ArtifactsArtifactIdGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetArtifactV1ArtifactsArtifactIdGetRequest(c.Server, artifactId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest(c.Server, artifactId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordAssessmentV1AssessmentRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RecordAssessmentV1AssessmentRecordsPost(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordAssessmentV1AssessmentRecordsPostRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListAssessmentsV1AssessmentsGet(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAssessmentsV1AssessmentsGetRequest(c.Server, params)
 	if err != nil {
@@ -2244,6 +2436,18 @@ func (c *Client) ListAssessmentsV1AssessmentsGet(ctx context.Context, params *Li
 
 func (c *Client) GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(c.Server, assessmentId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest(c.Server, assessmentId)
 	if err != nil {
 		return nil, err
 	}
@@ -2446,6 +2650,54 @@ func (c *Client) VerifyLayerV1LedgerLayersLayerIdVerificationGet(ctx context.Con
 	return c.Client.Do(req)
 }
 
+func (c *Client) OnboardV1OnboardingPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOnboardV1OnboardingPostRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OnboardV1OnboardingPost(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOnboardV1OnboardingPostRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PlanOnboardingV1OnboardingPlanPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PlanOnboardingV1OnboardingPlanPost(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlanOnboardingV1OnboardingPlanPostRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListOrdersV1OrdersGet(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListOrdersV1OrdersGetRequest(c.Server, params)
 	if err != nil {
@@ -2472,6 +2724,30 @@ func (c *Client) ClaimV1OrdersClaimPostWithBody(ctx context.Context, contentType
 
 func (c *Client) ClaimV1OrdersClaimPost(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewClaimV1OrdersClaimPostRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartV1OrdersStartPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartV1OrdersStartPostRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartV1OrdersStartPost(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartV1OrdersStartPostRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2896,6 +3172,114 @@ func NewPackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetRequest(server string, 
 	return req, nil
 }
 
+// NewGetArtifactV1ArtifactsArtifactIdGetRequest generates requests for GetArtifactV1ArtifactsArtifactIdGet
+func NewGetArtifactV1ArtifactsArtifactIdGetRequest(server string, artifactId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "artifact_id", runtime.ParamLocationPath, artifactId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/artifacts/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest generates requests for GetArtifactContentV1ArtifactsArtifactIdContentGet
+func NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest(server string, artifactId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "artifact_id", runtime.ParamLocationPath, artifactId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/artifacts/%s/content", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRecordAssessmentV1AssessmentRecordsPostRequest calls the generic RecordAssessmentV1AssessmentRecordsPost builder with application/json body
+func NewRecordAssessmentV1AssessmentRecordsPostRequest(server string, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody generates requests for RecordAssessmentV1AssessmentRecordsPost with any type of body
+func NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/assessment-records")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListAssessmentsV1AssessmentsGetRequest generates requests for ListAssessmentsV1AssessmentsGet
 func NewListAssessmentsV1AssessmentsGetRequest(server string, params *ListAssessmentsV1AssessmentsGetParams) (*http.Request, error) {
 	var err error
@@ -3022,6 +3406,40 @@ func NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(server string, assessme
 	}
 
 	operationPath := fmt.Sprintf("/v1/assessments/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest generates requests for GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet
+func NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "assessment_id", runtime.ParamLocationPath, assessmentId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/assessments/%s/intake", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -3693,6 +4111,86 @@ func NewVerifyLayerV1LedgerLayersLayerIdVerificationGetRequest(server string, la
 	return req, nil
 }
 
+// NewOnboardV1OnboardingPostRequest calls the generic OnboardV1OnboardingPost builder with application/json body
+func NewOnboardV1OnboardingPostRequest(server string, body OnboardV1OnboardingPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewOnboardV1OnboardingPostRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewOnboardV1OnboardingPostRequestWithBody generates requests for OnboardV1OnboardingPost with any type of body
+func NewOnboardV1OnboardingPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/onboarding")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPlanOnboardingV1OnboardingPlanPostRequest calls the generic PlanOnboardingV1OnboardingPlanPost builder with application/json body
+func NewPlanOnboardingV1OnboardingPlanPostRequest(server string, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPlanOnboardingV1OnboardingPlanPostRequestWithBody generates requests for PlanOnboardingV1OnboardingPlanPost with any type of body
+func NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/onboarding/plan")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListOrdersV1OrdersGetRequest generates requests for ListOrdersV1OrdersGet
 func NewListOrdersV1OrdersGetRequest(server string, params *ListOrdersV1OrdersGetParams) (*http.Request, error) {
 	var err error
@@ -3843,6 +4341,46 @@ func NewClaimV1OrdersClaimPostRequestWithBody(server string, contentType string,
 	}
 
 	operationPath := fmt.Sprintf("/v1/orders/claim")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartV1OrdersStartPostRequest calls the generic StartV1OrdersStartPost builder with application/json body
+func NewStartV1OrdersStartPostRequest(server string, body StartV1OrdersStartPostJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartV1OrdersStartPostRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartV1OrdersStartPostRequestWithBody generates requests for StartV1OrdersStartPost with any type of body
+func NewStartV1OrdersStartPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/orders/start")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4822,11 +5360,25 @@ type ClientWithResponsesInterface interface {
 	// PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse request
 	PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse, error)
 
+	// GetArtifactV1ArtifactsArtifactIdGetWithResponse request
+	GetArtifactV1ArtifactsArtifactIdGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactV1ArtifactsArtifactIdGetResponse, error)
+
+	// GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse request
+	GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactContentV1ArtifactsArtifactIdContentGetResponse, error)
+
+	// RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse request with any body
+	RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error)
+
+	RecordAssessmentV1AssessmentRecordsPostWithResponse(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error)
+
 	// ListAssessmentsV1AssessmentsGetWithResponse request
 	ListAssessmentsV1AssessmentsGetWithResponse(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*ListAssessmentsV1AssessmentsGetResponse, error)
 
 	// GetAssessmentV1AssessmentsAssessmentIdGetWithResponse request
 	GetAssessmentV1AssessmentsAssessmentIdGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentV1AssessmentsAssessmentIdGetResponse, error)
+
+	// GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse request
+	GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse, error)
 
 	// PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse request
 	PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error)
@@ -4873,6 +5425,16 @@ type ClientWithResponsesInterface interface {
 	// VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse request
 	VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse, error)
 
+	// OnboardV1OnboardingPostWithBodyWithResponse request with any body
+	OnboardV1OnboardingPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error)
+
+	OnboardV1OnboardingPostWithResponse(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error)
+
+	// PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse request with any body
+	PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error)
+
+	PlanOnboardingV1OnboardingPlanPostWithResponse(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error)
+
 	// ListOrdersV1OrdersGetWithResponse request
 	ListOrdersV1OrdersGetWithResponse(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*ListOrdersV1OrdersGetResponse, error)
 
@@ -4880,6 +5442,11 @@ type ClientWithResponsesInterface interface {
 	ClaimV1OrdersClaimPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimV1OrdersClaimPostResponse, error)
 
 	ClaimV1OrdersClaimPostWithResponse(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimV1OrdersClaimPostResponse, error)
+
+	// StartV1OrdersStartPostWithBodyWithResponse request with any body
+	StartV1OrdersStartPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error)
+
+	StartV1OrdersStartPostWithResponse(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error)
 
 	// GetOrderV1OrdersOrderIdGetWithResponse request
 	GetOrderV1OrdersOrderIdGetWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderV1OrdersOrderIdGetResponse, error)
@@ -5029,6 +5596,83 @@ func (r PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse) StatusCode() 
 	return 0
 }
 
+type GetArtifactV1ArtifactsArtifactIdGetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Artifact
+	JSON401      *Problem
+	JSON404      *Problem
+	JSON422      *HTTPValidationError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetArtifactV1ArtifactsArtifactIdGetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetArtifactV1ArtifactsArtifactIdGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetArtifactContentV1ArtifactsArtifactIdContentGetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *HTTPValidationError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetArtifactContentV1ArtifactsArtifactIdContentGetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetArtifactContentV1ArtifactsArtifactIdContentGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RecordAssessmentV1AssessmentRecordsPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AssessmentRecordResult
+	JSON401      *Problem
+	JSON403      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r RecordAssessmentV1AssessmentRecordsPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecordAssessmentV1AssessmentRecordsPostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListAssessmentsV1AssessmentsGetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5072,6 +5716,32 @@ func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AssessmentIntakeBindings
+	JSON401      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5404,6 +6074,54 @@ func (r VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse) StatusCode() in
 	return 0
 }
 
+type OnboardV1OnboardingPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OnboardingResult
+	JSON401      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r OnboardV1OnboardingPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OnboardV1OnboardingPostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PlanOnboardingV1OnboardingPlanPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OnboardingPlan
+	JSON401      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r PlanOnboardingV1OnboardingPlanPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PlanOnboardingV1OnboardingPlanPostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListOrdersV1OrdersGetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -5447,6 +6165,33 @@ func (r ClaimV1OrdersClaimPostResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ClaimV1OrdersClaimPostResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartV1OrdersStartPostResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RunOrder
+	JSON401      *Problem
+	JSON403      *Problem
+	JSON404      *Problem
+	JSON409      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r StartV1OrdersStartPostResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartV1OrdersStartPostResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6030,6 +6775,41 @@ func (c *ClientWithResponses) PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetW
 	return ParsePackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse(rsp)
 }
 
+// GetArtifactV1ArtifactsArtifactIdGetWithResponse request returning *GetArtifactV1ArtifactsArtifactIdGetResponse
+func (c *ClientWithResponses) GetArtifactV1ArtifactsArtifactIdGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactV1ArtifactsArtifactIdGetResponse, error) {
+	rsp, err := c.GetArtifactV1ArtifactsArtifactIdGet(ctx, artifactId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetArtifactV1ArtifactsArtifactIdGetResponse(rsp)
+}
+
+// GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse request returning *GetArtifactContentV1ArtifactsArtifactIdContentGetResponse
+func (c *ClientWithResponses) GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactContentV1ArtifactsArtifactIdContentGetResponse, error) {
+	rsp, err := c.GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx, artifactId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse(rsp)
+}
+
+// RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordAssessmentV1AssessmentRecordsPostResponse
+func (c *ClientWithResponses) RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error) {
+	rsp, err := c.RecordAssessmentV1AssessmentRecordsPostWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) RecordAssessmentV1AssessmentRecordsPostWithResponse(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error) {
+	rsp, err := c.RecordAssessmentV1AssessmentRecordsPost(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp)
+}
+
 // ListAssessmentsV1AssessmentsGetWithResponse request returning *ListAssessmentsV1AssessmentsGetResponse
 func (c *ClientWithResponses) ListAssessmentsV1AssessmentsGetWithResponse(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*ListAssessmentsV1AssessmentsGetResponse, error) {
 	rsp, err := c.ListAssessmentsV1AssessmentsGet(ctx, params, reqEditors...)
@@ -6046,6 +6826,15 @@ func (c *ClientWithResponses) GetAssessmentV1AssessmentsAssessmentIdGetWithRespo
 		return nil, err
 	}
 	return ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp)
+}
+
+// GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse request returning *GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse
+func (c *ClientWithResponses) GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse, error) {
+	rsp, err := c.GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx, assessmentId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse(rsp)
 }
 
 // PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse request returning *PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse
@@ -6189,6 +6978,40 @@ func (c *ClientWithResponses) VerifyLayerV1LedgerLayersLayerIdVerificationGetWit
 	return ParseVerifyLayerV1LedgerLayersLayerIdVerificationGetResponse(rsp)
 }
 
+// OnboardV1OnboardingPostWithBodyWithResponse request with arbitrary body returning *OnboardV1OnboardingPostResponse
+func (c *ClientWithResponses) OnboardV1OnboardingPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error) {
+	rsp, err := c.OnboardV1OnboardingPostWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOnboardV1OnboardingPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) OnboardV1OnboardingPostWithResponse(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error) {
+	rsp, err := c.OnboardV1OnboardingPost(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOnboardV1OnboardingPostResponse(rsp)
+}
+
+// PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse request with arbitrary body returning *PlanOnboardingV1OnboardingPlanPostResponse
+func (c *ClientWithResponses) PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error) {
+	rsp, err := c.PlanOnboardingV1OnboardingPlanPostWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) PlanOnboardingV1OnboardingPlanPostWithResponse(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error) {
+	rsp, err := c.PlanOnboardingV1OnboardingPlanPost(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp)
+}
+
 // ListOrdersV1OrdersGetWithResponse request returning *ListOrdersV1OrdersGetResponse
 func (c *ClientWithResponses) ListOrdersV1OrdersGetWithResponse(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*ListOrdersV1OrdersGetResponse, error) {
 	rsp, err := c.ListOrdersV1OrdersGet(ctx, params, reqEditors...)
@@ -6213,6 +7036,23 @@ func (c *ClientWithResponses) ClaimV1OrdersClaimPostWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseClaimV1OrdersClaimPostResponse(rsp)
+}
+
+// StartV1OrdersStartPostWithBodyWithResponse request with arbitrary body returning *StartV1OrdersStartPostResponse
+func (c *ClientWithResponses) StartV1OrdersStartPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error) {
+	rsp, err := c.StartV1OrdersStartPostWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartV1OrdersStartPostResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartV1OrdersStartPostWithResponse(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error) {
+	rsp, err := c.StartV1OrdersStartPost(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartV1OrdersStartPostResponse(rsp)
 }
 
 // GetOrderV1OrdersOrderIdGetWithResponse request returning *GetOrderV1OrdersOrderIdGetResponse
@@ -6572,6 +7412,161 @@ func ParsePackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse(rsp *http.Re
 	return response, nil
 }
 
+// ParseGetArtifactV1ArtifactsArtifactIdGetResponse parses an HTTP response from a GetArtifactV1ArtifactsArtifactIdGetWithResponse call
+func ParseGetArtifactV1ArtifactsArtifactIdGetResponse(rsp *http.Response) (*GetArtifactV1ArtifactsArtifactIdGetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetArtifactV1ArtifactsArtifactIdGetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Artifact
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest HTTPValidationError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse parses an HTTP response from a GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse call
+func ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse(rsp *http.Response) (*GetArtifactContentV1ArtifactsArtifactIdContentGetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetArtifactContentV1ArtifactsArtifactIdContentGetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest HTTPValidationError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRecordAssessmentV1AssessmentRecordsPostResponse parses an HTTP response from a RecordAssessmentV1AssessmentRecordsPostWithResponse call
+func ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp *http.Response) (*RecordAssessmentV1AssessmentRecordsPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecordAssessmentV1AssessmentRecordsPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 403:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AssessmentRecordResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListAssessmentsV1AssessmentsGetResponse parses an HTTP response from a ListAssessmentsV1AssessmentsGetWithResponse call
 func ParseListAssessmentsV1AssessmentsGetResponse(rsp *http.Response) (*ListAssessmentsV1AssessmentsGetResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -6653,6 +7648,60 @@ func ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp *http.Response) 
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse parses an HTTP response from a GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse call
+func ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse(rsp *http.Response) (*GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AssessmentIntakeBindings
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	}
 
@@ -7277,6 +8326,86 @@ func ParseVerifyLayerV1LedgerLayersLayerIdVerificationGetResponse(rsp *http.Resp
 	return response, nil
 }
 
+// ParseOnboardV1OnboardingPostResponse parses an HTTP response from a OnboardV1OnboardingPostWithResponse call
+func ParseOnboardV1OnboardingPostResponse(rsp *http.Response) (*OnboardV1OnboardingPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OnboardV1OnboardingPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OnboardingResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePlanOnboardingV1OnboardingPlanPostResponse parses an HTTP response from a PlanOnboardingV1OnboardingPlanPostWithResponse call
+func ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp *http.Response) (*PlanOnboardingV1OnboardingPlanPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PlanOnboardingV1OnboardingPlanPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OnboardingPlan
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListOrdersV1OrdersGetResponse parses an HTTP response from a ListOrdersV1OrdersGetWithResponse call
 func ParseListOrdersV1OrdersGetResponse(rsp *http.Response) (*ListOrdersV1OrdersGetResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7344,6 +8473,67 @@ func ParseClaimV1OrdersClaimPostResponse(rsp *http.Response) (*ClaimV1OrdersClai
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RunOrder
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartV1OrdersStartPostResponse parses an HTTP response from a StartV1OrdersStartPostWithResponse call
+func ParseStartV1OrdersStartPostResponse(rsp *http.Response) (*StartV1OrdersStartPostResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartV1OrdersStartPostResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 403:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 409:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
 		var dest Problem

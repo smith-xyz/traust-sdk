@@ -4,12 +4,13 @@
 go get github.com/traust-security/traust-sdk/go@latest
 ```
 
-Consumer setup is three handles, with no traust tables or types of your own:
+Consumer setup uses focused handles, with no traust tables or types of your own:
 
 | Need | Package | You supply |
 |---|---|---|
 | Store and read traust artifacts | [`v1/storage`](#storage-sdk) | `*sql.DB` (+ optional `storage.Resolver` for reads); `Init` bootstraps the contracts DDL in `traust_storage` |
-| Dispositions, events, countersign | [`v1/ledger`](#ledger-sdk) | ledger URL + token |
+| Record native machine reports | `v1/api`, `v1/ops` | Core URL, machine credential, native IDs and explicit dispatched order |
+| Historical ledger reads and raw/human actions | [`v1/ledger`](#ledger-sdk) | ledger URL + token |
 | Run skills | [`v1/skills`](#skills-sdk) | a `skills.Provider` |
 
 Keep consumer tables for consumer data only and reference traust rows by `binding_id` / `layer_id`. Overview: [../README.md → Purpose](../README.md#purpose).
@@ -52,40 +53,77 @@ adopting new scanner-observation validation remains an explicit pin update.
 No runtime files, sibling checkout, event/identifier rewriting, free-text mapping
 or cross-field policy are introduced.
 
-## Core REST API: recording preview
+## Native report recording
 
 Import `github.com/traust-security/traust-sdk/go/v1/api`. Use
 `api.NewBoundClient` with `api.ClientConfig` and `api.FileTokenSource` for
-rotating bearer-token files; recording methods are generated from Core's
-OpenAPI, not adapters over the legacy ledger report conversion.
+rotating bearer-token files. Native recording methods are generated from Core's
+OpenAPI, not adapters over legacy ledger report conversion:
 
-The preview adds these generated `WithResponse` methods:
-
+- `RecordAssessmentV1AssessmentRecordsPostWithResponse`
 - `PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse`
 - `RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse`
 - `RecordValidationV1ValidationRecordsPostWithResponse`
 - `RecordVerificationV1VerificationRecordsPostWithResponse`
 
-Use the generated request-body types. Each recording request requires the
-native `RunOrderId`, exact report text in `Payload`, and `Provenance` with
-`RunId` equal to that order UUID. Claim the order through
-`ClaimV1OrdersClaimPostWithResponse` using the same machine credential.
-Core requires its live owned lease, matching repository, and a server-configured
-`Config.recording` asset capability; capabilities default to deny. Native triage
-assessment/artifact IDs feed validation source bindings. Actor, signer,
-classification and closure policy remain Core-owned.
+Use the generated request-body types and real Core repository/ref, assessment,
+artifact, occurrence and finding IDs where the relevant contract requires them.
+Obtain IDs from Core preparation/recording responses and preserve native validation
+source bindings. Legacy layer IDs, finding labels and fingerprints are not
+substitutes for these IDs.
 
-Generated methods return transport/decoding errors separately from HTTP refusal.
-Always check `StatusCode()` and require `JSON200` for a successful recording.
-For a non-2xx response, retain status and decode `Body` into `api.Problem`;
-Core uses `application/problem+json`, so `JSON403` or other generated
-`JSON4xx` fields may be nil. A nil Go error alone does not mean admission
-succeeded, and `BoundClient` does not automatically turn these generated calls
-into `ProblemError`.
+Each recording request carries the owned native `RunOrderId`, original report
+text in `Payload`, and `Provenance` whose `RunId` and `OccurredAt` match the
+server-created order ID and start time. Keep the exact UTF-8 report bytes; do not
+decode and re-marshal a DTO to construct the evidence payload. Core requires a
+live lease owned by the same machine credential, a matching repository and a
+server-configured `Config.recording` asset capability; capabilities default to
+deny. Actor, signer, admission and closure policy remain Core-owned.
 
-This preview depends on Core PRs #266, #259, #261 and #260. It is not deployed
-functionality or the SCI/worker cutover. Exact input refs and regeneration
-instructions are in [the generator documentation](internal/generate/openapi/README.md).
+### One dispatched recording run
+
+Import `github.com/traust-security/traust-sdk/go/v1/ops` and use
+`ops.RecordingRun` for the start → execute → record → complete lifecycle. Supply
+its `Client`, an `api.StartRecordingRequest` for the explicitly dispatched order,
+exactly one native request template in `ops.RecordingRequest`, and an
+`ops.Executor`. Templates contain explicit source/provenance, native repository
+references and bindings, but leave `Payload` empty. For triage, supply the real
+`AssessmentID`; the run fetches its native prepared input before execution.
+
+The run starts the owned order, maintains its lease, binds recording provenance
+to the immutable server order ID/start time, and completes with the executor's
+native `api.JobResult`. The executor returns the original bytes in
+`ops.ProducedReport.Payload` and must stop actual work and wait for subprocess
+descendants when its context is cancelled. A lost lease forbids recording and
+completion. Ambiguous recording failures require reconciliation using the real
+run identity, not a fresh order or a replayed POST; recording POSTs are not retried.
+The lifecycle does not poll queues, select assets or classify reports.
+
+### Producer gate and source migration
+
+The producer must pass its canonical final report gate after all enrichment and
+before returning successful report bytes for recording. Fix noncanonical output
+at that producer. The SDK does not infer a decision from historical `hardening`,
+map classifiers, or turn report verdicts into legacy disposition events. Core's
+recording admission remains authoritative.
+
+The ledger report converters, report input wrappers and
+`SubmitTriageReport` / `SubmitValidationReport` / `SubmitVerificationReport`
+methods have been removed without aliases or forwarders. Consumers must migrate
+to native recording rather than rebuilding a report-to-event conversion around
+`ledger.BatchSubmit`. Historical models, enums, schema validation and ledger reads
+remain available, as do raw submissions and human countersign/severity actions.
+
+Direct generated calls return transport/decoding errors separately from HTTP
+refusal. Always check `StatusCode()` and require `JSON200` for a successful
+recording. For a non-2xx response, retain status and decode `Body` into
+`api.Problem`; Core uses `application/problem+json`, so generated `JSON4xx`
+fields may be nil. A nil Go error alone does not mean admission succeeded, and
+`BoundClient` does not automatically turn generated calls into `ProblemError`.
+`RecordingRun` handles this status/problem distinction for its lifecycle calls.
+
+Exact OpenAPI input refs and regeneration instructions are in
+[the generator documentation](internal/generate/openapi/README.md).
 
 
 ## Skills SDK
@@ -149,7 +187,9 @@ report, _ := skills.Scan.Run(ctx, provider, skills.ScanInput{
 
 ## Ledger SDK
 
-Submit reports and human events to the ledger service:
+Read the historical ledger and submit raw or human actions to the ledger service.
+Machine reports use [native report recording](#native-report-recording), not this
+package.
 
 ```go
 import "github.com/traust-security/traust-sdk/go/v1/ledger"
@@ -158,18 +198,8 @@ client := ledger.NewHTTPClient("https://ledger.example.com",
     ledger.WithBearerToken(os.Getenv("LEDGER_TOKEN")),
 )
 
-// Machine lane — triage report (derives disposition events)
-resp, err := client.SubmitTriageReport(ctx, ledger.TriageReportInput{
-    ReportMeta: ledger.ReportMeta{
-        LayerID:    "repo-a",
-        SourceRef:  "findings/repo-a/triage.json",
-        RecordedAt: time.Now().UTC().Format(time.RFC3339),
-    },
-    Report: triageReport,
-})
-
 // Human lane — countersign
-resp, err = client.SubmitCountersign(ctx, ledger.CountersignInput{
+resp, err := client.SubmitCountersign(ctx, ledger.CountersignInput{
     EventMeta: ledger.EventMeta{
         LayerID:    "repo-a",
         RecordedAt: time.Now().UTC().Format(time.RFC3339),
@@ -195,10 +225,10 @@ ref, found, err := client.FindLayer(ctx, productRepoID) // found=false on 404
 layers, err := client.ListLayers(ctx)                   // []LayerRef{LayerID, ProductRepoID}
 ```
 
-Machine-lane report kinds: `triage`, `validation`. Human-lane event kinds:
-`countersign`, `severity`. Additional operations: `BatchSubmit`,
-`ResolveReviewItem`, `ComputeFingerprints`, `StampEventIdentities`, and
-`SignLayer`.
+Human-lane event kinds are `countersign` and `severity`. Raw/historical operations
+include `BatchSubmit`, `ResolveReviewItem`, `ComputeFingerprints`,
+`StampEventIdentities` and `SignLayer`. Retained report-kind/schema identifiers
+describe historical data; they do not expose a report writer.
 
 The built-in HTTP transport handles envelope formatting, lane routing, and auth.
 For custom transports, implement `ledger.Provider` and use `ledger.NewClient(provider)`.
@@ -209,7 +239,7 @@ For custom transports, implement `ledger.Provider` and use `ledger.NewClient(pro
 import "github.com/traust-security/traust-sdk/go/v1/ledger/ingesttest"
 
 provider := ingesttest.NewStaticProvider().
-    WithTriageResponse(ingesttest.FixtureTriageResponse())
+    WithCountersignResponse(ledger.SubmitResponse{ID: "cs-001", Status: "accepted"})
 client := ledger.NewClient(provider)
 ```
 
