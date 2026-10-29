@@ -91,7 +91,7 @@ func (run RecordingRun) Run(ctx context.Context) (*RecordingResult, error) {
 		run.HeartbeatInterval = time.Duration(run.Start.LeaseSeconds) * time.Second / 3
 	}
 	requestCtx, cancel := context.WithTimeout(ctx, run.RequestTimeout)
-	response, err := run.Client.StartV1OrdersStartPostWithResponse(requestCtx, run.Start)
+	response, err := run.Client.StartWithResponse(requestCtx, run.Start)
 	cancel()
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (run RecordingRun) Run(ctx context.Context) (*RecordingResult, error) {
 	var input *api.TriageInput
 	if run.Request.Triage != nil {
 		requestCtx, cancel = run.ownedContext(ctx, order)
-		prepared, prepareErr := run.Client.PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse(requestCtx, run.Request.AssessmentID)
+		prepared, prepareErr := run.Client.PrepareTriageWithResponse(requestCtx, run.Request.AssessmentID)
 		cancel()
 		if prepareErr == nil {
 			input, prepareErr = nativeResponse(prepared.StatusCode(), prepared.Body, prepared.JSON200)
@@ -206,7 +206,7 @@ func (run RecordingRun) heartbeat(ctx context.Context, original api.RunOrder, cu
 	}
 	requestCtx, cancel := run.ownedContext(ctx, current)
 	defer cancel()
-	response, err := run.Client.HeartbeatV1OrdersOrderIdHeartbeatPostWithResponse(requestCtx, *original.Id, api.LeaseRequest{LeaseSeconds: run.Start.LeaseSeconds})
+	response, err := run.Client.HeartbeatWithResponse(requestCtx, *original.Id, api.LeaseRequest{LeaseSeconds: run.Start.LeaseSeconds})
 	if err != nil {
 		return nil, &LeaseLostError{Err: err}
 	}
@@ -294,7 +294,7 @@ func (run RecordingRun) complete(ctx context.Context, order *api.RunOrder, resul
 	}
 	requestCtx, cancel := run.ownedContext(ctx, order)
 	defer cancel()
-	response, err := run.Client.CompleteV1OrdersOrderIdCompletePostWithResponse(requestCtx, *order.Id, api.CompleteRequest{Result: result})
+	response, err := run.Client.CompleteWithResponse(requestCtx, *order.Id, api.CompleteRequest{Result: result})
 	if err != nil {
 		return nil, err
 	}

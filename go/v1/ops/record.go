@@ -28,7 +28,7 @@ func (run RecordingRun) record(ctx context.Context, original api.RunOrder, curre
 			return receipt, err
 		}
 		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordAssessmentV1AssessmentRecordsPostWithResponse(requestCtx, body)
+		response, err := run.Client.RecordAssessmentWithResponse(requestCtx, body)
 		if err != nil {
 			return receipt, err
 		}
@@ -41,7 +41,7 @@ func (run RecordingRun) record(ctx context.Context, original api.RunOrder, curre
 			return receipt, err
 		}
 		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse(requestCtx, run.Request.AssessmentID, body)
+		response, err := run.Client.RecordTriageWithResponse(requestCtx, run.Request.AssessmentID, body)
 		if err != nil {
 			return receipt, err
 		}
@@ -54,7 +54,7 @@ func (run RecordingRun) record(ctx context.Context, original api.RunOrder, curre
 			return receipt, err
 		}
 		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordValidationV1ValidationRecordsPostWithResponse(requestCtx, body)
+		response, err := run.Client.RecordValidationWithResponse(requestCtx, body)
 		if err != nil {
 			return receipt, err
 		}
@@ -67,7 +67,7 @@ func (run RecordingRun) record(ctx context.Context, original api.RunOrder, curre
 			return receipt, err
 		}
 		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordVerificationV1VerificationRecordsPostWithResponse(requestCtx, body)
+		response, err := run.Client.RecordVerificationWithResponse(requestCtx, body)
 		if err != nil {
 			return receipt, err
 		}

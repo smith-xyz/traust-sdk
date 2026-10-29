@@ -7,12 +7,16 @@ SCHEMAS_DIR := $(CONTRACTS_SOURCE)/schemas/v1
 STORAGE_DIR := $(CONTRACTS_SOURCE)/storage/v1
 FIXTURES_DIR := $(CONTRACTS_SOURCE)/tests/fixtures/storage
 STORAGE_SAMPLES := $(CONTRACTS_SOURCE)/tests/storage_samples.py
+CORE_REPO := https://github.com/traust-security/traust-core.git
+CORE_REF := 1a6779ad53a2923c45fd98ec44a46a5438abafef
+CORE_SOURCE := $(or $(XDG_CACHE_HOME),$(HOME)/.cache)/traust-sdk/core/checkout-$(CORE_REF)
+OPENAPI_DIR := ./internal/generate/openapi
 OUT_DIR := ./v1/enums
 ROOT := ..
 GO_CI := python3 $(ROOT)/ci/lang/go/ci.py
 export PATH := $(shell go env GOPATH)/bin:$(PATH)
 
-.PHONY: contracts generate api-generate test test-integration check-drift fmt fmt-check vet lint security tools
+.PHONY: contracts core generate api-generate test test-integration check-drift fmt fmt-check vet lint security tools
 
 contracts:
 	@set -eu; \
@@ -38,12 +42,29 @@ test-integration:
 	go test -count=1 -v ./v1/storage/...
 
 check-drift: generate api-generate
-	@git diff --exit-code $(OUT_DIR) ./v1/types/ ./v1/validate/schemas_gen.go ./v1/storage/operations.go ./v1/storage/projection_identifiers.go ./v1/storage/schema.go ./v1/storage/queries.go ./v1/storage/storagetest/testdata/ ./v1/api/client.gen.go ./internal/generate/openapi/openapi-3.0.json || (echo "ERROR: generated files are out of date; run 'make generate api-generate' and commit" && exit 1)
+	@git diff --exit-code $(OUT_DIR) ./v1/types/ ./v1/validate/schemas_gen.go ./v1/storage/operations.go ./v1/storage/projection_identifiers.go ./v1/storage/schema.go ./v1/storage/queries.go ./v1/storage/storagetest/testdata/ ./v1/api/client.gen.go || (echo "ERROR: generated files are out of date; run 'make generate api-generate' and commit" && exit 1)
 
-api-generate:
+core:
 	@set -eu; \
-	python3 internal/generate/openapi/normalize.py internal/generate/openapi/openapi.json internal/generate/openapi/openapi-3.0.json; \
-	go tool oapi-codegen --config internal/generate/openapi/oapi-codegen.yaml internal/generate/openapi/openapi-3.0.json
+	if [ ! -d "$(CORE_SOURCE)/.git" ]; then \
+	  rm -rf "$(CORE_SOURCE)"; \
+	  mkdir -p "$(CORE_SOURCE)"; \
+	  git -C "$(CORE_SOURCE)" init --quiet; \
+	  git -C "$(CORE_SOURCE)" remote add origin "$(CORE_REPO)"; \
+	fi; \
+	if ! git -C "$(CORE_SOURCE)" cat-file -e "$(CORE_REF)^{commit}" 2>/dev/null; then \
+	  git -C "$(CORE_SOURCE)" fetch --quiet --no-tags --depth=1 origin "$(CORE_REF)"; \
+	fi; \
+	git -C "$(CORE_SOURCE)" checkout --quiet --detach --force "$(CORE_REF)"; \
+	git -C "$(CORE_SOURCE)" clean -ffdq
+
+# The spec is built from core at CORE_REF, used once and deleted; only client.gen.go is committed.
+api-generate: core
+	@set -eu; \
+	tmp="$$(mktemp -d)"; trap 'rm -rf "$$tmp"' EXIT; \
+	$(MAKE) -s -C "$(CORE_SOURCE)" api-check; \
+	python3 $(OPENAPI_DIR)/normalize.py "$(CORE_SOURCE)/.openapi/openapi.json" "$$tmp/openapi.json"; \
+	go tool oapi-codegen --config $(OPENAPI_DIR)/oapi-codegen.yaml "$$tmp/openapi.json"
 
 fmt:
 	gofmt -w .
