@@ -2,6 +2,34 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.26.0]
+
+### Added
+
+- Generated owner-backed native recording start, authored assessment intake,
+  artifact metadata/content, and authoritative finding-binding reads.
+- `ops.RecordingRun` owns one explicitly dispatched recording run: start,
+  execution heartbeat, lease-loss cancellation, exact-byte report recording
+  and completion. Provenance uses the server's native ID and start time.
+- Ambiguous recording outcomes retain native identity for reconciliation;
+  they are not blindly retried or completed as failures.
+
+### Breaking
+
+- Remove the legacy triage/validation/verification report-to-event converters,
+  `Client.Submit*Report` methods and their report input types. Producers must
+  author canonical output, then use the generated native recording clients or
+  `ops.RecordingRun` with real Core IDs and owned orders. No aliases or local
+  classifier translation remain.
+- Historical models, enums, schema reads and legitimate raw/human ledger
+  operations remain available. Contracts/storage pins are unchanged.
+
+### Delivery
+
+- Native execution requires the coordinated Core/worker/SCI changes and
+  server-owned recording/start capabilities. This is development review
+  metadata, not a tag, release or deployment.
+
 ## [0.25.0]
 
 ### Added
