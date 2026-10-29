@@ -112,3 +112,4 @@ jobs:
       - run: make guardrails
         env:
           GUARDRAILS_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          GUARDRAILS_HEAD: ${{ github.event.pull_request.head.sha }}

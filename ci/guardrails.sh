@@ -39,7 +39,7 @@ done
 python3 ci/check_estate_data.py --quiet . || rule "deployment-specific data in a public repo"
 
 if [ -n "${GUARDRAILS_BASE:-}" ]; then
-  python3 ci/gates.py range "$GUARDRAILS_BASE" HEAD || rule "commit subjects are conventional"
+  python3 ci/gates.py range "$GUARDRAILS_BASE" "${GUARDRAILS_HEAD:-HEAD}" || rule "commit subjects are conventional"
 fi
 
 exit "$fail"
