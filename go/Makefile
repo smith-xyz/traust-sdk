@@ -16,7 +16,7 @@ ROOT := ..
 GO_CI := python3 $(ROOT)/ci/lang/go/ci.py
 export PATH := $(shell go env GOPATH)/bin:$(PATH)
 
-.PHONY: contracts core generate api-generate test test-integration check-drift fmt fmt-check vet lint security tools
+.PHONY: contracts core generate api-generate e2e test test-integration check-drift fmt fmt-check vet lint security tools
 
 contracts:
 	@set -eu; \
@@ -65,6 +65,18 @@ api-generate: core
 	$(MAKE) -s -C "$(CORE_SOURCE)" api-check; \
 	python3 $(OPENAPI_DIR)/normalize.py "$(CORE_SOURCE)/.openapi/openapi.json" "$$tmp/openapi.json"; \
 	go tool oapi-codegen --config $(OPENAPI_DIR)/oapi-codegen.yaml "$$tmp/openapi.json"
+
+# The generated client against traust-server built from core at CORE_REF (SQLite, local issuer).
+e2e: core
+	@set -eu; \
+	home="$$(mktemp -d)"; port=18080; \
+	printf 'home: %s\nidentity:\n  trust_local: true\n' "$$home" > "$$home/config.yaml"; \
+	(cd "$(CORE_SOURCE)" && exec uv run --quiet traust-server --config "$$home/config.yaml" --port $$port) > "$$home/server.log" 2>&1 & pid=$$!; \
+	trap 'kill $$pid 2>/dev/null || true; rm -rf "$$home"' EXIT; \
+	for _ in $$(seq 60); do curl -sf -o /dev/null http://127.0.0.1:$$port/v1/healthz && break; sleep 1; done; \
+	curl -sf -o /dev/null http://127.0.0.1:$$port/v1/healthz || { cat "$$home/server.log"; exit 1; }; \
+	(cd "$(CORE_SOURCE)" && uv run --quiet python -c "from pathlib import Path; from traust_core.v1.context import Config, Context; print(Context(Config.from_file(Path('$$home/config.yaml'))).local_issuer.mint('e2e@example.com').token.get_secret_value())") > "$$home/token"; \
+	TRAUST_E2E_URL=http://127.0.0.1:$$port TRAUST_E2E_TOKEN_FILE="$$home/token" go test -count=1 -tags e2e -run E2E -v ./v1/api/
 
 fmt:
 	gofmt -w .
