@@ -2,6 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "traust-core",
+    "summary": "HTTP transport over traust-core's domain services.",
+    "description": "The deployable HTTP transport over traust-core's domain services, for SCI and other remote\ncallers. The local CLI and traust call the services in-process and need none of it.\n\n**Conventions**\n\n- **Authentication** \u2014 every route needs an OIDC/bearer token (`Authorize` above). The token\n  verifies to a `Principal`; authorization runs in the service method, so the same check applies\n  in-process. Runner identities may claim/heartbeat/complete their work, but authentication alone\n  never authorizes a report mutation. Native recording requires an owned active lease, a\n  server-authorized asset and repository, and run-order-bound provenance. Direct decisions and\n  restatements need a verified human (restatement needs the `restate` role).\n- **Errors** \u2014 one shape, `application/problem+json` (RFC 9457): `type`, `title`, `status`,\n  `detail`, `instance`, `request_id`. Typed core errors map to status codes in one place.\n- **Lists** \u2014 cursor paging (keyset); pass `limit` (1-1000) and the opaque `cursor`/`after`.\n- **Correlation** \u2014 send `X-Request-ID` or W3C `traceparent`; it is echoed on the response and\n  every log line. One is minted when absent.\n\nThe document is generated from the pydantic models and routes; it is not hand-edited. The SDK is\ngenerated from it.\n",
     "version": "v1"
   },
   "paths": {
@@ -297,7 +299,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -517,7 +519,7 @@
             }
           },
           "422": {
-            "description": "Unprocessable Content",
+            "description": "Unprocessable Entity",
             "content": {
               "application/problem+json": {},
               "application/json": {
@@ -651,7 +653,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -928,7 +930,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -1001,7 +1003,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -1125,7 +1127,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -1360,7 +1362,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -1597,7 +1599,192 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/v1/assessments/{assessment_id}/triage-input": {
+      "get": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Prepare Triage",
+        "operationId": "prepare_triage_v1_assessments__assessment_id__triage_input_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assessment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assessment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriageInput"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        }
+      }
+    },
+    "/v1/assessments/{assessment_id}/triage-records": {
+      "post": {
+        "tags": [
+          "findings"
+        ],
+        "summary": "Record Triage",
+        "operationId": "record_triage_v1_assessments__assessment_id__triage_records_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "assessment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Assessment Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriageRecordBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriageRecordResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
           }
         }
       }
@@ -1669,7 +1856,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -2070,7 +2257,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -2307,7 +2494,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -2729,7 +2916,7 @@
                 }
               }
             },
-            "description": "Unprocessable Content"
+            "description": "Unprocessable Entity"
           }
         }
       }
@@ -2895,6 +3082,188 @@
           }
         }
       }
+    },
+    "/v1/validation-records": {
+      "post": {
+        "tags": [
+          "validation"
+        ],
+        "summary": "Record Validation",
+        "operationId": "record_validation_v1_validation_records_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordValidation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRecordResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/verification-records": {
+      "post": {
+        "tags": [
+          "remediation"
+        ],
+        "summary": "Record Verification",
+        "operationId": "record_verification_v1_verification_records_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationRecordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verification"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {},
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3021,6 +3390,31 @@
         ],
         "title": "AffectedDependency",
         "description": "A commit or image whose SBOM reaches one of an advisory's packages. `vulnerable`: the\nadvisory names the package itself, else it leads to one (an internal library, a base image).\nNo `repository_ref_id`: an image with no declared provenance."
+      },
+      "ArtifactRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "digest"
+        ],
+        "title": "ArtifactRef"
       },
       "Assessment": {
         "properties": {
@@ -3744,6 +4138,29 @@
         "title": "Finding",
         "description": "3b \u00b7 one weakness or vulnerability in a repository, identified by fingerprint."
       },
+      "FindingContext": {
+        "properties": {
+          "baseline": {
+            "items": {
+              "$ref": "#/components/schemas/FindingView"
+            },
+            "type": "array",
+            "title": "Baseline",
+            "default": []
+          },
+          "precedents": {
+            "items": {
+              "$ref": "#/components/schemas/Precedent"
+            },
+            "type": "array",
+            "title": "Precedents",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "FindingContext"
+      },
       "FindingKind": {
         "type": "string",
         "enum": [
@@ -3794,6 +4211,25 @@
           "label"
         ],
         "title": "FindingLabel"
+      },
+      "FindingVerdict": {
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Finding Id"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/VerificationVerdict"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "finding_id",
+          "verdict"
+        ],
+        "title": "FindingVerdict"
       },
       "FindingView": {
         "properties": {
@@ -4390,6 +4826,61 @@
         ],
         "title": "Page[RunOrder]"
       },
+      "Precedent": {
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/Decision"
+          },
+          "similarity": {
+            "type": "number",
+            "title": "Similarity"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PrecedentReason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision",
+          "similarity",
+          "reason"
+        ],
+        "title": "Precedent"
+      },
+      "PrecedentReason": {
+        "properties": {
+          "strength": {
+            "$ref": "#/components/schemas/PrecedentStrength"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "strength",
+          "path",
+          "symbol"
+        ],
+        "title": "PrecedentReason",
+        "description": "Why a prior verdict applies: the same function in the same (vendor-normalized) file."
+      },
+      "PrecedentStrength": {
+        "type": "string",
+        "enum": [
+          "human_countersigned",
+          "machine_refuted_sound"
+        ],
+        "title": "PrecedentStrength",
+        "description": "What a precedent may save: a person's verdict earns fewer votes; a machine's annotates."
+      },
       "Principal": {
         "properties": {
           "identity": {
@@ -4501,6 +4992,63 @@
           "name"
         ],
         "title": "Product"
+      },
+      "Provenance": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "artifact": {
+            "$ref": "#/components/schemas/ArtifactRef",
+            "nullable": true
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceType"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "source",
+          "occurred_at"
+        ],
+        "title": "Provenance"
+      },
+      "RecordValidation": {
+        "properties": {
+          "run_order_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Order Id"
+          },
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "bindings": {
+            "$ref": "#/components/schemas/ValidationRecordInput"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_order_id",
+          "payload",
+          "provenance",
+          "bindings"
+        ],
+        "title": "RecordValidation"
       },
       "RefDependency": {
         "properties": {
@@ -5074,6 +5622,90 @@
         ],
         "title": "SourceChannel"
       },
+      "SourceType": {
+        "type": "string",
+        "enum": [
+          "mr_comment",
+          "commit",
+          "jira",
+          "interactive",
+          "validation_report",
+          "verification_report",
+          "triage_report",
+          "impact_report",
+          "vuln_scan_report",
+          "fuzz_report",
+          "rebaseline",
+          "restatement"
+        ],
+        "title": "SourceType",
+        "x-enum-varnames": [
+          "SourceTypeMrComment",
+          "SourceTypeCommit",
+          "SourceTypeJira",
+          "SourceTypeInteractive",
+          "SourceTypeValidationReport",
+          "SourceTypeVerificationReport",
+          "SourceTypeTriageReport",
+          "SourceTypeImpactReport",
+          "SourceTypeVulnScanReport",
+          "SourceTypeFuzzReport",
+          "SourceTypeRebaseline",
+          "SourceTypeRestatement"
+        ]
+      },
+      "SubjectRef": {
+        "properties": {
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Repository Id"
+          },
+          "repository_url": {
+            "type": "string",
+            "title": "Repository Url"
+          },
+          "repository_ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Repository Ref Id"
+          },
+          "sha": {
+            "type": "string",
+            "title": "Sha"
+          },
+          "assessment_id": {
+            "title": "Assessment Id",
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "repository_id",
+          "repository_url",
+          "repository_ref_id",
+          "sha"
+        ],
+        "title": "SubjectRef",
+        "description": "What a skill works on: a commit of a repository, and the assessment when there is one."
+      },
+      "TargetAttestation": {
+        "properties": {
+          "attested": {
+            "type": "boolean",
+            "title": "Attested"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "attested"
+        ],
+        "title": "TargetAttestation"
+      },
       "Team": {
         "properties": {
           "id": {
@@ -5105,6 +5737,129 @@
           "name"
         ],
         "title": "Team"
+      },
+      "TriageInput": {
+        "properties": {
+          "subject": {
+            "$ref": "#/components/schemas/SubjectRef"
+          },
+          "findings": {
+            "$ref": "#/components/schemas/FindingContext"
+          },
+          "prepared_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Prepared At"
+          },
+          "assessor": {
+            "type": "string",
+            "title": "Assessor"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TriageItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "subject",
+          "findings",
+          "prepared_at",
+          "assessor",
+          "items"
+        ],
+        "title": "TriageInput"
+      },
+      "TriageItem": {
+        "properties": {
+          "finding": {
+            "$ref": "#/components/schemas/Finding"
+          },
+          "occurrence": {
+            "$ref": "#/components/schemas/Occurrence"
+          },
+          "locations": {
+            "items": {
+              "$ref": "#/components/schemas/Location"
+            },
+            "type": "array",
+            "title": "Locations",
+            "default": []
+          },
+          "precedents": {
+            "items": {
+              "$ref": "#/components/schemas/Precedent"
+            },
+            "type": "array",
+            "title": "Precedents",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "finding",
+          "occurrence"
+        ],
+        "title": "TriageItem",
+        "description": "One reported finding to judge: the finding, how this assessment reported it, and where."
+      },
+      "TriageRecordBody": {
+        "properties": {
+          "run_order_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Order Id"
+          },
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_order_id",
+          "payload",
+          "provenance"
+        ],
+        "title": "TriageRecordBody"
+      },
+      "TriageRecordResult": {
+        "properties": {
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Artifact Id"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "type": "array",
+            "title": "Decisions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "assessment_id",
+          "artifact_id",
+          "decisions"
+        ],
+        "title": "TriageRecordResult"
       },
       "ValidationError": {
         "properties": {
@@ -5146,6 +5901,238 @@
         ],
         "title": "ValidationError"
       },
+      "ValidationFindingBinding": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Id"
+          },
+          "finding_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Finding Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_id",
+          "finding_id"
+        ],
+        "title": "ValidationFindingBinding"
+      },
+      "ValidationFindingResult": {
+        "properties": {
+          "source_report": {
+            "type": "string",
+            "title": "Source Report"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "finding_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Finding Id"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/ValidationVerdict"
+          },
+          "evidence_grade": {
+            "$ref": "#/components/schemas/EvidenceGrade",
+            "nullable": true
+          },
+          "soundness_flag": {
+            "title": "Soundness Flag",
+            "type": "string",
+            "nullable": true
+          },
+          "review_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewReason"
+            },
+            "type": "array",
+            "title": "Review Reasons",
+            "default": []
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string",
+            "nullable": true
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Artifact Id"
+          },
+          "decision_id": {
+            "title": "Decision Id",
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "review_item_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Review Item Ids",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_report",
+          "source_id",
+          "finding_id",
+          "verdict",
+          "assessment_id",
+          "artifact_id"
+        ],
+        "title": "ValidationFindingResult"
+      },
+      "ValidationRecordInput": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationSourceBinding"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ValidationRecordingPolicy",
+            "default": "current"
+          },
+          "target_attestation": {
+            "$ref": "#/components/schemas/TargetAttestation",
+            "nullable": true
+          },
+          "install_failed": {
+            "type": "boolean",
+            "title": "Install Failed",
+            "default": false
+          },
+          "install_failure": {
+            "title": "Install Failure",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "ValidationRecordInput"
+      },
+      "ValidationRecordResult": {
+        "properties": {
+          "assessment_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Assessment Ids"
+          },
+          "artifact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Artifact Ids"
+          },
+          "evidence_artifact_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Evidence Artifact Ids"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationFindingResult"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "assessment_ids",
+          "artifact_ids",
+          "evidence_artifact_ids",
+          "findings"
+        ],
+        "title": "ValidationRecordResult"
+      },
+      "ValidationRecordingPolicy": {
+        "type": "string",
+        "enum": [
+          "current",
+          "historical"
+        ],
+        "title": "ValidationRecordingPolicy"
+      },
+      "ValidationSourceBinding": {
+        "properties": {
+          "source_report": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Source Report"
+          },
+          "assessment_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Assessment Id"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Artifact Id"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationFindingBinding"
+            },
+            "type": "array",
+            "title": "Findings",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source_report",
+          "assessment_id",
+          "artifact_id"
+        ],
+        "title": "ValidationSourceBinding"
+      },
+      "ValidationVerdict": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "refuted",
+          "inconclusive",
+          "blocked_by_scope",
+          "not_attempted"
+        ],
+        "title": "ValidationVerdict"
+      },
       "Validity": {
         "type": "string",
         "enum": [
@@ -5158,6 +6145,101 @@
           "true_positive"
         ],
         "title": "Validity"
+      },
+      "Verification": {
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Verification Id"
+          },
+          "repository_ref_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Repository Ref Id"
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Verified At"
+          },
+          "verdicts": {
+            "items": {
+              "$ref": "#/components/schemas/FindingVerdict"
+            },
+            "type": "array",
+            "title": "Verdicts"
+          },
+          "work_item_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Work Item Ids",
+            "default": []
+          },
+          "regression_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Regression Ids",
+            "default": []
+          },
+          "artifact": {
+            "$ref": "#/components/schemas/ArtifactRef"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verification_id",
+          "repository_ref_id",
+          "verified_at",
+          "verdicts",
+          "artifact"
+        ],
+        "title": "Verification",
+        "description": "One verification run of a repository's findings against a patched commit."
+      },
+      "VerificationRecordBody": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "run_order_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Order Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "payload",
+          "provenance",
+          "run_order_id"
+        ],
+        "title": "VerificationRecordBody"
+      },
+      "VerificationVerdict": {
+        "type": "string",
+        "enum": [
+          "resolved",
+          "partially_resolved",
+          "unresolved",
+          "new_approach",
+          "regression",
+          "false_positive",
+          "risk_accepted"
+        ],
+        "title": "VerificationVerdict"
       },
       "VerifyResult": {
         "properties": {
@@ -5203,5 +6285,47 @@
         "scheme": "bearer"
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness; no authentication."
+    },
+    {
+      "name": "identity",
+      "description": "The verified caller (`whoami`)."
+    },
+    {
+      "name": "ops",
+      "description": "The run-order queue (claim/heartbeat/complete), reads and the feed."
+    },
+    {
+      "name": "findings",
+      "description": "Native triage, findings, decisions (countersign, restate) and review."
+    },
+    {
+      "name": "portfolio",
+      "description": "Inventory: repositories, refs, owners and products."
+    },
+    {
+      "name": "assessments",
+      "description": "Assessments of a ref or repository."
+    },
+    {
+      "name": "exposure",
+      "description": "Advisories, their blast radius, packages and dependents."
+    },
+    {
+      "name": "validation",
+      "description": "Native machine-validation records and evidence."
+    },
+    {
+      "name": "remediation",
+      "description": "Native remediation-verification report recording."
+    },
+    {
+      "name": "ledger",
+      "description": "The decision ledger: layers, events, verification and checkpoints."
+    }
+  ]
 }

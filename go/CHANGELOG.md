@@ -2,6 +2,33 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.25.0]
+
+### Added
+
+- Generated Core REST clients for native triage preparation and protected
+  triage, validation and verification report recording. Request types carry
+  required order UUIDs, native provenance/source bindings and exact report
+  text; responses expose native assessment, artifact, finding and decision IDs.
+
+### Fixed
+
+- Remove the unnecessary unsigned conversion in the existing retry-backoff
+  shift. The attempt counter is nonnegative; retry bounds, methods and delays
+  are unchanged. This resolves the configured G115 gate without suppressions.
+
+### Compatibility
+
+- Namespace the new API `SourceType` enum during normalization so existing
+  `SourceChannel` constants (`Commit`, `Interactive`, `Jira`, `MrComment`)
+  retain their public Go names. No wire-value change or compatibility aliases.
+- Existing API schemas and operation IDs remain available. Contracts/storage
+  pins, legacy packages and SCI/worker consumers are unchanged.
+- Recording clients are a held preview of Core PRs #266, #259, #261 and #260;
+  the corresponding server changes must land before use. Generated calls
+  require explicit HTTP-status handling, including `application/problem+json`
+  bodies; a nil transport error is not a successful recording.
+
 ## [0.24.0]
 
 ### Fixed

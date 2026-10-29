@@ -52,6 +52,42 @@ adopting new scanner-observation validation remains an explicit pin update.
 No runtime files, sibling checkout, event/identifier rewriting, free-text mapping
 or cross-field policy are introduced.
 
+## Core REST API: recording preview
+
+Import `github.com/traust-security/traust-sdk/go/v1/api`. Use
+`api.NewBoundClient` with `api.ClientConfig` and `api.FileTokenSource` for
+rotating bearer-token files; recording methods are generated from Core's
+OpenAPI, not adapters over the legacy ledger report conversion.
+
+The preview adds these generated `WithResponse` methods:
+
+- `PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse`
+- `RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse`
+- `RecordValidationV1ValidationRecordsPostWithResponse`
+- `RecordVerificationV1VerificationRecordsPostWithResponse`
+
+Use the generated request-body types. Each recording request requires the
+native `RunOrderId`, exact report text in `Payload`, and `Provenance` with
+`RunId` equal to that order UUID. Claim the order through
+`ClaimV1OrdersClaimPostWithResponse` using the same machine credential.
+Core requires its live owned lease, matching repository, and a server-configured
+`Config.recording` asset capability; capabilities default to deny. Native triage
+assessment/artifact IDs feed validation source bindings. Actor, signer,
+classification and closure policy remain Core-owned.
+
+Generated methods return transport/decoding errors separately from HTTP refusal.
+Always check `StatusCode()` and require `JSON200` for a successful recording.
+For a non-2xx response, retain status and decode `Body` into `api.Problem`;
+Core uses `application/problem+json`, so `JSON403` or other generated
+`JSON4xx` fields may be nil. A nil Go error alone does not mean admission
+succeeded, and `BoundClient` does not automatically turn these generated calls
+into `ProblemError`.
+
+This preview depends on Core PRs #266, #259, #261 and #260. It is not deployed
+functionality or the SCI/worker cutover. Exact input refs and regeneration
+instructions are in [the generator documentation](internal/generate/openapi/README.md).
+
+
 ## Skills SDK
 
 Import a skill, plug in your provider, call it — typed input in, typed result out:

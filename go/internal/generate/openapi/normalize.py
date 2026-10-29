@@ -5,7 +5,8 @@ kin-openapi (behind oapi-codegen v2) reads the 3.0 shapes. Two 3.1-isms
 appear in core's document: exclusiveMinimum/exclusiveMaximum as numbers
 instead of the 3.0 boolean flag, and pydantic's Optional as
 anyOf: [schema, {type: "null"}] instead of 3.0's nullable: true. This
-rewrites those forms; the spec's content is otherwise untouched.
+rewrites those forms and namespaces SourceType to preserve existing Go
+SourceChannel constants. Wire values and validation constraints are unchanged.
 
 Usage: normalize.py <openapi.json> <openapi-3.0.json>
 """
@@ -58,6 +59,13 @@ def main(argv: list[str]) -> int:
     with open(argv[1], encoding="utf-8") as handle:
         spec = json.load(handle)
     normalize(spec)
+    # Avoid renaming existing SourceChannel constants when SourceType is added.
+    source_type = spec["components"]["schemas"].get("SourceType")
+    if source_type is not None:
+        source_type["x-enum-varnames"] = [
+            "SourceType" + "".join(part.title() for part in value.split("_"))
+            for value in source_type["enum"]
+        ]
     spec["openapi"] = "3.0.3"
     with open(argv[2], "w", encoding="utf-8") as handle:
         json.dump(spec, handle, indent=2)
