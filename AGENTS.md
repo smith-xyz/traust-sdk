@@ -85,9 +85,11 @@ Before writing Go, load `.agents/skills/go-patterns/SKILL.md`. `.claude/skills` 
 
 ## Workflow
 
-| Lint | Test | Security | Generate |
-|---|---|---|---|
-| `make lint` | `make test` (network-free); `make test-integration` for storage | `make security` (gosec, govulncheck) | `make -C go generate api-generate`, then `make -C go check-drift` clean |
+| Lint | Test | Security | Generate | Rules |
+|---|---|---|---|---|
+| `make lint` | `make test` (network-free); `make test-integration` for storage; `make e2e` against core at `CORE_REF` | `make security` (gosec, govulncheck) | `make -C go generate api-generate`, then `make -C go check-drift` clean | `make guardrails` |
+
+CI runs each of these on every PR. A new `go/v1` package is added to `ci/guardrails.sh` in the same PR.
 
 - A failing test means fix the code. Changing an assertion, deleting a test or adding `t.Skip` needs a person's OK and a **Changed tests** entry in the PR (test · old → new · why)
 - Commits: `type(scope): subject`, scope `go` for SDK changes
