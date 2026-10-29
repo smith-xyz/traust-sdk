@@ -205,7 +205,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func (c *BoundClient) EachProduct(ctx context.Context, limit int, fn func(Product) error) error {
 	var cursor *string
 	for {
-		resp, err := c.ListProductsV1ProductsGetWithResponse(ctx, &ListProductsV1ProductsGetParams{
+		resp, err := c.ListProductsWithResponse(ctx, &ListProductsParams{
 			Limit:  &limit,
 			Cursor: cursor,
 		})
@@ -234,7 +234,7 @@ func (c *BoundClient) EachProduct(ctx context.Context, limit int, fn func(Produc
 func (c *BoundClient) EachRepository(ctx context.Context, limit int, fn func(Repository) error) error {
 	var cursor *string
 	for {
-		resp, err := c.ListRepositoriesV1RepositoriesGetWithResponse(ctx, &ListRepositoriesV1RepositoriesGetParams{
+		resp, err := c.ListRepositoriesWithResponse(ctx, &ListRepositoriesParams{
 			Limit:  &limit,
 			Cursor: cursor,
 		})

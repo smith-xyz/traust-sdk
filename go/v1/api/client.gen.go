@@ -136,6 +136,14 @@ const (
 	Weakness      FindingKind = "weakness"
 )
 
+// Defines values for HashUnavailable.
+const (
+	BothClaimsUnavailable     HashUnavailable = "both_claims_unavailable"
+	PriorClaimUnavailable     HashUnavailable = "prior_claim_unavailable"
+	TargetClaimUnavailable    HashUnavailable = "target_claim_unavailable"
+	VerdictBindingUnavailable HashUnavailable = "verdict_binding_unavailable"
+)
+
 // Defines values for IdentitySource.
 const (
 	Database  IdentitySource = "database"
@@ -149,6 +157,12 @@ const (
 	OutcomeFailed    Outcome = "failed"
 	OutcomeRefused   Outcome = "refused"
 	OutcomeSucceeded Outcome = "succeeded"
+)
+
+// Defines values for PrecedentBasis.
+const (
+	HashBacked PrecedentBasis = "hash_backed"
+	SymbolOnly PrecedentBasis = "symbol_only"
 )
 
 // Defines values for PrecedentStrength.
@@ -436,6 +450,12 @@ type ClaimRequest struct {
 	LeaseSeconds int       `json:"lease_seconds"`
 }
 
+// CodeHash defines model for CodeHash.
+type CodeHash struct {
+	Algorithm string `json:"algorithm"`
+	Digest    string `json:"digest"`
+}
+
 // CompleteRequest defines model for CompleteRequest.
 type CompleteRequest struct {
 	Result JobResult `json:"result"`
@@ -665,6 +685,9 @@ type HTTPValidationError struct {
 	Detail *[]ValidationError `json:"detail,omitempty"`
 }
 
+// HashUnavailable defines model for HashUnavailable.
+type HashUnavailable string
+
 // Health defines model for Health.
 type Health struct {
 	Status string `json:"status"`
@@ -851,18 +874,24 @@ type Precedent struct {
 	// Decision A judgement on a finding; corrections are new decisions (restates_id).
 	Decision Decision `json:"decision"`
 
-	// Reason Why a prior verdict applies: the same function in the same (vendor-normalized) file.
+	// Reason Why a prior verdict applies, with the basis of its content-claim comparison.
 	Reason     PrecedentReason `json:"reason"`
 	Similarity float32         `json:"similarity"`
 }
 
-// PrecedentReason Why a prior verdict applies: the same function in the same (vendor-normalized) file.
+// PrecedentBasis defines model for PrecedentBasis.
+type PrecedentBasis string
+
+// PrecedentReason Why a prior verdict applies, with the basis of its content-claim comparison.
 type PrecedentReason struct {
-	Path string `json:"path"`
+	Basis  *PrecedentBasis `json:"basis,omitempty"`
+	Hashes *[]CodeHash     `json:"hashes,omitempty"`
+	Path   string          `json:"path"`
 
 	// Strength What a precedent may save: a person's verdict earns fewer votes; a machine's annotates.
-	Strength PrecedentStrength `json:"strength"`
-	Symbol   string            `json:"symbol"`
+	Strength          PrecedentStrength `json:"strength"`
+	Symbol            string            `json:"symbol"`
+	UnavailableReason *HashUnavailable  `json:"unavailable_reason,omitempty"`
 }
 
 // PrecedentStrength What a precedent may save: a person's verdict earns fewer votes; a machine's annotates.
@@ -1239,8 +1268,8 @@ type VerifyResult struct {
 	Warnings *[]string          `json:"warnings,omitempty"`
 }
 
-// ListAssessmentsV1AssessmentsGetParams defines parameters for ListAssessmentsV1AssessmentsGet.
-type ListAssessmentsV1AssessmentsGetParams struct {
+// ListAssessmentsParams defines parameters for ListAssessments.
+type ListAssessmentsParams struct {
 	RepositoryRefId openapi_types.UUID `form:"repository_ref_id" json:"repository_ref_id"`
 	Kind            *AssessmentKind    `form:"kind,omitempty" json:"kind,omitempty"`
 	Status          *string            `form:"status,omitempty" json:"status,omitempty"`
@@ -1248,14 +1277,14 @@ type ListAssessmentsV1AssessmentsGetParams struct {
 	Cursor          *string            `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ReadFeedV1FeedGetParams defines parameters for ReadFeedV1FeedGet.
-type ReadFeedV1FeedGetParams struct {
+// ReadFeedParams defines parameters for ReadFeed.
+type ReadFeedParams struct {
 	After *string `form:"after,omitempty" json:"after,omitempty"`
 	Limit *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
-// ReviewQueueV1FindingsReviewQueueGetParams defines parameters for ReviewQueueV1FindingsReviewQueueGet.
-type ReviewQueueV1FindingsReviewQueueGetParams struct {
+// ReviewQueueParams defines parameters for ReviewQueue.
+type ReviewQueueParams struct {
 	Status       *ReviewItemStatus   `form:"status,omitempty" json:"status,omitempty"`
 	Reason       *ReviewReason       `form:"reason,omitempty" json:"reason,omitempty"`
 	Kind         *ReviewCaseKind     `form:"kind,omitempty" json:"kind,omitempty"`
@@ -1265,14 +1294,14 @@ type ReviewQueueV1FindingsReviewQueueGetParams struct {
 	Cursor       *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListEventsV1LedgerLayersLayerIdEventsGetParams defines parameters for ListEventsV1LedgerLayersLayerIdEventsGet.
-type ListEventsV1LedgerLayersLayerIdEventsGetParams struct {
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListOrdersV1OrdersGetParams defines parameters for ListOrdersV1OrdersGet.
-type ListOrdersV1OrdersGetParams struct {
+// ListOrdersParams defines parameters for ListOrders.
+type ListOrdersParams struct {
 	States       *[]RunOrderState    `form:"states,omitempty" json:"states,omitempty"`
 	Asset        *string             `form:"asset,omitempty" json:"asset,omitempty"`
 	RepositoryId *openapi_types.UUID `form:"repository_id,omitempty" json:"repository_id,omitempty"`
@@ -1281,69 +1310,69 @@ type ListOrdersV1OrdersGetParams struct {
 	Cursor       *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// FindPackageV1PackagesGetParams defines parameters for FindPackageV1PackagesGet.
-type FindPackageV1PackagesGetParams struct {
+// FindPackageParams defines parameters for FindPackage.
+type FindPackageParams struct {
 	Ecosystem Ecosystem `form:"ecosystem" json:"ecosystem"`
 	Name      string    `form:"name" json:"name"`
 }
 
-// DependentsV1PackagesPackageIdDependentsGetParams defines parameters for DependentsV1PackagesPackageIdDependentsGet.
-type DependentsV1PackagesPackageIdDependentsGetParams struct {
+// DependentsParams defines parameters for Dependents.
+type DependentsParams struct {
 	Version *string `form:"version,omitempty" json:"version,omitempty"`
 }
 
-// ListProductsV1ProductsGetParams defines parameters for ListProductsV1ProductsGet.
-type ListProductsV1ProductsGetParams struct {
+// ListProductsParams defines parameters for ListProducts.
+type ListProductsParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListRepositoriesV1RepositoriesGetParams defines parameters for ListRepositoriesV1RepositoriesGet.
-type ListRepositoriesV1RepositoriesGetParams struct {
+// ListRepositoriesParams defines parameters for ListRepositories.
+type ListRepositoriesParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams defines parameters for ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGet.
-type ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams struct {
+// ListRepositoryAssessmentsParams defines parameters for ListRepositoryAssessments.
+type ListRepositoryAssessmentsParams struct {
 	Kind *AssessmentKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
-// RecordAssessmentV1AssessmentRecordsPostJSONRequestBody defines body for RecordAssessmentV1AssessmentRecordsPost for application/json ContentType.
-type RecordAssessmentV1AssessmentRecordsPostJSONRequestBody = AssessmentRecordRequest
+// RecordAssessmentJSONRequestBody defines body for RecordAssessment for application/json ContentType.
+type RecordAssessmentJSONRequestBody = AssessmentRecordRequest
 
-// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody defines body for RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost for application/json ContentType.
-type RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody = TriageRecordBody
+// RecordTriageJSONRequestBody defines body for RecordTriage for application/json ContentType.
+type RecordTriageJSONRequestBody = TriageRecordBody
 
-// RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody defines body for RestateV1DecisionsDecisionIdRestatementPost for application/json ContentType.
-type RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody = RestatementBody
+// RestateJSONRequestBody defines body for Restate for application/json ContentType.
+type RestateJSONRequestBody = RestatementBody
 
-// DecideV1FindingsFindingIdDecisionsPostJSONRequestBody defines body for DecideV1FindingsFindingIdDecisionsPost for application/json ContentType.
-type DecideV1FindingsFindingIdDecisionsPostJSONRequestBody = DecisionBody
+// DecideJSONRequestBody defines body for Decide for application/json ContentType.
+type DecideJSONRequestBody = DecisionBody
 
-// OnboardV1OnboardingPostJSONRequestBody defines body for OnboardV1OnboardingPost for application/json ContentType.
-type OnboardV1OnboardingPostJSONRequestBody = OnboardingRequest
+// OnboardJSONRequestBody defines body for Onboard for application/json ContentType.
+type OnboardJSONRequestBody = OnboardingRequest
 
-// PlanOnboardingV1OnboardingPlanPostJSONRequestBody defines body for PlanOnboardingV1OnboardingPlanPost for application/json ContentType.
-type PlanOnboardingV1OnboardingPlanPostJSONRequestBody = OnboardingRequest
+// PlanOnboardingJSONRequestBody defines body for PlanOnboarding for application/json ContentType.
+type PlanOnboardingJSONRequestBody = OnboardingRequest
 
-// ClaimV1OrdersClaimPostJSONRequestBody defines body for ClaimV1OrdersClaimPost for application/json ContentType.
-type ClaimV1OrdersClaimPostJSONRequestBody = ClaimRequest
+// ClaimJSONRequestBody defines body for Claim for application/json ContentType.
+type ClaimJSONRequestBody = ClaimRequest
 
-// StartV1OrdersStartPostJSONRequestBody defines body for StartV1OrdersStartPost for application/json ContentType.
-type StartV1OrdersStartPostJSONRequestBody = StartRecordingRequest
+// StartJSONRequestBody defines body for Start for application/json ContentType.
+type StartJSONRequestBody = StartRecordingRequest
 
-// CompleteV1OrdersOrderIdCompletePostJSONRequestBody defines body for CompleteV1OrdersOrderIdCompletePost for application/json ContentType.
-type CompleteV1OrdersOrderIdCompletePostJSONRequestBody = CompleteRequest
+// CompleteJSONRequestBody defines body for Complete for application/json ContentType.
+type CompleteJSONRequestBody = CompleteRequest
 
-// HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody defines body for HeartbeatV1OrdersOrderIdHeartbeatPost for application/json ContentType.
-type HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody = LeaseRequest
+// HeartbeatJSONRequestBody defines body for Heartbeat for application/json ContentType.
+type HeartbeatJSONRequestBody = LeaseRequest
 
-// RecordValidationV1ValidationRecordsPostJSONRequestBody defines body for RecordValidationV1ValidationRecordsPost for application/json ContentType.
-type RecordValidationV1ValidationRecordsPostJSONRequestBody = RecordValidation
+// RecordValidationJSONRequestBody defines body for RecordValidation for application/json ContentType.
+type RecordValidationJSONRequestBody = RecordValidation
 
-// RecordVerificationV1VerificationRecordsPostJSONRequestBody defines body for RecordVerificationV1VerificationRecordsPost for application/json ContentType.
-type RecordVerificationV1VerificationRecordsPostJSONRequestBody = VerificationRecordBody
+// RecordVerificationJSONRequestBody defines body for RecordVerification for application/json ContentType.
+type RecordVerificationJSONRequestBody = VerificationRecordBody
 
 // Getter for additional properties for TargetAttestation. Returns the specified
 // element and whether it was found
@@ -2166,180 +2195,180 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetAdvisoryV1AdvisoriesAdvisoryIdGet request
-	GetAdvisoryV1AdvisoriesAdvisoryIdGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetAdvisory request
+	GetAdvisory(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AffectedV1AdvisoriesAdvisoryIdAffectedGet request
-	AffectedV1AdvisoriesAdvisoryIdAffectedGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Affected request
+	Affected(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet request
-	PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PackagesAffected request
+	PackagesAffected(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetArtifactV1ArtifactsArtifactIdGet request
-	GetArtifactV1ArtifactsArtifactIdGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetArtifact request
+	GetArtifact(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetArtifactContentV1ArtifactsArtifactIdContentGet request
-	GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetArtifactContent request
+	GetArtifactContent(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RecordAssessmentV1AssessmentRecordsPostWithBody request with any body
-	RecordAssessmentV1AssessmentRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RecordAssessmentWithBody request with any body
+	RecordAssessmentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RecordAssessmentV1AssessmentRecordsPost(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RecordAssessment(ctx context.Context, body RecordAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListAssessmentsV1AssessmentsGet request
-	ListAssessmentsV1AssessmentsGet(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListAssessments request
+	ListAssessments(ctx context.Context, params *ListAssessmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetAssessmentV1AssessmentsAssessmentIdGet request
-	GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetAssessment request
+	GetAssessment(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet request
-	GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetAssessmentIntake request
+	GetAssessmentIntake(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PrepareTriageV1AssessmentsAssessmentIdTriageInputGet request
-	PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PrepareTriage request
+	PrepareTriage(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody request with any body
-	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RecordTriageWithBody request with any body
+	RecordTriageWithBody(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RecordTriage(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetDecisionV1DecisionsDecisionIdGet request
-	GetDecisionV1DecisionsDecisionIdGet(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetDecision request
+	GetDecision(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RestateV1DecisionsDecisionIdRestatementPostWithBody request with any body
-	RestateV1DecisionsDecisionIdRestatementPostWithBody(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RestateWithBody request with any body
+	RestateWithBody(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RestateV1DecisionsDecisionIdRestatementPost(ctx context.Context, decisionId openapi_types.UUID, body RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Restate(ctx context.Context, decisionId openapi_types.UUID, body RestateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReadFeedV1FeedGet request
-	ReadFeedV1FeedGet(ctx context.Context, params *ReadFeedV1FeedGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ReadFeed request
+	ReadFeed(ctx context.Context, params *ReadFeedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReviewQueueV1FindingsReviewQueueGet request
-	ReviewQueueV1FindingsReviewQueueGet(ctx context.Context, params *ReviewQueueV1FindingsReviewQueueGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ReviewQueue request
+	ReviewQueue(ctx context.Context, params *ReviewQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetFindingV1FindingsFindingIdGet request
-	GetFindingV1FindingsFindingIdGet(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetFinding request
+	GetFinding(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListDecisionsV1FindingsFindingIdDecisionsGet request
-	ListDecisionsV1FindingsFindingIdDecisionsGet(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListDecisions request
+	ListDecisions(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DecideV1FindingsFindingIdDecisionsPostWithBody request with any body
-	DecideV1FindingsFindingIdDecisionsPostWithBody(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DecideWithBody request with any body
+	DecideWithBody(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DecideV1FindingsFindingIdDecisionsPost(ctx context.Context, findingId openapi_types.UUID, body DecideV1FindingsFindingIdDecisionsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Decide(ctx context.Context, findingId openapi_types.UUID, body DecideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// HealthzV1HealthzGet request
-	HealthzV1HealthzGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Healthz request
+	Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetLayerV1LedgerLayersLayerIdGet request
-	GetLayerV1LedgerLayersLayerIdGet(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetLayer request
+	GetLayer(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListEventsV1LedgerLayersLayerIdEventsGet request
-	ListEventsV1LedgerLayersLayerIdEventsGet(ctx context.Context, layerId openapi_types.UUID, params *ListEventsV1LedgerLayersLayerIdEventsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListEvents request
+	ListEvents(ctx context.Context, layerId openapi_types.UUID, params *ListEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// VerifyLayerV1LedgerLayersLayerIdVerificationGet request
-	VerifyLayerV1LedgerLayersLayerIdVerificationGet(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// VerifyLayer request
+	VerifyLayer(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// OnboardV1OnboardingPostWithBody request with any body
-	OnboardV1OnboardingPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// OnboardWithBody request with any body
+	OnboardWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	OnboardV1OnboardingPost(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Onboard(ctx context.Context, body OnboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PlanOnboardingV1OnboardingPlanPostWithBody request with any body
-	PlanOnboardingV1OnboardingPlanPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PlanOnboardingWithBody request with any body
+	PlanOnboardingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PlanOnboardingV1OnboardingPlanPost(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PlanOnboarding(ctx context.Context, body PlanOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListOrdersV1OrdersGet request
-	ListOrdersV1OrdersGet(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListOrders request
+	ListOrders(ctx context.Context, params *ListOrdersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ClaimV1OrdersClaimPostWithBody request with any body
-	ClaimV1OrdersClaimPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ClaimWithBody request with any body
+	ClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ClaimV1OrdersClaimPost(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Claim(ctx context.Context, body ClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// StartV1OrdersStartPostWithBody request with any body
-	StartV1OrdersStartPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// StartWithBody request with any body
+	StartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	StartV1OrdersStartPost(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Start(ctx context.Context, body StartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetOrderV1OrdersOrderIdGet request
-	GetOrderV1OrdersOrderIdGet(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetOrder request
+	GetOrder(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CompleteV1OrdersOrderIdCompletePostWithBody request with any body
-	CompleteV1OrdersOrderIdCompletePostWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CompleteWithBody request with any body
+	CompleteWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	CompleteV1OrdersOrderIdCompletePost(ctx context.Context, orderId openapi_types.UUID, body CompleteV1OrdersOrderIdCompletePostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Complete(ctx context.Context, orderId openapi_types.UUID, body CompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// HeartbeatV1OrdersOrderIdHeartbeatPostWithBody request with any body
-	HeartbeatV1OrdersOrderIdHeartbeatPostWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// HeartbeatWithBody request with any body
+	HeartbeatWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	HeartbeatV1OrdersOrderIdHeartbeatPost(ctx context.Context, orderId openapi_types.UUID, body HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	Heartbeat(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// FindPackageV1PackagesGet request
-	FindPackageV1PackagesGet(ctx context.Context, params *FindPackageV1PackagesGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// FindPackage request
+	FindPackage(ctx context.Context, params *FindPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DependentsV1PackagesPackageIdDependentsGet request
-	DependentsV1PackagesPackageIdDependentsGet(ctx context.Context, packageId openapi_types.UUID, params *DependentsV1PackagesPackageIdDependentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Dependents request
+	Dependents(ctx context.Context, packageId openapi_types.UUID, params *DependentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListProductsV1ProductsGet request
-	ListProductsV1ProductsGet(ctx context.Context, params *ListProductsV1ProductsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListProducts request
+	ListProducts(ctx context.Context, params *ListProductsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetProductV1ProductsProductIdGet request
-	GetProductV1ProductsProductIdGet(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetProduct request
+	GetProduct(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListProductRefsV1ProductsProductIdRefsGet request
-	ListProductRefsV1ProductsProductIdRefsGet(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListProductRefs request
+	ListProductRefs(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetRefV1RefsRepositoryRefIdGet request
-	GetRefV1RefsRepositoryRefIdGet(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetRef request
+	GetRef(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DependenciesV1RefsRepositoryRefIdDependenciesGet request
-	DependenciesV1RefsRepositoryRefIdDependenciesGet(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Dependencies request
+	Dependencies(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListRepositoriesV1RepositoriesGet request
-	ListRepositoriesV1RepositoriesGet(ctx context.Context, params *ListRepositoriesV1RepositoriesGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListRepositories request
+	ListRepositories(ctx context.Context, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetRepositoryV1RepositoriesRepositoryIdGet request
-	GetRepositoryV1RepositoriesRepositoryIdGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetRepository request
+	GetRepository(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGet request
-	ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGet(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListRepositoryAssessments request
+	ListRepositoryAssessments(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGet request
-	ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListRepositoryDecisions request
+	ListRepositoryDecisions(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPost request
-	CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPost(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Checkpoint request
+	Checkpoint(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListLayersV1RepositoriesRepositoryIdLedgerLayersGet request
-	ListLayersV1RepositoriesRepositoryIdLedgerLayersGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListLayers request
+	ListLayers(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListOwnersV1RepositoriesRepositoryIdOwnersGet request
-	ListOwnersV1RepositoriesRepositoryIdOwnersGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListOwners request
+	ListOwners(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListProductsOfV1RepositoriesRepositoryIdProductsGet request
-	ListProductsOfV1RepositoriesRepositoryIdProductsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListProductsOf request
+	ListProductsOf(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListRefsV1RepositoriesRepositoryIdRefsGet request
-	ListRefsV1RepositoriesRepositoryIdRefsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListRefs request
+	ListRefs(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RecordValidationV1ValidationRecordsPostWithBody request with any body
-	RecordValidationV1ValidationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RecordValidationWithBody request with any body
+	RecordValidationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RecordValidationV1ValidationRecordsPost(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RecordValidation(ctx context.Context, body RecordValidationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RecordVerificationV1VerificationRecordsPostWithBody request with any body
-	RecordVerificationV1VerificationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// RecordVerificationWithBody request with any body
+	RecordVerificationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	RecordVerificationV1VerificationRecordsPost(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RecordVerification(ctx context.Context, body RecordVerificationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// WhoamiV1WhoamiGet request
-	WhoamiV1WhoamiGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Whoami request
+	Whoami(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetAdvisoryV1AdvisoriesAdvisoryIdGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAdvisoryV1AdvisoriesAdvisoryIdGetRequest(c.Server, advisoryId)
+func (c *Client) GetAdvisory(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAdvisoryRequest(c.Server, advisoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2350,8 +2379,8 @@ func (c *Client) GetAdvisoryV1AdvisoriesAdvisoryIdGet(ctx context.Context, advis
 	return c.Client.Do(req)
 }
 
-func (c *Client) AffectedV1AdvisoriesAdvisoryIdAffectedGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAffectedV1AdvisoriesAdvisoryIdAffectedGetRequest(c.Server, advisoryId)
+func (c *Client) Affected(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAffectedRequest(c.Server, advisoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2362,8 +2391,8 @@ func (c *Client) AffectedV1AdvisoriesAdvisoryIdAffectedGet(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetRequest(c.Server, advisoryId)
+func (c *Client) PackagesAffected(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackagesAffectedRequest(c.Server, advisoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2374,8 +2403,8 @@ func (c *Client) PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet(ctx context.C
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetArtifactV1ArtifactsArtifactIdGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetArtifactV1ArtifactsArtifactIdGetRequest(c.Server, artifactId)
+func (c *Client) GetArtifact(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetArtifactRequest(c.Server, artifactId)
 	if err != nil {
 		return nil, err
 	}
@@ -2386,8 +2415,8 @@ func (c *Client) GetArtifactV1ArtifactsArtifactIdGet(ctx context.Context, artifa
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest(c.Server, artifactId)
+func (c *Client) GetArtifactContent(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetArtifactContentRequest(c.Server, artifactId)
 	if err != nil {
 		return nil, err
 	}
@@ -2398,8 +2427,8 @@ func (c *Client) GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx context.C
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordAssessmentV1AssessmentRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) RecordAssessmentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordAssessmentRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2410,8 +2439,8 @@ func (c *Client) RecordAssessmentV1AssessmentRecordsPostWithBody(ctx context.Con
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordAssessmentV1AssessmentRecordsPost(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordAssessmentV1AssessmentRecordsPostRequest(c.Server, body)
+func (c *Client) RecordAssessment(ctx context.Context, body RecordAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordAssessmentRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2422,8 +2451,8 @@ func (c *Client) RecordAssessmentV1AssessmentRecordsPost(ctx context.Context, bo
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListAssessmentsV1AssessmentsGet(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListAssessmentsV1AssessmentsGetRequest(c.Server, params)
+func (c *Client) ListAssessments(ctx context.Context, params *ListAssessmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAssessmentsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2434,8 +2463,8 @@ func (c *Client) ListAssessmentsV1AssessmentsGet(ctx context.Context, params *Li
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(c.Server, assessmentId)
+func (c *Client) GetAssessment(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAssessmentRequest(c.Server, assessmentId)
 	if err != nil {
 		return nil, err
 	}
@@ -2446,8 +2475,8 @@ func (c *Client) GetAssessmentV1AssessmentsAssessmentIdGet(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest(c.Server, assessmentId)
+func (c *Client) GetAssessmentIntake(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAssessmentIntakeRequest(c.Server, assessmentId)
 	if err != nil {
 		return nil, err
 	}
@@ -2458,8 +2487,8 @@ func (c *Client) GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest(c.Server, assessmentId)
+func (c *Client) PrepareTriage(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareTriageRequest(c.Server, assessmentId)
 	if err != nil {
 		return nil, err
 	}
@@ -2470,8 +2499,8 @@ func (c *Client) PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx contex
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(c.Server, assessmentId, contentType, body)
+func (c *Client) RecordTriageWithBody(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordTriageRequestWithBody(c.Server, assessmentId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2482,8 +2511,8 @@ func (c *Client) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequest(c.Server, assessmentId, body)
+func (c *Client) RecordTriage(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordTriageRequest(c.Server, assessmentId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2494,8 +2523,8 @@ func (c *Client) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx cont
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetDecisionV1DecisionsDecisionIdGet(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetDecisionV1DecisionsDecisionIdGetRequest(c.Server, decisionId)
+func (c *Client) GetDecision(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDecisionRequest(c.Server, decisionId)
 	if err != nil {
 		return nil, err
 	}
@@ -2506,8 +2535,8 @@ func (c *Client) GetDecisionV1DecisionsDecisionIdGet(ctx context.Context, decisi
 	return c.Client.Do(req)
 }
 
-func (c *Client) RestateV1DecisionsDecisionIdRestatementPostWithBody(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestateV1DecisionsDecisionIdRestatementPostRequestWithBody(c.Server, decisionId, contentType, body)
+func (c *Client) RestateWithBody(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRestateRequestWithBody(c.Server, decisionId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2518,8 +2547,8 @@ func (c *Client) RestateV1DecisionsDecisionIdRestatementPostWithBody(ctx context
 	return c.Client.Do(req)
 }
 
-func (c *Client) RestateV1DecisionsDecisionIdRestatementPost(ctx context.Context, decisionId openapi_types.UUID, body RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRestateV1DecisionsDecisionIdRestatementPostRequest(c.Server, decisionId, body)
+func (c *Client) Restate(ctx context.Context, decisionId openapi_types.UUID, body RestateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRestateRequest(c.Server, decisionId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2530,8 +2559,8 @@ func (c *Client) RestateV1DecisionsDecisionIdRestatementPost(ctx context.Context
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReadFeedV1FeedGet(ctx context.Context, params *ReadFeedV1FeedGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReadFeedV1FeedGetRequest(c.Server, params)
+func (c *Client) ReadFeed(ctx context.Context, params *ReadFeedParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadFeedRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2542,8 +2571,8 @@ func (c *Client) ReadFeedV1FeedGet(ctx context.Context, params *ReadFeedV1FeedGe
 	return c.Client.Do(req)
 }
 
-func (c *Client) ReviewQueueV1FindingsReviewQueueGet(ctx context.Context, params *ReviewQueueV1FindingsReviewQueueGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReviewQueueV1FindingsReviewQueueGetRequest(c.Server, params)
+func (c *Client) ReviewQueue(ctx context.Context, params *ReviewQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReviewQueueRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2554,8 +2583,8 @@ func (c *Client) ReviewQueueV1FindingsReviewQueueGet(ctx context.Context, params
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetFindingV1FindingsFindingIdGet(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetFindingV1FindingsFindingIdGetRequest(c.Server, findingId)
+func (c *Client) GetFinding(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFindingRequest(c.Server, findingId)
 	if err != nil {
 		return nil, err
 	}
@@ -2566,8 +2595,8 @@ func (c *Client) GetFindingV1FindingsFindingIdGet(ctx context.Context, findingId
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListDecisionsV1FindingsFindingIdDecisionsGet(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListDecisionsV1FindingsFindingIdDecisionsGetRequest(c.Server, findingId)
+func (c *Client) ListDecisions(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDecisionsRequest(c.Server, findingId)
 	if err != nil {
 		return nil, err
 	}
@@ -2578,8 +2607,8 @@ func (c *Client) ListDecisionsV1FindingsFindingIdDecisionsGet(ctx context.Contex
 	return c.Client.Do(req)
 }
 
-func (c *Client) DecideV1FindingsFindingIdDecisionsPostWithBody(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDecideV1FindingsFindingIdDecisionsPostRequestWithBody(c.Server, findingId, contentType, body)
+func (c *Client) DecideWithBody(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideRequestWithBody(c.Server, findingId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2590,8 +2619,8 @@ func (c *Client) DecideV1FindingsFindingIdDecisionsPostWithBody(ctx context.Cont
 	return c.Client.Do(req)
 }
 
-func (c *Client) DecideV1FindingsFindingIdDecisionsPost(ctx context.Context, findingId openapi_types.UUID, body DecideV1FindingsFindingIdDecisionsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDecideV1FindingsFindingIdDecisionsPostRequest(c.Server, findingId, body)
+func (c *Client) Decide(ctx context.Context, findingId openapi_types.UUID, body DecideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDecideRequest(c.Server, findingId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2602,8 +2631,8 @@ func (c *Client) DecideV1FindingsFindingIdDecisionsPost(ctx context.Context, fin
 	return c.Client.Do(req)
 }
 
-func (c *Client) HealthzV1HealthzGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHealthzV1HealthzGetRequest(c.Server)
+func (c *Client) Healthz(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHealthzRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2614,8 +2643,8 @@ func (c *Client) HealthzV1HealthzGet(ctx context.Context, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLayerV1LedgerLayersLayerIdGet(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLayerV1LedgerLayersLayerIdGetRequest(c.Server, layerId)
+func (c *Client) GetLayer(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLayerRequest(c.Server, layerId)
 	if err != nil {
 		return nil, err
 	}
@@ -2626,8 +2655,8 @@ func (c *Client) GetLayerV1LedgerLayersLayerIdGet(ctx context.Context, layerId o
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListEventsV1LedgerLayersLayerIdEventsGet(ctx context.Context, layerId openapi_types.UUID, params *ListEventsV1LedgerLayersLayerIdEventsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListEventsV1LedgerLayersLayerIdEventsGetRequest(c.Server, layerId, params)
+func (c *Client) ListEvents(ctx context.Context, layerId openapi_types.UUID, params *ListEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEventsRequest(c.Server, layerId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2638,8 +2667,8 @@ func (c *Client) ListEventsV1LedgerLayersLayerIdEventsGet(ctx context.Context, l
 	return c.Client.Do(req)
 }
 
-func (c *Client) VerifyLayerV1LedgerLayersLayerIdVerificationGet(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewVerifyLayerV1LedgerLayersLayerIdVerificationGetRequest(c.Server, layerId)
+func (c *Client) VerifyLayer(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyLayerRequest(c.Server, layerId)
 	if err != nil {
 		return nil, err
 	}
@@ -2650,8 +2679,8 @@ func (c *Client) VerifyLayerV1LedgerLayersLayerIdVerificationGet(ctx context.Con
 	return c.Client.Do(req)
 }
 
-func (c *Client) OnboardV1OnboardingPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewOnboardV1OnboardingPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) OnboardWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOnboardRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2662,8 +2691,8 @@ func (c *Client) OnboardV1OnboardingPostWithBody(ctx context.Context, contentTyp
 	return c.Client.Do(req)
 }
 
-func (c *Client) OnboardV1OnboardingPost(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewOnboardV1OnboardingPostRequest(c.Server, body)
+func (c *Client) Onboard(ctx context.Context, body OnboardJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOnboardRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2674,8 +2703,8 @@ func (c *Client) OnboardV1OnboardingPost(ctx context.Context, body OnboardV1Onbo
 	return c.Client.Do(req)
 }
 
-func (c *Client) PlanOnboardingV1OnboardingPlanPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) PlanOnboardingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlanOnboardingRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2686,8 +2715,8 @@ func (c *Client) PlanOnboardingV1OnboardingPlanPostWithBody(ctx context.Context,
 	return c.Client.Do(req)
 }
 
-func (c *Client) PlanOnboardingV1OnboardingPlanPost(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPlanOnboardingV1OnboardingPlanPostRequest(c.Server, body)
+func (c *Client) PlanOnboarding(ctx context.Context, body PlanOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPlanOnboardingRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2698,8 +2727,8 @@ func (c *Client) PlanOnboardingV1OnboardingPlanPost(ctx context.Context, body Pl
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListOrdersV1OrdersGet(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListOrdersV1OrdersGetRequest(c.Server, params)
+func (c *Client) ListOrders(ctx context.Context, params *ListOrdersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOrdersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2710,8 +2739,8 @@ func (c *Client) ListOrdersV1OrdersGet(ctx context.Context, params *ListOrdersV1
 	return c.Client.Do(req)
 }
 
-func (c *Client) ClaimV1OrdersClaimPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewClaimV1OrdersClaimPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) ClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClaimRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2722,8 +2751,8 @@ func (c *Client) ClaimV1OrdersClaimPostWithBody(ctx context.Context, contentType
 	return c.Client.Do(req)
 }
 
-func (c *Client) ClaimV1OrdersClaimPost(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewClaimV1OrdersClaimPostRequest(c.Server, body)
+func (c *Client) Claim(ctx context.Context, body ClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClaimRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2734,8 +2763,8 @@ func (c *Client) ClaimV1OrdersClaimPost(ctx context.Context, body ClaimV1OrdersC
 	return c.Client.Do(req)
 }
 
-func (c *Client) StartV1OrdersStartPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartV1OrdersStartPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) StartWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2746,8 +2775,8 @@ func (c *Client) StartV1OrdersStartPostWithBody(ctx context.Context, contentType
 	return c.Client.Do(req)
 }
 
-func (c *Client) StartV1OrdersStartPost(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStartV1OrdersStartPostRequest(c.Server, body)
+func (c *Client) Start(ctx context.Context, body StartJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2758,8 +2787,8 @@ func (c *Client) StartV1OrdersStartPost(ctx context.Context, body StartV1OrdersS
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetOrderV1OrdersOrderIdGet(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetOrderV1OrdersOrderIdGetRequest(c.Server, orderId)
+func (c *Client) GetOrder(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrderRequest(c.Server, orderId)
 	if err != nil {
 		return nil, err
 	}
@@ -2770,8 +2799,8 @@ func (c *Client) GetOrderV1OrdersOrderIdGet(ctx context.Context, orderId openapi
 	return c.Client.Do(req)
 }
 
-func (c *Client) CompleteV1OrdersOrderIdCompletePostWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCompleteV1OrdersOrderIdCompletePostRequestWithBody(c.Server, orderId, contentType, body)
+func (c *Client) CompleteWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteRequestWithBody(c.Server, orderId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2782,8 +2811,8 @@ func (c *Client) CompleteV1OrdersOrderIdCompletePostWithBody(ctx context.Context
 	return c.Client.Do(req)
 }
 
-func (c *Client) CompleteV1OrdersOrderIdCompletePost(ctx context.Context, orderId openapi_types.UUID, body CompleteV1OrdersOrderIdCompletePostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCompleteV1OrdersOrderIdCompletePostRequest(c.Server, orderId, body)
+func (c *Client) Complete(ctx context.Context, orderId openapi_types.UUID, body CompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteRequest(c.Server, orderId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2794,8 +2823,8 @@ func (c *Client) CompleteV1OrdersOrderIdCompletePost(ctx context.Context, orderI
 	return c.Client.Do(req)
 }
 
-func (c *Client) HeartbeatV1OrdersOrderIdHeartbeatPostWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHeartbeatV1OrdersOrderIdHeartbeatPostRequestWithBody(c.Server, orderId, contentType, body)
+func (c *Client) HeartbeatWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHeartbeatRequestWithBody(c.Server, orderId, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2806,8 +2835,8 @@ func (c *Client) HeartbeatV1OrdersOrderIdHeartbeatPostWithBody(ctx context.Conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) HeartbeatV1OrdersOrderIdHeartbeatPost(ctx context.Context, orderId openapi_types.UUID, body HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHeartbeatV1OrdersOrderIdHeartbeatPostRequest(c.Server, orderId, body)
+func (c *Client) Heartbeat(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHeartbeatRequest(c.Server, orderId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2818,8 +2847,8 @@ func (c *Client) HeartbeatV1OrdersOrderIdHeartbeatPost(ctx context.Context, orde
 	return c.Client.Do(req)
 }
 
-func (c *Client) FindPackageV1PackagesGet(ctx context.Context, params *FindPackageV1PackagesGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewFindPackageV1PackagesGetRequest(c.Server, params)
+func (c *Client) FindPackage(ctx context.Context, params *FindPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFindPackageRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2830,8 +2859,8 @@ func (c *Client) FindPackageV1PackagesGet(ctx context.Context, params *FindPacka
 	return c.Client.Do(req)
 }
 
-func (c *Client) DependentsV1PackagesPackageIdDependentsGet(ctx context.Context, packageId openapi_types.UUID, params *DependentsV1PackagesPackageIdDependentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDependentsV1PackagesPackageIdDependentsGetRequest(c.Server, packageId, params)
+func (c *Client) Dependents(ctx context.Context, packageId openapi_types.UUID, params *DependentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDependentsRequest(c.Server, packageId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2842,8 +2871,8 @@ func (c *Client) DependentsV1PackagesPackageIdDependentsGet(ctx context.Context,
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListProductsV1ProductsGet(ctx context.Context, params *ListProductsV1ProductsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListProductsV1ProductsGetRequest(c.Server, params)
+func (c *Client) ListProducts(ctx context.Context, params *ListProductsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProductsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2854,8 +2883,8 @@ func (c *Client) ListProductsV1ProductsGet(ctx context.Context, params *ListProd
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetProductV1ProductsProductIdGet(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetProductV1ProductsProductIdGetRequest(c.Server, productId)
+func (c *Client) GetProduct(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetProductRequest(c.Server, productId)
 	if err != nil {
 		return nil, err
 	}
@@ -2866,8 +2895,8 @@ func (c *Client) GetProductV1ProductsProductIdGet(ctx context.Context, productId
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListProductRefsV1ProductsProductIdRefsGet(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListProductRefsV1ProductsProductIdRefsGetRequest(c.Server, productId)
+func (c *Client) ListProductRefs(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProductRefsRequest(c.Server, productId)
 	if err != nil {
 		return nil, err
 	}
@@ -2878,8 +2907,8 @@ func (c *Client) ListProductRefsV1ProductsProductIdRefsGet(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRefV1RefsRepositoryRefIdGet(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRefV1RefsRepositoryRefIdGetRequest(c.Server, repositoryRefId)
+func (c *Client) GetRef(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRefRequest(c.Server, repositoryRefId)
 	if err != nil {
 		return nil, err
 	}
@@ -2890,8 +2919,8 @@ func (c *Client) GetRefV1RefsRepositoryRefIdGet(ctx context.Context, repositoryR
 	return c.Client.Do(req)
 }
 
-func (c *Client) DependenciesV1RefsRepositoryRefIdDependenciesGet(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDependenciesV1RefsRepositoryRefIdDependenciesGetRequest(c.Server, repositoryRefId)
+func (c *Client) Dependencies(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDependenciesRequest(c.Server, repositoryRefId)
 	if err != nil {
 		return nil, err
 	}
@@ -2902,8 +2931,8 @@ func (c *Client) DependenciesV1RefsRepositoryRefIdDependenciesGet(ctx context.Co
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListRepositoriesV1RepositoriesGet(ctx context.Context, params *ListRepositoriesV1RepositoriesGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListRepositoriesV1RepositoriesGetRequest(c.Server, params)
+func (c *Client) ListRepositories(ctx context.Context, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRepositoriesRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2914,8 +2943,8 @@ func (c *Client) ListRepositoriesV1RepositoriesGet(ctx context.Context, params *
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRepositoryV1RepositoriesRepositoryIdGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRepositoryV1RepositoriesRepositoryIdGetRequest(c.Server, repositoryId)
+func (c *Client) GetRepository(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRepositoryRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2926,8 +2955,8 @@ func (c *Client) GetRepositoryV1RepositoriesRepositoryIdGet(ctx context.Context,
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGet(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetRequest(c.Server, repositoryId, params)
+func (c *Client) ListRepositoryAssessments(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRepositoryAssessmentsRequest(c.Server, repositoryId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2938,8 +2967,8 @@ func (c *Client) ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsG
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetRequest(c.Server, repositoryId)
+func (c *Client) ListRepositoryDecisions(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRepositoryDecisionsRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2950,8 +2979,8 @@ func (c *Client) ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGet(c
 	return c.Client.Do(req)
 }
 
-func (c *Client) CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPost(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostRequest(c.Server, repositoryId)
+func (c *Client) Checkpoint(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckpointRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2962,8 +2991,8 @@ func (c *Client) CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPost(ctx co
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListLayersV1RepositoriesRepositoryIdLedgerLayersGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListLayersV1RepositoriesRepositoryIdLedgerLayersGetRequest(c.Server, repositoryId)
+func (c *Client) ListLayers(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLayersRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2974,8 +3003,8 @@ func (c *Client) ListLayersV1RepositoriesRepositoryIdLedgerLayersGet(ctx context
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListOwnersV1RepositoriesRepositoryIdOwnersGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListOwnersV1RepositoriesRepositoryIdOwnersGetRequest(c.Server, repositoryId)
+func (c *Client) ListOwners(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOwnersRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2986,8 +3015,8 @@ func (c *Client) ListOwnersV1RepositoriesRepositoryIdOwnersGet(ctx context.Conte
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListProductsOfV1RepositoriesRepositoryIdProductsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListProductsOfV1RepositoriesRepositoryIdProductsGetRequest(c.Server, repositoryId)
+func (c *Client) ListProductsOf(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProductsOfRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -2998,8 +3027,8 @@ func (c *Client) ListProductsOfV1RepositoriesRepositoryIdProductsGet(ctx context
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListRefsV1RepositoriesRepositoryIdRefsGet(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListRefsV1RepositoriesRepositoryIdRefsGetRequest(c.Server, repositoryId)
+func (c *Client) ListRefs(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRefsRequest(c.Server, repositoryId)
 	if err != nil {
 		return nil, err
 	}
@@ -3010,8 +3039,8 @@ func (c *Client) ListRefsV1RepositoriesRepositoryIdRefsGet(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordValidationV1ValidationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordValidationV1ValidationRecordsPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) RecordValidationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordValidationRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3022,8 +3051,8 @@ func (c *Client) RecordValidationV1ValidationRecordsPostWithBody(ctx context.Con
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordValidationV1ValidationRecordsPost(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordValidationV1ValidationRecordsPostRequest(c.Server, body)
+func (c *Client) RecordValidation(ctx context.Context, body RecordValidationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordValidationRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3034,8 +3063,8 @@ func (c *Client) RecordValidationV1ValidationRecordsPost(ctx context.Context, bo
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordVerificationV1VerificationRecordsPostWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordVerificationV1VerificationRecordsPostRequestWithBody(c.Server, contentType, body)
+func (c *Client) RecordVerificationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordVerificationRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3046,8 +3075,8 @@ func (c *Client) RecordVerificationV1VerificationRecordsPostWithBody(ctx context
 	return c.Client.Do(req)
 }
 
-func (c *Client) RecordVerificationV1VerificationRecordsPost(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRecordVerificationV1VerificationRecordsPostRequest(c.Server, body)
+func (c *Client) RecordVerification(ctx context.Context, body RecordVerificationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecordVerificationRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3058,8 +3087,8 @@ func (c *Client) RecordVerificationV1VerificationRecordsPost(ctx context.Context
 	return c.Client.Do(req)
 }
 
-func (c *Client) WhoamiV1WhoamiGet(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewWhoamiV1WhoamiGetRequest(c.Server)
+func (c *Client) Whoami(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewWhoamiRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -3070,8 +3099,8 @@ func (c *Client) WhoamiV1WhoamiGet(ctx context.Context, reqEditors ...RequestEdi
 	return c.Client.Do(req)
 }
 
-// NewGetAdvisoryV1AdvisoriesAdvisoryIdGetRequest generates requests for GetAdvisoryV1AdvisoriesAdvisoryIdGet
-func NewGetAdvisoryV1AdvisoriesAdvisoryIdGetRequest(server string, advisoryId openapi_types.UUID) (*http.Request, error) {
+// NewGetAdvisoryRequest generates requests for GetAdvisory
+func NewGetAdvisoryRequest(server string, advisoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3104,8 +3133,8 @@ func NewGetAdvisoryV1AdvisoriesAdvisoryIdGetRequest(server string, advisoryId op
 	return req, nil
 }
 
-// NewAffectedV1AdvisoriesAdvisoryIdAffectedGetRequest generates requests for AffectedV1AdvisoriesAdvisoryIdAffectedGet
-func NewAffectedV1AdvisoriesAdvisoryIdAffectedGetRequest(server string, advisoryId openapi_types.UUID) (*http.Request, error) {
+// NewAffectedRequest generates requests for Affected
+func NewAffectedRequest(server string, advisoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3138,8 +3167,8 @@ func NewAffectedV1AdvisoriesAdvisoryIdAffectedGetRequest(server string, advisory
 	return req, nil
 }
 
-// NewPackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetRequest generates requests for PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet
-func NewPackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetRequest(server string, advisoryId openapi_types.UUID) (*http.Request, error) {
+// NewPackagesAffectedRequest generates requests for PackagesAffected
+func NewPackagesAffectedRequest(server string, advisoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3172,8 +3201,8 @@ func NewPackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetRequest(server string, 
 	return req, nil
 }
 
-// NewGetArtifactV1ArtifactsArtifactIdGetRequest generates requests for GetArtifactV1ArtifactsArtifactIdGet
-func NewGetArtifactV1ArtifactsArtifactIdGetRequest(server string, artifactId openapi_types.UUID) (*http.Request, error) {
+// NewGetArtifactRequest generates requests for GetArtifact
+func NewGetArtifactRequest(server string, artifactId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3206,8 +3235,8 @@ func NewGetArtifactV1ArtifactsArtifactIdGetRequest(server string, artifactId ope
 	return req, nil
 }
 
-// NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest generates requests for GetArtifactContentV1ArtifactsArtifactIdContentGet
-func NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest(server string, artifactId openapi_types.UUID) (*http.Request, error) {
+// NewGetArtifactContentRequest generates requests for GetArtifactContent
+func NewGetArtifactContentRequest(server string, artifactId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3240,19 +3269,19 @@ func NewGetArtifactContentV1ArtifactsArtifactIdContentGetRequest(server string, 
 	return req, nil
 }
 
-// NewRecordAssessmentV1AssessmentRecordsPostRequest calls the generic RecordAssessmentV1AssessmentRecordsPost builder with application/json body
-func NewRecordAssessmentV1AssessmentRecordsPostRequest(server string, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody) (*http.Request, error) {
+// NewRecordAssessmentRequest calls the generic RecordAssessment builder with application/json body
+func NewRecordAssessmentRequest(server string, body RecordAssessmentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(server, "application/json", bodyReader)
+	return NewRecordAssessmentRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody generates requests for RecordAssessmentV1AssessmentRecordsPost with any type of body
-func NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewRecordAssessmentRequestWithBody generates requests for RecordAssessment with any type of body
+func NewRecordAssessmentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3280,8 +3309,8 @@ func NewRecordAssessmentV1AssessmentRecordsPostRequestWithBody(server string, co
 	return req, nil
 }
 
-// NewListAssessmentsV1AssessmentsGetRequest generates requests for ListAssessmentsV1AssessmentsGet
-func NewListAssessmentsV1AssessmentsGetRequest(server string, params *ListAssessmentsV1AssessmentsGetParams) (*http.Request, error) {
+// NewListAssessmentsRequest generates requests for ListAssessments
+func NewListAssessmentsRequest(server string, params *ListAssessmentsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3389,8 +3418,8 @@ func NewListAssessmentsV1AssessmentsGetRequest(server string, params *ListAssess
 	return req, nil
 }
 
-// NewGetAssessmentV1AssessmentsAssessmentIdGetRequest generates requests for GetAssessmentV1AssessmentsAssessmentIdGet
-func NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
+// NewGetAssessmentRequest generates requests for GetAssessment
+func NewGetAssessmentRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3423,8 +3452,8 @@ func NewGetAssessmentV1AssessmentsAssessmentIdGetRequest(server string, assessme
 	return req, nil
 }
 
-// NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest generates requests for GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet
-func NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
+// NewGetAssessmentIntakeRequest generates requests for GetAssessmentIntake
+func NewGetAssessmentIntakeRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3457,8 +3486,8 @@ func NewGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetRequest(server stri
 	return req, nil
 }
 
-// NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest generates requests for PrepareTriageV1AssessmentsAssessmentIdTriageInputGet
-func NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
+// NewPrepareTriageRequest generates requests for PrepareTriage
+func NewPrepareTriageRequest(server string, assessmentId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3491,19 +3520,19 @@ func NewPrepareTriageV1AssessmentsAssessmentIdTriageInputGetRequest(server strin
 	return req, nil
 }
 
-// NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequest calls the generic RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost builder with application/json body
-func NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequest(server string, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody) (*http.Request, error) {
+// NewRecordTriageRequest calls the generic RecordTriage builder with application/json body
+func NewRecordTriageRequest(server string, assessmentId openapi_types.UUID, body RecordTriageJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(server, assessmentId, "application/json", bodyReader)
+	return NewRecordTriageRequestWithBody(server, assessmentId, "application/json", bodyReader)
 }
 
-// NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody generates requests for RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost with any type of body
-func NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(server string, assessmentId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewRecordTriageRequestWithBody generates requests for RecordTriage with any type of body
+func NewRecordTriageRequestWithBody(server string, assessmentId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3538,8 +3567,8 @@ func NewRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostRequestWithBody(se
 	return req, nil
 }
 
-// NewGetDecisionV1DecisionsDecisionIdGetRequest generates requests for GetDecisionV1DecisionsDecisionIdGet
-func NewGetDecisionV1DecisionsDecisionIdGetRequest(server string, decisionId openapi_types.UUID) (*http.Request, error) {
+// NewGetDecisionRequest generates requests for GetDecision
+func NewGetDecisionRequest(server string, decisionId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3572,19 +3601,19 @@ func NewGetDecisionV1DecisionsDecisionIdGetRequest(server string, decisionId ope
 	return req, nil
 }
 
-// NewRestateV1DecisionsDecisionIdRestatementPostRequest calls the generic RestateV1DecisionsDecisionIdRestatementPost builder with application/json body
-func NewRestateV1DecisionsDecisionIdRestatementPostRequest(server string, decisionId openapi_types.UUID, body RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody) (*http.Request, error) {
+// NewRestateRequest calls the generic Restate builder with application/json body
+func NewRestateRequest(server string, decisionId openapi_types.UUID, body RestateJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRestateV1DecisionsDecisionIdRestatementPostRequestWithBody(server, decisionId, "application/json", bodyReader)
+	return NewRestateRequestWithBody(server, decisionId, "application/json", bodyReader)
 }
 
-// NewRestateV1DecisionsDecisionIdRestatementPostRequestWithBody generates requests for RestateV1DecisionsDecisionIdRestatementPost with any type of body
-func NewRestateV1DecisionsDecisionIdRestatementPostRequestWithBody(server string, decisionId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewRestateRequestWithBody generates requests for Restate with any type of body
+func NewRestateRequestWithBody(server string, decisionId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3619,8 +3648,8 @@ func NewRestateV1DecisionsDecisionIdRestatementPostRequestWithBody(server string
 	return req, nil
 }
 
-// NewReadFeedV1FeedGetRequest generates requests for ReadFeedV1FeedGet
-func NewReadFeedV1FeedGetRequest(server string, params *ReadFeedV1FeedGetParams) (*http.Request, error) {
+// NewReadFeedRequest generates requests for ReadFeed
+func NewReadFeedRequest(server string, params *ReadFeedParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3684,8 +3713,8 @@ func NewReadFeedV1FeedGetRequest(server string, params *ReadFeedV1FeedGetParams)
 	return req, nil
 }
 
-// NewReviewQueueV1FindingsReviewQueueGetRequest generates requests for ReviewQueueV1FindingsReviewQueueGet
-func NewReviewQueueV1FindingsReviewQueueGetRequest(server string, params *ReviewQueueV1FindingsReviewQueueGetParams) (*http.Request, error) {
+// NewReviewQueueRequest generates requests for ReviewQueue
+func NewReviewQueueRequest(server string, params *ReviewQueueParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3829,8 +3858,8 @@ func NewReviewQueueV1FindingsReviewQueueGetRequest(server string, params *Review
 	return req, nil
 }
 
-// NewGetFindingV1FindingsFindingIdGetRequest generates requests for GetFindingV1FindingsFindingIdGet
-func NewGetFindingV1FindingsFindingIdGetRequest(server string, findingId openapi_types.UUID) (*http.Request, error) {
+// NewGetFindingRequest generates requests for GetFinding
+func NewGetFindingRequest(server string, findingId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3863,8 +3892,8 @@ func NewGetFindingV1FindingsFindingIdGetRequest(server string, findingId openapi
 	return req, nil
 }
 
-// NewListDecisionsV1FindingsFindingIdDecisionsGetRequest generates requests for ListDecisionsV1FindingsFindingIdDecisionsGet
-func NewListDecisionsV1FindingsFindingIdDecisionsGetRequest(server string, findingId openapi_types.UUID) (*http.Request, error) {
+// NewListDecisionsRequest generates requests for ListDecisions
+func NewListDecisionsRequest(server string, findingId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3897,19 +3926,19 @@ func NewListDecisionsV1FindingsFindingIdDecisionsGetRequest(server string, findi
 	return req, nil
 }
 
-// NewDecideV1FindingsFindingIdDecisionsPostRequest calls the generic DecideV1FindingsFindingIdDecisionsPost builder with application/json body
-func NewDecideV1FindingsFindingIdDecisionsPostRequest(server string, findingId openapi_types.UUID, body DecideV1FindingsFindingIdDecisionsPostJSONRequestBody) (*http.Request, error) {
+// NewDecideRequest calls the generic Decide builder with application/json body
+func NewDecideRequest(server string, findingId openapi_types.UUID, body DecideJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDecideV1FindingsFindingIdDecisionsPostRequestWithBody(server, findingId, "application/json", bodyReader)
+	return NewDecideRequestWithBody(server, findingId, "application/json", bodyReader)
 }
 
-// NewDecideV1FindingsFindingIdDecisionsPostRequestWithBody generates requests for DecideV1FindingsFindingIdDecisionsPost with any type of body
-func NewDecideV1FindingsFindingIdDecisionsPostRequestWithBody(server string, findingId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewDecideRequestWithBody generates requests for Decide with any type of body
+func NewDecideRequestWithBody(server string, findingId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3944,8 +3973,8 @@ func NewDecideV1FindingsFindingIdDecisionsPostRequestWithBody(server string, fin
 	return req, nil
 }
 
-// NewHealthzV1HealthzGetRequest generates requests for HealthzV1HealthzGet
-func NewHealthzV1HealthzGetRequest(server string) (*http.Request, error) {
+// NewHealthzRequest generates requests for Healthz
+func NewHealthzRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3971,8 +4000,8 @@ func NewHealthzV1HealthzGetRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewGetLayerV1LedgerLayersLayerIdGetRequest generates requests for GetLayerV1LedgerLayersLayerIdGet
-func NewGetLayerV1LedgerLayersLayerIdGetRequest(server string, layerId openapi_types.UUID) (*http.Request, error) {
+// NewGetLayerRequest generates requests for GetLayer
+func NewGetLayerRequest(server string, layerId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4005,8 +4034,8 @@ func NewGetLayerV1LedgerLayersLayerIdGetRequest(server string, layerId openapi_t
 	return req, nil
 }
 
-// NewListEventsV1LedgerLayersLayerIdEventsGetRequest generates requests for ListEventsV1LedgerLayersLayerIdEventsGet
-func NewListEventsV1LedgerLayersLayerIdEventsGetRequest(server string, layerId openapi_types.UUID, params *ListEventsV1LedgerLayersLayerIdEventsGetParams) (*http.Request, error) {
+// NewListEventsRequest generates requests for ListEvents
+func NewListEventsRequest(server string, layerId openapi_types.UUID, params *ListEventsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4077,8 +4106,8 @@ func NewListEventsV1LedgerLayersLayerIdEventsGetRequest(server string, layerId o
 	return req, nil
 }
 
-// NewVerifyLayerV1LedgerLayersLayerIdVerificationGetRequest generates requests for VerifyLayerV1LedgerLayersLayerIdVerificationGet
-func NewVerifyLayerV1LedgerLayersLayerIdVerificationGetRequest(server string, layerId openapi_types.UUID) (*http.Request, error) {
+// NewVerifyLayerRequest generates requests for VerifyLayer
+func NewVerifyLayerRequest(server string, layerId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4111,19 +4140,19 @@ func NewVerifyLayerV1LedgerLayersLayerIdVerificationGetRequest(server string, la
 	return req, nil
 }
 
-// NewOnboardV1OnboardingPostRequest calls the generic OnboardV1OnboardingPost builder with application/json body
-func NewOnboardV1OnboardingPostRequest(server string, body OnboardV1OnboardingPostJSONRequestBody) (*http.Request, error) {
+// NewOnboardRequest calls the generic Onboard builder with application/json body
+func NewOnboardRequest(server string, body OnboardJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewOnboardV1OnboardingPostRequestWithBody(server, "application/json", bodyReader)
+	return NewOnboardRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewOnboardV1OnboardingPostRequestWithBody generates requests for OnboardV1OnboardingPost with any type of body
-func NewOnboardV1OnboardingPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewOnboardRequestWithBody generates requests for Onboard with any type of body
+func NewOnboardRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4151,19 +4180,19 @@ func NewOnboardV1OnboardingPostRequestWithBody(server string, contentType string
 	return req, nil
 }
 
-// NewPlanOnboardingV1OnboardingPlanPostRequest calls the generic PlanOnboardingV1OnboardingPlanPost builder with application/json body
-func NewPlanOnboardingV1OnboardingPlanPostRequest(server string, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody) (*http.Request, error) {
+// NewPlanOnboardingRequest calls the generic PlanOnboarding builder with application/json body
+func NewPlanOnboardingRequest(server string, body PlanOnboardingJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(server, "application/json", bodyReader)
+	return NewPlanOnboardingRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewPlanOnboardingV1OnboardingPlanPostRequestWithBody generates requests for PlanOnboardingV1OnboardingPlanPost with any type of body
-func NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewPlanOnboardingRequestWithBody generates requests for PlanOnboarding with any type of body
+func NewPlanOnboardingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4191,8 +4220,8 @@ func NewPlanOnboardingV1OnboardingPlanPostRequestWithBody(server string, content
 	return req, nil
 }
 
-// NewListOrdersV1OrdersGetRequest generates requests for ListOrdersV1OrdersGet
-func NewListOrdersV1OrdersGetRequest(server string, params *ListOrdersV1OrdersGetParams) (*http.Request, error) {
+// NewListOrdersRequest generates requests for ListOrders
+func NewListOrdersRequest(server string, params *ListOrdersParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4320,19 +4349,19 @@ func NewListOrdersV1OrdersGetRequest(server string, params *ListOrdersV1OrdersGe
 	return req, nil
 }
 
-// NewClaimV1OrdersClaimPostRequest calls the generic ClaimV1OrdersClaimPost builder with application/json body
-func NewClaimV1OrdersClaimPostRequest(server string, body ClaimV1OrdersClaimPostJSONRequestBody) (*http.Request, error) {
+// NewClaimRequest calls the generic Claim builder with application/json body
+func NewClaimRequest(server string, body ClaimJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewClaimV1OrdersClaimPostRequestWithBody(server, "application/json", bodyReader)
+	return NewClaimRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewClaimV1OrdersClaimPostRequestWithBody generates requests for ClaimV1OrdersClaimPost with any type of body
-func NewClaimV1OrdersClaimPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewClaimRequestWithBody generates requests for Claim with any type of body
+func NewClaimRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4360,19 +4389,19 @@ func NewClaimV1OrdersClaimPostRequestWithBody(server string, contentType string,
 	return req, nil
 }
 
-// NewStartV1OrdersStartPostRequest calls the generic StartV1OrdersStartPost builder with application/json body
-func NewStartV1OrdersStartPostRequest(server string, body StartV1OrdersStartPostJSONRequestBody) (*http.Request, error) {
+// NewStartRequest calls the generic Start builder with application/json body
+func NewStartRequest(server string, body StartJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewStartV1OrdersStartPostRequestWithBody(server, "application/json", bodyReader)
+	return NewStartRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewStartV1OrdersStartPostRequestWithBody generates requests for StartV1OrdersStartPost with any type of body
-func NewStartV1OrdersStartPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewStartRequestWithBody generates requests for Start with any type of body
+func NewStartRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4400,8 +4429,8 @@ func NewStartV1OrdersStartPostRequestWithBody(server string, contentType string,
 	return req, nil
 }
 
-// NewGetOrderV1OrdersOrderIdGetRequest generates requests for GetOrderV1OrdersOrderIdGet
-func NewGetOrderV1OrdersOrderIdGetRequest(server string, orderId openapi_types.UUID) (*http.Request, error) {
+// NewGetOrderRequest generates requests for GetOrder
+func NewGetOrderRequest(server string, orderId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4434,19 +4463,19 @@ func NewGetOrderV1OrdersOrderIdGetRequest(server string, orderId openapi_types.U
 	return req, nil
 }
 
-// NewCompleteV1OrdersOrderIdCompletePostRequest calls the generic CompleteV1OrdersOrderIdCompletePost builder with application/json body
-func NewCompleteV1OrdersOrderIdCompletePostRequest(server string, orderId openapi_types.UUID, body CompleteV1OrdersOrderIdCompletePostJSONRequestBody) (*http.Request, error) {
+// NewCompleteRequest calls the generic Complete builder with application/json body
+func NewCompleteRequest(server string, orderId openapi_types.UUID, body CompleteJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCompleteV1OrdersOrderIdCompletePostRequestWithBody(server, orderId, "application/json", bodyReader)
+	return NewCompleteRequestWithBody(server, orderId, "application/json", bodyReader)
 }
 
-// NewCompleteV1OrdersOrderIdCompletePostRequestWithBody generates requests for CompleteV1OrdersOrderIdCompletePost with any type of body
-func NewCompleteV1OrdersOrderIdCompletePostRequestWithBody(server string, orderId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewCompleteRequestWithBody generates requests for Complete with any type of body
+func NewCompleteRequestWithBody(server string, orderId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4481,19 +4510,19 @@ func NewCompleteV1OrdersOrderIdCompletePostRequestWithBody(server string, orderI
 	return req, nil
 }
 
-// NewHeartbeatV1OrdersOrderIdHeartbeatPostRequest calls the generic HeartbeatV1OrdersOrderIdHeartbeatPost builder with application/json body
-func NewHeartbeatV1OrdersOrderIdHeartbeatPostRequest(server string, orderId openapi_types.UUID, body HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody) (*http.Request, error) {
+// NewHeartbeatRequest calls the generic Heartbeat builder with application/json body
+func NewHeartbeatRequest(server string, orderId openapi_types.UUID, body HeartbeatJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewHeartbeatV1OrdersOrderIdHeartbeatPostRequestWithBody(server, orderId, "application/json", bodyReader)
+	return NewHeartbeatRequestWithBody(server, orderId, "application/json", bodyReader)
 }
 
-// NewHeartbeatV1OrdersOrderIdHeartbeatPostRequestWithBody generates requests for HeartbeatV1OrdersOrderIdHeartbeatPost with any type of body
-func NewHeartbeatV1OrdersOrderIdHeartbeatPostRequestWithBody(server string, orderId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
+// NewHeartbeatRequestWithBody generates requests for Heartbeat with any type of body
+func NewHeartbeatRequestWithBody(server string, orderId openapi_types.UUID, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4528,8 +4557,8 @@ func NewHeartbeatV1OrdersOrderIdHeartbeatPostRequestWithBody(server string, orde
 	return req, nil
 }
 
-// NewFindPackageV1PackagesGetRequest generates requests for FindPackageV1PackagesGet
-func NewFindPackageV1PackagesGetRequest(server string, params *FindPackageV1PackagesGetParams) (*http.Request, error) {
+// NewFindPackageRequest generates requests for FindPackage
+func NewFindPackageRequest(server string, params *FindPackageParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4585,8 +4614,8 @@ func NewFindPackageV1PackagesGetRequest(server string, params *FindPackageV1Pack
 	return req, nil
 }
 
-// NewDependentsV1PackagesPackageIdDependentsGetRequest generates requests for DependentsV1PackagesPackageIdDependentsGet
-func NewDependentsV1PackagesPackageIdDependentsGetRequest(server string, packageId openapi_types.UUID, params *DependentsV1PackagesPackageIdDependentsGetParams) (*http.Request, error) {
+// NewDependentsRequest generates requests for Dependents
+func NewDependentsRequest(server string, packageId openapi_types.UUID, params *DependentsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4641,8 +4670,8 @@ func NewDependentsV1PackagesPackageIdDependentsGetRequest(server string, package
 	return req, nil
 }
 
-// NewListProductsV1ProductsGetRequest generates requests for ListProductsV1ProductsGet
-func NewListProductsV1ProductsGetRequest(server string, params *ListProductsV1ProductsGetParams) (*http.Request, error) {
+// NewListProductsRequest generates requests for ListProducts
+func NewListProductsRequest(server string, params *ListProductsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4706,8 +4735,8 @@ func NewListProductsV1ProductsGetRequest(server string, params *ListProductsV1Pr
 	return req, nil
 }
 
-// NewGetProductV1ProductsProductIdGetRequest generates requests for GetProductV1ProductsProductIdGet
-func NewGetProductV1ProductsProductIdGetRequest(server string, productId openapi_types.UUID) (*http.Request, error) {
+// NewGetProductRequest generates requests for GetProduct
+func NewGetProductRequest(server string, productId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4740,8 +4769,8 @@ func NewGetProductV1ProductsProductIdGetRequest(server string, productId openapi
 	return req, nil
 }
 
-// NewListProductRefsV1ProductsProductIdRefsGetRequest generates requests for ListProductRefsV1ProductsProductIdRefsGet
-func NewListProductRefsV1ProductsProductIdRefsGetRequest(server string, productId openapi_types.UUID) (*http.Request, error) {
+// NewListProductRefsRequest generates requests for ListProductRefs
+func NewListProductRefsRequest(server string, productId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4774,8 +4803,8 @@ func NewListProductRefsV1ProductsProductIdRefsGetRequest(server string, productI
 	return req, nil
 }
 
-// NewGetRefV1RefsRepositoryRefIdGetRequest generates requests for GetRefV1RefsRepositoryRefIdGet
-func NewGetRefV1RefsRepositoryRefIdGetRequest(server string, repositoryRefId openapi_types.UUID) (*http.Request, error) {
+// NewGetRefRequest generates requests for GetRef
+func NewGetRefRequest(server string, repositoryRefId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4808,8 +4837,8 @@ func NewGetRefV1RefsRepositoryRefIdGetRequest(server string, repositoryRefId ope
 	return req, nil
 }
 
-// NewDependenciesV1RefsRepositoryRefIdDependenciesGetRequest generates requests for DependenciesV1RefsRepositoryRefIdDependenciesGet
-func NewDependenciesV1RefsRepositoryRefIdDependenciesGetRequest(server string, repositoryRefId openapi_types.UUID) (*http.Request, error) {
+// NewDependenciesRequest generates requests for Dependencies
+func NewDependenciesRequest(server string, repositoryRefId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4842,8 +4871,8 @@ func NewDependenciesV1RefsRepositoryRefIdDependenciesGetRequest(server string, r
 	return req, nil
 }
 
-// NewListRepositoriesV1RepositoriesGetRequest generates requests for ListRepositoriesV1RepositoriesGet
-func NewListRepositoriesV1RepositoriesGetRequest(server string, params *ListRepositoriesV1RepositoriesGetParams) (*http.Request, error) {
+// NewListRepositoriesRequest generates requests for ListRepositories
+func NewListRepositoriesRequest(server string, params *ListRepositoriesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -4907,8 +4936,8 @@ func NewListRepositoriesV1RepositoriesGetRequest(server string, params *ListRepo
 	return req, nil
 }
 
-// NewGetRepositoryV1RepositoriesRepositoryIdGetRequest generates requests for GetRepositoryV1RepositoriesRepositoryIdGet
-func NewGetRepositoryV1RepositoriesRepositoryIdGetRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewGetRepositoryRequest generates requests for GetRepository
+func NewGetRepositoryRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4941,8 +4970,8 @@ func NewGetRepositoryV1RepositoriesRepositoryIdGetRequest(server string, reposit
 	return req, nil
 }
 
-// NewListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetRequest generates requests for ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGet
-func NewListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetRequest(server string, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams) (*http.Request, error) {
+// NewListRepositoryAssessmentsRequest generates requests for ListRepositoryAssessments
+func NewListRepositoryAssessmentsRequest(server string, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4997,8 +5026,8 @@ func NewListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetRequest
 	return req, nil
 }
 
-// NewListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetRequest generates requests for ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGet
-func NewListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewListRepositoryDecisionsRequest generates requests for ListRepositoryDecisions
+func NewListRepositoryDecisionsRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5031,8 +5060,8 @@ func NewListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetRequest(ser
 	return req, nil
 }
 
-// NewCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostRequest generates requests for CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPost
-func NewCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewCheckpointRequest generates requests for Checkpoint
+func NewCheckpointRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5065,8 +5094,8 @@ func NewCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostRequest(server s
 	return req, nil
 }
 
-// NewListLayersV1RepositoriesRepositoryIdLedgerLayersGetRequest generates requests for ListLayersV1RepositoriesRepositoryIdLedgerLayersGet
-func NewListLayersV1RepositoriesRepositoryIdLedgerLayersGetRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewListLayersRequest generates requests for ListLayers
+func NewListLayersRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5099,8 +5128,8 @@ func NewListLayersV1RepositoriesRepositoryIdLedgerLayersGetRequest(server string
 	return req, nil
 }
 
-// NewListOwnersV1RepositoriesRepositoryIdOwnersGetRequest generates requests for ListOwnersV1RepositoriesRepositoryIdOwnersGet
-func NewListOwnersV1RepositoriesRepositoryIdOwnersGetRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewListOwnersRequest generates requests for ListOwners
+func NewListOwnersRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5133,8 +5162,8 @@ func NewListOwnersV1RepositoriesRepositoryIdOwnersGetRequest(server string, repo
 	return req, nil
 }
 
-// NewListProductsOfV1RepositoriesRepositoryIdProductsGetRequest generates requests for ListProductsOfV1RepositoriesRepositoryIdProductsGet
-func NewListProductsOfV1RepositoriesRepositoryIdProductsGetRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewListProductsOfRequest generates requests for ListProductsOf
+func NewListProductsOfRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5167,8 +5196,8 @@ func NewListProductsOfV1RepositoriesRepositoryIdProductsGetRequest(server string
 	return req, nil
 }
 
-// NewListRefsV1RepositoriesRepositoryIdRefsGetRequest generates requests for ListRefsV1RepositoriesRepositoryIdRefsGet
-func NewListRefsV1RepositoriesRepositoryIdRefsGetRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
+// NewListRefsRequest generates requests for ListRefs
+func NewListRefsRequest(server string, repositoryId openapi_types.UUID) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5201,19 +5230,19 @@ func NewListRefsV1RepositoriesRepositoryIdRefsGetRequest(server string, reposito
 	return req, nil
 }
 
-// NewRecordValidationV1ValidationRecordsPostRequest calls the generic RecordValidationV1ValidationRecordsPost builder with application/json body
-func NewRecordValidationV1ValidationRecordsPostRequest(server string, body RecordValidationV1ValidationRecordsPostJSONRequestBody) (*http.Request, error) {
+// NewRecordValidationRequest calls the generic RecordValidation builder with application/json body
+func NewRecordValidationRequest(server string, body RecordValidationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRecordValidationV1ValidationRecordsPostRequestWithBody(server, "application/json", bodyReader)
+	return NewRecordValidationRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewRecordValidationV1ValidationRecordsPostRequestWithBody generates requests for RecordValidationV1ValidationRecordsPost with any type of body
-func NewRecordValidationV1ValidationRecordsPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewRecordValidationRequestWithBody generates requests for RecordValidation with any type of body
+func NewRecordValidationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -5241,19 +5270,19 @@ func NewRecordValidationV1ValidationRecordsPostRequestWithBody(server string, co
 	return req, nil
 }
 
-// NewRecordVerificationV1VerificationRecordsPostRequest calls the generic RecordVerificationV1VerificationRecordsPost builder with application/json body
-func NewRecordVerificationV1VerificationRecordsPostRequest(server string, body RecordVerificationV1VerificationRecordsPostJSONRequestBody) (*http.Request, error) {
+// NewRecordVerificationRequest calls the generic RecordVerification builder with application/json body
+func NewRecordVerificationRequest(server string, body RecordVerificationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewRecordVerificationV1VerificationRecordsPostRequestWithBody(server, "application/json", bodyReader)
+	return NewRecordVerificationRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewRecordVerificationV1VerificationRecordsPostRequestWithBody generates requests for RecordVerificationV1VerificationRecordsPost with any type of body
-func NewRecordVerificationV1VerificationRecordsPostRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewRecordVerificationRequestWithBody generates requests for RecordVerification with any type of body
+func NewRecordVerificationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -5281,8 +5310,8 @@ func NewRecordVerificationV1VerificationRecordsPostRequestWithBody(server string
 	return req, nil
 }
 
-// NewWhoamiV1WhoamiGetRequest generates requests for WhoamiV1WhoamiGet
-func NewWhoamiV1WhoamiGetRequest(server string) (*http.Request, error) {
+// NewWhoamiRequest generates requests for Whoami
+func NewWhoamiRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -5351,179 +5380,179 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetAdvisoryV1AdvisoriesAdvisoryIdGetWithResponse request
-	GetAdvisoryV1AdvisoriesAdvisoryIdGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse, error)
+	// GetAdvisoryWithResponse request
+	GetAdvisoryWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAdvisoryResponse, error)
 
-	// AffectedV1AdvisoriesAdvisoryIdAffectedGetWithResponse request
-	AffectedV1AdvisoriesAdvisoryIdAffectedGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse, error)
+	// AffectedWithResponse request
+	AffectedWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AffectedResponse, error)
 
-	// PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse request
-	PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse, error)
+	// PackagesAffectedWithResponse request
+	PackagesAffectedWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PackagesAffectedResponse, error)
 
-	// GetArtifactV1ArtifactsArtifactIdGetWithResponse request
-	GetArtifactV1ArtifactsArtifactIdGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactV1ArtifactsArtifactIdGetResponse, error)
+	// GetArtifactWithResponse request
+	GetArtifactWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactResponse, error)
 
-	// GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse request
-	GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactContentV1ArtifactsArtifactIdContentGetResponse, error)
+	// GetArtifactContentWithResponse request
+	GetArtifactContentWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactContentResponse, error)
 
-	// RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse request with any body
-	RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error)
+	// RecordAssessmentWithBodyWithResponse request with any body
+	RecordAssessmentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordAssessmentResponse, error)
 
-	RecordAssessmentV1AssessmentRecordsPostWithResponse(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error)
+	RecordAssessmentWithResponse(ctx context.Context, body RecordAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordAssessmentResponse, error)
 
-	// ListAssessmentsV1AssessmentsGetWithResponse request
-	ListAssessmentsV1AssessmentsGetWithResponse(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*ListAssessmentsV1AssessmentsGetResponse, error)
+	// ListAssessmentsWithResponse request
+	ListAssessmentsWithResponse(ctx context.Context, params *ListAssessmentsParams, reqEditors ...RequestEditorFn) (*ListAssessmentsResponse, error)
 
-	// GetAssessmentV1AssessmentsAssessmentIdGetWithResponse request
-	GetAssessmentV1AssessmentsAssessmentIdGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentV1AssessmentsAssessmentIdGetResponse, error)
+	// GetAssessmentWithResponse request
+	GetAssessmentWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentResponse, error)
 
-	// GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse request
-	GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse, error)
+	// GetAssessmentIntakeWithResponse request
+	GetAssessmentIntakeWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentIntakeResponse, error)
 
-	// PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse request
-	PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error)
+	// PrepareTriageWithResponse request
+	PrepareTriageWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageResponse, error)
 
-	// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse request with any body
-	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error)
+	// RecordTriageWithBodyWithResponse request with any body
+	RecordTriageWithBodyWithResponse(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordTriageResponse, error)
 
-	RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error)
+	RecordTriageWithResponse(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordTriageResponse, error)
 
-	// GetDecisionV1DecisionsDecisionIdGetWithResponse request
-	GetDecisionV1DecisionsDecisionIdGetWithResponse(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDecisionV1DecisionsDecisionIdGetResponse, error)
+	// GetDecisionWithResponse request
+	GetDecisionWithResponse(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDecisionResponse, error)
 
-	// RestateV1DecisionsDecisionIdRestatementPostWithBodyWithResponse request with any body
-	RestateV1DecisionsDecisionIdRestatementPostWithBodyWithResponse(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestateV1DecisionsDecisionIdRestatementPostResponse, error)
+	// RestateWithBodyWithResponse request with any body
+	RestateWithBodyWithResponse(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestateResponse, error)
 
-	RestateV1DecisionsDecisionIdRestatementPostWithResponse(ctx context.Context, decisionId openapi_types.UUID, body RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RestateV1DecisionsDecisionIdRestatementPostResponse, error)
+	RestateWithResponse(ctx context.Context, decisionId openapi_types.UUID, body RestateJSONRequestBody, reqEditors ...RequestEditorFn) (*RestateResponse, error)
 
-	// ReadFeedV1FeedGetWithResponse request
-	ReadFeedV1FeedGetWithResponse(ctx context.Context, params *ReadFeedV1FeedGetParams, reqEditors ...RequestEditorFn) (*ReadFeedV1FeedGetResponse, error)
+	// ReadFeedWithResponse request
+	ReadFeedWithResponse(ctx context.Context, params *ReadFeedParams, reqEditors ...RequestEditorFn) (*ReadFeedResponse, error)
 
-	// ReviewQueueV1FindingsReviewQueueGetWithResponse request
-	ReviewQueueV1FindingsReviewQueueGetWithResponse(ctx context.Context, params *ReviewQueueV1FindingsReviewQueueGetParams, reqEditors ...RequestEditorFn) (*ReviewQueueV1FindingsReviewQueueGetResponse, error)
+	// ReviewQueueWithResponse request
+	ReviewQueueWithResponse(ctx context.Context, params *ReviewQueueParams, reqEditors ...RequestEditorFn) (*ReviewQueueResponse, error)
 
-	// GetFindingV1FindingsFindingIdGetWithResponse request
-	GetFindingV1FindingsFindingIdGetWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetFindingV1FindingsFindingIdGetResponse, error)
+	// GetFindingWithResponse request
+	GetFindingWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetFindingResponse, error)
 
-	// ListDecisionsV1FindingsFindingIdDecisionsGetWithResponse request
-	ListDecisionsV1FindingsFindingIdDecisionsGetWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListDecisionsV1FindingsFindingIdDecisionsGetResponse, error)
+	// ListDecisionsWithResponse request
+	ListDecisionsWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListDecisionsResponse, error)
 
-	// DecideV1FindingsFindingIdDecisionsPostWithBodyWithResponse request with any body
-	DecideV1FindingsFindingIdDecisionsPostWithBodyWithResponse(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideV1FindingsFindingIdDecisionsPostResponse, error)
+	// DecideWithBodyWithResponse request with any body
+	DecideWithBodyWithResponse(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideResponse, error)
 
-	DecideV1FindingsFindingIdDecisionsPostWithResponse(ctx context.Context, findingId openapi_types.UUID, body DecideV1FindingsFindingIdDecisionsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideV1FindingsFindingIdDecisionsPostResponse, error)
+	DecideWithResponse(ctx context.Context, findingId openapi_types.UUID, body DecideJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideResponse, error)
 
-	// HealthzV1HealthzGetWithResponse request
-	HealthzV1HealthzGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzV1HealthzGetResponse, error)
+	// HealthzWithResponse request
+	HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResponse, error)
 
-	// GetLayerV1LedgerLayersLayerIdGetWithResponse request
-	GetLayerV1LedgerLayersLayerIdGetWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetLayerV1LedgerLayersLayerIdGetResponse, error)
+	// GetLayerWithResponse request
+	GetLayerWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetLayerResponse, error)
 
-	// ListEventsV1LedgerLayersLayerIdEventsGetWithResponse request
-	ListEventsV1LedgerLayersLayerIdEventsGetWithResponse(ctx context.Context, layerId openapi_types.UUID, params *ListEventsV1LedgerLayersLayerIdEventsGetParams, reqEditors ...RequestEditorFn) (*ListEventsV1LedgerLayersLayerIdEventsGetResponse, error)
+	// ListEventsWithResponse request
+	ListEventsWithResponse(ctx context.Context, layerId openapi_types.UUID, params *ListEventsParams, reqEditors ...RequestEditorFn) (*ListEventsResponse, error)
 
-	// VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse request
-	VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse, error)
+	// VerifyLayerWithResponse request
+	VerifyLayerWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*VerifyLayerResponse, error)
 
-	// OnboardV1OnboardingPostWithBodyWithResponse request with any body
-	OnboardV1OnboardingPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error)
+	// OnboardWithBodyWithResponse request with any body
+	OnboardWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardResponse, error)
 
-	OnboardV1OnboardingPostWithResponse(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error)
+	OnboardWithResponse(ctx context.Context, body OnboardJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardResponse, error)
 
-	// PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse request with any body
-	PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error)
+	// PlanOnboardingWithBodyWithResponse request with any body
+	PlanOnboardingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlanOnboardingResponse, error)
 
-	PlanOnboardingV1OnboardingPlanPostWithResponse(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error)
+	PlanOnboardingWithResponse(ctx context.Context, body PlanOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*PlanOnboardingResponse, error)
 
-	// ListOrdersV1OrdersGetWithResponse request
-	ListOrdersV1OrdersGetWithResponse(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*ListOrdersV1OrdersGetResponse, error)
+	// ListOrdersWithResponse request
+	ListOrdersWithResponse(ctx context.Context, params *ListOrdersParams, reqEditors ...RequestEditorFn) (*ListOrdersResponse, error)
 
-	// ClaimV1OrdersClaimPostWithBodyWithResponse request with any body
-	ClaimV1OrdersClaimPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimV1OrdersClaimPostResponse, error)
+	// ClaimWithBodyWithResponse request with any body
+	ClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimResponse, error)
 
-	ClaimV1OrdersClaimPostWithResponse(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimV1OrdersClaimPostResponse, error)
+	ClaimWithResponse(ctx context.Context, body ClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimResponse, error)
 
-	// StartV1OrdersStartPostWithBodyWithResponse request with any body
-	StartV1OrdersStartPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error)
+	// StartWithBodyWithResponse request with any body
+	StartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartResponse, error)
 
-	StartV1OrdersStartPostWithResponse(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error)
+	StartWithResponse(ctx context.Context, body StartJSONRequestBody, reqEditors ...RequestEditorFn) (*StartResponse, error)
 
-	// GetOrderV1OrdersOrderIdGetWithResponse request
-	GetOrderV1OrdersOrderIdGetWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderV1OrdersOrderIdGetResponse, error)
+	// GetOrderWithResponse request
+	GetOrderWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderResponse, error)
 
-	// CompleteV1OrdersOrderIdCompletePostWithBodyWithResponse request with any body
-	CompleteV1OrdersOrderIdCompletePostWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteV1OrdersOrderIdCompletePostResponse, error)
+	// CompleteWithBodyWithResponse request with any body
+	CompleteWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteResponse, error)
 
-	CompleteV1OrdersOrderIdCompletePostWithResponse(ctx context.Context, orderId openapi_types.UUID, body CompleteV1OrdersOrderIdCompletePostJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteV1OrdersOrderIdCompletePostResponse, error)
+	CompleteWithResponse(ctx context.Context, orderId openapi_types.UUID, body CompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteResponse, error)
 
-	// HeartbeatV1OrdersOrderIdHeartbeatPostWithBodyWithResponse request with any body
-	HeartbeatV1OrdersOrderIdHeartbeatPostWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatV1OrdersOrderIdHeartbeatPostResponse, error)
+	// HeartbeatWithBodyWithResponse request with any body
+	HeartbeatWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatResponse, error)
 
-	HeartbeatV1OrdersOrderIdHeartbeatPostWithResponse(ctx context.Context, orderId openapi_types.UUID, body HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatV1OrdersOrderIdHeartbeatPostResponse, error)
+	HeartbeatWithResponse(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatResponse, error)
 
-	// FindPackageV1PackagesGetWithResponse request
-	FindPackageV1PackagesGetWithResponse(ctx context.Context, params *FindPackageV1PackagesGetParams, reqEditors ...RequestEditorFn) (*FindPackageV1PackagesGetResponse, error)
+	// FindPackageWithResponse request
+	FindPackageWithResponse(ctx context.Context, params *FindPackageParams, reqEditors ...RequestEditorFn) (*FindPackageResponse, error)
 
-	// DependentsV1PackagesPackageIdDependentsGetWithResponse request
-	DependentsV1PackagesPackageIdDependentsGetWithResponse(ctx context.Context, packageId openapi_types.UUID, params *DependentsV1PackagesPackageIdDependentsGetParams, reqEditors ...RequestEditorFn) (*DependentsV1PackagesPackageIdDependentsGetResponse, error)
+	// DependentsWithResponse request
+	DependentsWithResponse(ctx context.Context, packageId openapi_types.UUID, params *DependentsParams, reqEditors ...RequestEditorFn) (*DependentsResponse, error)
 
-	// ListProductsV1ProductsGetWithResponse request
-	ListProductsV1ProductsGetWithResponse(ctx context.Context, params *ListProductsV1ProductsGetParams, reqEditors ...RequestEditorFn) (*ListProductsV1ProductsGetResponse, error)
+	// ListProductsWithResponse request
+	ListProductsWithResponse(ctx context.Context, params *ListProductsParams, reqEditors ...RequestEditorFn) (*ListProductsResponse, error)
 
-	// GetProductV1ProductsProductIdGetWithResponse request
-	GetProductV1ProductsProductIdGetWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProductV1ProductsProductIdGetResponse, error)
+	// GetProductWithResponse request
+	GetProductWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProductResponse, error)
 
-	// ListProductRefsV1ProductsProductIdRefsGetWithResponse request
-	ListProductRefsV1ProductsProductIdRefsGetWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductRefsV1ProductsProductIdRefsGetResponse, error)
+	// ListProductRefsWithResponse request
+	ListProductRefsWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductRefsResponse, error)
 
-	// GetRefV1RefsRepositoryRefIdGetWithResponse request
-	GetRefV1RefsRepositoryRefIdGetWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRefV1RefsRepositoryRefIdGetResponse, error)
+	// GetRefWithResponse request
+	GetRefWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRefResponse, error)
 
-	// DependenciesV1RefsRepositoryRefIdDependenciesGetWithResponse request
-	DependenciesV1RefsRepositoryRefIdDependenciesGetWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DependenciesV1RefsRepositoryRefIdDependenciesGetResponse, error)
+	// DependenciesWithResponse request
+	DependenciesWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DependenciesResponse, error)
 
-	// ListRepositoriesV1RepositoriesGetWithResponse request
-	ListRepositoriesV1RepositoriesGetWithResponse(ctx context.Context, params *ListRepositoriesV1RepositoriesGetParams, reqEditors ...RequestEditorFn) (*ListRepositoriesV1RepositoriesGetResponse, error)
+	// ListRepositoriesWithResponse request
+	ListRepositoriesWithResponse(ctx context.Context, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*ListRepositoriesResponse, error)
 
-	// GetRepositoryV1RepositoriesRepositoryIdGetWithResponse request
-	GetRepositoryV1RepositoriesRepositoryIdGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRepositoryV1RepositoriesRepositoryIdGetResponse, error)
+	// GetRepositoryWithResponse request
+	GetRepositoryWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRepositoryResponse, error)
 
-	// ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetWithResponse request
-	ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams, reqEditors ...RequestEditorFn) (*ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse, error)
+	// ListRepositoryAssessmentsWithResponse request
+	ListRepositoryAssessmentsWithResponse(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsParams, reqEditors ...RequestEditorFn) (*ListRepositoryAssessmentsResponse, error)
 
-	// ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetWithResponse request
-	ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse, error)
+	// ListRepositoryDecisionsWithResponse request
+	ListRepositoryDecisionsWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRepositoryDecisionsResponse, error)
 
-	// CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostWithResponse request
-	CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse, error)
+	// CheckpointWithResponse request
+	CheckpointWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CheckpointResponse, error)
 
-	// ListLayersV1RepositoriesRepositoryIdLedgerLayersGetWithResponse request
-	ListLayersV1RepositoriesRepositoryIdLedgerLayersGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse, error)
+	// ListLayersWithResponse request
+	ListLayersWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLayersResponse, error)
 
-	// ListOwnersV1RepositoriesRepositoryIdOwnersGetWithResponse request
-	ListOwnersV1RepositoriesRepositoryIdOwnersGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse, error)
+	// ListOwnersWithResponse request
+	ListOwnersWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOwnersResponse, error)
 
-	// ListProductsOfV1RepositoriesRepositoryIdProductsGetWithResponse request
-	ListProductsOfV1RepositoriesRepositoryIdProductsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse, error)
+	// ListProductsOfWithResponse request
+	ListProductsOfWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductsOfResponse, error)
 
-	// ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse request
-	ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRefsV1RepositoriesRepositoryIdRefsGetResponse, error)
+	// ListRefsWithResponse request
+	ListRefsWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRefsResponse, error)
 
-	// RecordValidationV1ValidationRecordsPostWithBodyWithResponse request with any body
-	RecordValidationV1ValidationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error)
+	// RecordValidationWithBodyWithResponse request with any body
+	RecordValidationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordValidationResponse, error)
 
-	RecordValidationV1ValidationRecordsPostWithResponse(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error)
+	RecordValidationWithResponse(ctx context.Context, body RecordValidationJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordValidationResponse, error)
 
-	// RecordVerificationV1VerificationRecordsPostWithBodyWithResponse request with any body
-	RecordVerificationV1VerificationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error)
+	// RecordVerificationWithBodyWithResponse request with any body
+	RecordVerificationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordVerificationResponse, error)
 
-	RecordVerificationV1VerificationRecordsPostWithResponse(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error)
+	RecordVerificationWithResponse(ctx context.Context, body RecordVerificationJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordVerificationResponse, error)
 
-	// WhoamiV1WhoamiGetWithResponse request
-	WhoamiV1WhoamiGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiV1WhoamiGetResponse, error)
+	// WhoamiWithResponse request
+	WhoamiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiResponse, error)
 }
 
-type GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse struct {
+type GetAdvisoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Advisory
@@ -5533,7 +5562,7 @@ type GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse) Status() string {
+func (r GetAdvisoryResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5541,14 +5570,14 @@ func (r GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse) StatusCode() int {
+func (r GetAdvisoryResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse struct {
+type AffectedResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]AffectedDependency
@@ -5557,7 +5586,7 @@ type AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse) Status() string {
+func (r AffectedResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5565,14 +5594,14 @@ func (r AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse) StatusCode() int {
+func (r AffectedResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse struct {
+type PackagesAffectedResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]AdvisoryPackage
@@ -5581,7 +5610,7 @@ type PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse) Status() string {
+func (r PackagesAffectedResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5589,14 +5618,14 @@ func (r PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse) Status() stri
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse) StatusCode() int {
+func (r PackagesAffectedResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetArtifactV1ArtifactsArtifactIdGetResponse struct {
+type GetArtifactResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Artifact
@@ -5606,7 +5635,7 @@ type GetArtifactV1ArtifactsArtifactIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetArtifactV1ArtifactsArtifactIdGetResponse) Status() string {
+func (r GetArtifactResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5614,14 +5643,14 @@ func (r GetArtifactV1ArtifactsArtifactIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetArtifactV1ArtifactsArtifactIdGetResponse) StatusCode() int {
+func (r GetArtifactResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetArtifactContentV1ArtifactsArtifactIdContentGetResponse struct {
+type GetArtifactContentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *Problem
@@ -5631,7 +5660,7 @@ type GetArtifactContentV1ArtifactsArtifactIdContentGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetArtifactContentV1ArtifactsArtifactIdContentGetResponse) Status() string {
+func (r GetArtifactContentResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5639,14 +5668,14 @@ func (r GetArtifactContentV1ArtifactsArtifactIdContentGetResponse) Status() stri
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetArtifactContentV1ArtifactsArtifactIdContentGetResponse) StatusCode() int {
+func (r GetArtifactContentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RecordAssessmentV1AssessmentRecordsPostResponse struct {
+type RecordAssessmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AssessmentRecordResult
@@ -5658,7 +5687,7 @@ type RecordAssessmentV1AssessmentRecordsPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RecordAssessmentV1AssessmentRecordsPostResponse) Status() string {
+func (r RecordAssessmentResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5666,14 +5695,14 @@ func (r RecordAssessmentV1AssessmentRecordsPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RecordAssessmentV1AssessmentRecordsPostResponse) StatusCode() int {
+func (r RecordAssessmentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListAssessmentsV1AssessmentsGetResponse struct {
+type ListAssessmentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageAssessment
@@ -5682,7 +5711,7 @@ type ListAssessmentsV1AssessmentsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListAssessmentsV1AssessmentsGetResponse) Status() string {
+func (r ListAssessmentsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5690,14 +5719,14 @@ func (r ListAssessmentsV1AssessmentsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListAssessmentsV1AssessmentsGetResponse) StatusCode() int {
+func (r ListAssessmentsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetAssessmentV1AssessmentsAssessmentIdGetResponse struct {
+type GetAssessmentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Assessment
@@ -5707,7 +5736,7 @@ type GetAssessmentV1AssessmentsAssessmentIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) Status() string {
+func (r GetAssessmentResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5715,14 +5744,14 @@ func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetAssessmentV1AssessmentsAssessmentIdGetResponse) StatusCode() int {
+func (r GetAssessmentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse struct {
+type GetAssessmentIntakeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *AssessmentIntakeBindings
@@ -5733,7 +5762,7 @@ type GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse) Status() string {
+func (r GetAssessmentIntakeResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5741,14 +5770,14 @@ func (r GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse) Status() 
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse) StatusCode() int {
+func (r GetAssessmentIntakeResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse struct {
+type PrepareTriageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *TriageInput
@@ -5758,7 +5787,7 @@ type PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse) Status() string {
+func (r PrepareTriageResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5766,14 +5795,14 @@ func (r PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse) Status() s
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse) StatusCode() int {
+func (r PrepareTriageResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse struct {
+type RecordTriageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *TriageRecordResult
@@ -5786,7 +5815,7 @@ type RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse) Status() string {
+func (r RecordTriageResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5794,14 +5823,14 @@ func (r RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse) Status()
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse) StatusCode() int {
+func (r RecordTriageResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetDecisionV1DecisionsDecisionIdGetResponse struct {
+type GetDecisionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Decision
@@ -5811,7 +5840,7 @@ type GetDecisionV1DecisionsDecisionIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetDecisionV1DecisionsDecisionIdGetResponse) Status() string {
+func (r GetDecisionResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5819,14 +5848,14 @@ func (r GetDecisionV1DecisionsDecisionIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetDecisionV1DecisionsDecisionIdGetResponse) StatusCode() int {
+func (r GetDecisionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RestateV1DecisionsDecisionIdRestatementPostResponse struct {
+type RestateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Decision
@@ -5838,7 +5867,7 @@ type RestateV1DecisionsDecisionIdRestatementPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RestateV1DecisionsDecisionIdRestatementPostResponse) Status() string {
+func (r RestateResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5846,14 +5875,14 @@ func (r RestateV1DecisionsDecisionIdRestatementPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RestateV1DecisionsDecisionIdRestatementPostResponse) StatusCode() int {
+func (r RestateResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ReadFeedV1FeedGetResponse struct {
+type ReadFeedResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageFeedEvent
@@ -5862,7 +5891,7 @@ type ReadFeedV1FeedGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ReadFeedV1FeedGetResponse) Status() string {
+func (r ReadFeedResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5870,14 +5899,14 @@ func (r ReadFeedV1FeedGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ReadFeedV1FeedGetResponse) StatusCode() int {
+func (r ReadFeedResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ReviewQueueV1FindingsReviewQueueGetResponse struct {
+type ReviewQueueResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageReviewCase
@@ -5886,7 +5915,7 @@ type ReviewQueueV1FindingsReviewQueueGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ReviewQueueV1FindingsReviewQueueGetResponse) Status() string {
+func (r ReviewQueueResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5894,14 +5923,14 @@ func (r ReviewQueueV1FindingsReviewQueueGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ReviewQueueV1FindingsReviewQueueGetResponse) StatusCode() int {
+func (r ReviewQueueResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetFindingV1FindingsFindingIdGetResponse struct {
+type GetFindingResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *FindingView
@@ -5911,7 +5940,7 @@ type GetFindingV1FindingsFindingIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetFindingV1FindingsFindingIdGetResponse) Status() string {
+func (r GetFindingResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5919,14 +5948,14 @@ func (r GetFindingV1FindingsFindingIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetFindingV1FindingsFindingIdGetResponse) StatusCode() int {
+func (r GetFindingResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListDecisionsV1FindingsFindingIdDecisionsGetResponse struct {
+type ListDecisionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Decision
@@ -5935,7 +5964,7 @@ type ListDecisionsV1FindingsFindingIdDecisionsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListDecisionsV1FindingsFindingIdDecisionsGetResponse) Status() string {
+func (r ListDecisionsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5943,14 +5972,14 @@ func (r ListDecisionsV1FindingsFindingIdDecisionsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListDecisionsV1FindingsFindingIdDecisionsGetResponse) StatusCode() int {
+func (r ListDecisionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DecideV1FindingsFindingIdDecisionsPostResponse struct {
+type DecideResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Decision
@@ -5962,7 +5991,7 @@ type DecideV1FindingsFindingIdDecisionsPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DecideV1FindingsFindingIdDecisionsPostResponse) Status() string {
+func (r DecideResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5970,21 +5999,21 @@ func (r DecideV1FindingsFindingIdDecisionsPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DecideV1FindingsFindingIdDecisionsPostResponse) StatusCode() int {
+func (r DecideResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type HealthzV1HealthzGetResponse struct {
+type HealthzResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Health
 }
 
 // Status returns HTTPResponse.Status
-func (r HealthzV1HealthzGetResponse) Status() string {
+func (r HealthzResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5992,14 +6021,14 @@ func (r HealthzV1HealthzGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r HealthzV1HealthzGetResponse) StatusCode() int {
+func (r HealthzResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetLayerV1LedgerLayersLayerIdGetResponse struct {
+type GetLayerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Layer
@@ -6009,7 +6038,7 @@ type GetLayerV1LedgerLayersLayerIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetLayerV1LedgerLayersLayerIdGetResponse) Status() string {
+func (r GetLayerResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6017,14 +6046,14 @@ func (r GetLayerV1LedgerLayersLayerIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetLayerV1LedgerLayersLayerIdGetResponse) StatusCode() int {
+func (r GetLayerResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListEventsV1LedgerLayersLayerIdEventsGetResponse struct {
+type ListEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageEvent
@@ -6034,7 +6063,7 @@ type ListEventsV1LedgerLayersLayerIdEventsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListEventsV1LedgerLayersLayerIdEventsGetResponse) Status() string {
+func (r ListEventsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6042,14 +6071,14 @@ func (r ListEventsV1LedgerLayersLayerIdEventsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListEventsV1LedgerLayersLayerIdEventsGetResponse) StatusCode() int {
+func (r ListEventsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse struct {
+type VerifyLayerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *VerifyResult
@@ -6059,7 +6088,7 @@ type VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse) Status() string {
+func (r VerifyLayerResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6067,14 +6096,14 @@ func (r VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse) Status() string
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse) StatusCode() int {
+func (r VerifyLayerResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type OnboardV1OnboardingPostResponse struct {
+type OnboardResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *OnboardingResult
@@ -6083,7 +6112,7 @@ type OnboardV1OnboardingPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r OnboardV1OnboardingPostResponse) Status() string {
+func (r OnboardResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6091,14 +6120,14 @@ func (r OnboardV1OnboardingPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r OnboardV1OnboardingPostResponse) StatusCode() int {
+func (r OnboardResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PlanOnboardingV1OnboardingPlanPostResponse struct {
+type PlanOnboardingResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *OnboardingPlan
@@ -6107,7 +6136,7 @@ type PlanOnboardingV1OnboardingPlanPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PlanOnboardingV1OnboardingPlanPostResponse) Status() string {
+func (r PlanOnboardingResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6115,14 +6144,14 @@ func (r PlanOnboardingV1OnboardingPlanPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PlanOnboardingV1OnboardingPlanPostResponse) StatusCode() int {
+func (r PlanOnboardingResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListOrdersV1OrdersGetResponse struct {
+type ListOrdersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageRunOrder
@@ -6131,7 +6160,7 @@ type ListOrdersV1OrdersGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListOrdersV1OrdersGetResponse) Status() string {
+func (r ListOrdersResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6139,14 +6168,14 @@ func (r ListOrdersV1OrdersGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListOrdersV1OrdersGetResponse) StatusCode() int {
+func (r ListOrdersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ClaimV1OrdersClaimPostResponse struct {
+type ClaimResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RunOrder
@@ -6156,7 +6185,7 @@ type ClaimV1OrdersClaimPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ClaimV1OrdersClaimPostResponse) Status() string {
+func (r ClaimResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6164,14 +6193,14 @@ func (r ClaimV1OrdersClaimPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ClaimV1OrdersClaimPostResponse) StatusCode() int {
+func (r ClaimResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type StartV1OrdersStartPostResponse struct {
+type StartResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RunOrder
@@ -6183,7 +6212,7 @@ type StartV1OrdersStartPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r StartV1OrdersStartPostResponse) Status() string {
+func (r StartResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6191,14 +6220,14 @@ func (r StartV1OrdersStartPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r StartV1OrdersStartPostResponse) StatusCode() int {
+func (r StartResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetOrderV1OrdersOrderIdGetResponse struct {
+type GetOrderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RunOrder
@@ -6208,7 +6237,7 @@ type GetOrderV1OrdersOrderIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetOrderV1OrdersOrderIdGetResponse) Status() string {
+func (r GetOrderResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6216,14 +6245,14 @@ func (r GetOrderV1OrdersOrderIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetOrderV1OrdersOrderIdGetResponse) StatusCode() int {
+func (r GetOrderResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CompleteV1OrdersOrderIdCompletePostResponse struct {
+type CompleteResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RunOrder
@@ -6235,7 +6264,7 @@ type CompleteV1OrdersOrderIdCompletePostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CompleteV1OrdersOrderIdCompletePostResponse) Status() string {
+func (r CompleteResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6243,14 +6272,14 @@ func (r CompleteV1OrdersOrderIdCompletePostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CompleteV1OrdersOrderIdCompletePostResponse) StatusCode() int {
+func (r CompleteResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type HeartbeatV1OrdersOrderIdHeartbeatPostResponse struct {
+type HeartbeatResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RunOrder
@@ -6262,7 +6291,7 @@ type HeartbeatV1OrdersOrderIdHeartbeatPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r HeartbeatV1OrdersOrderIdHeartbeatPostResponse) Status() string {
+func (r HeartbeatResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6270,14 +6299,14 @@ func (r HeartbeatV1OrdersOrderIdHeartbeatPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r HeartbeatV1OrdersOrderIdHeartbeatPostResponse) StatusCode() int {
+func (r HeartbeatResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type FindPackageV1PackagesGetResponse struct {
+type FindPackageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Package
@@ -6287,7 +6316,7 @@ type FindPackageV1PackagesGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r FindPackageV1PackagesGetResponse) Status() string {
+func (r FindPackageResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6295,14 +6324,14 @@ func (r FindPackageV1PackagesGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r FindPackageV1PackagesGetResponse) StatusCode() int {
+func (r FindPackageResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DependentsV1PackagesPackageIdDependentsGetResponse struct {
+type DependentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]openapi_types.UUID
@@ -6312,7 +6341,7 @@ type DependentsV1PackagesPackageIdDependentsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DependentsV1PackagesPackageIdDependentsGetResponse) Status() string {
+func (r DependentsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6320,14 +6349,14 @@ func (r DependentsV1PackagesPackageIdDependentsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DependentsV1PackagesPackageIdDependentsGetResponse) StatusCode() int {
+func (r DependentsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListProductsV1ProductsGetResponse struct {
+type ListProductsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageProduct
@@ -6336,7 +6365,7 @@ type ListProductsV1ProductsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListProductsV1ProductsGetResponse) Status() string {
+func (r ListProductsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6344,14 +6373,14 @@ func (r ListProductsV1ProductsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListProductsV1ProductsGetResponse) StatusCode() int {
+func (r ListProductsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetProductV1ProductsProductIdGetResponse struct {
+type GetProductResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Product
@@ -6361,7 +6390,7 @@ type GetProductV1ProductsProductIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetProductV1ProductsProductIdGetResponse) Status() string {
+func (r GetProductResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6369,14 +6398,14 @@ func (r GetProductV1ProductsProductIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetProductV1ProductsProductIdGetResponse) StatusCode() int {
+func (r GetProductResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListProductRefsV1ProductsProductIdRefsGetResponse struct {
+type ListProductRefsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]RepositoryRef
@@ -6385,7 +6414,7 @@ type ListProductRefsV1ProductsProductIdRefsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListProductRefsV1ProductsProductIdRefsGetResponse) Status() string {
+func (r ListProductRefsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6393,14 +6422,14 @@ func (r ListProductRefsV1ProductsProductIdRefsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListProductRefsV1ProductsProductIdRefsGetResponse) StatusCode() int {
+func (r ListProductRefsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetRefV1RefsRepositoryRefIdGetResponse struct {
+type GetRefResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RepositoryRef
@@ -6410,7 +6439,7 @@ type GetRefV1RefsRepositoryRefIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetRefV1RefsRepositoryRefIdGetResponse) Status() string {
+func (r GetRefResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6418,14 +6447,14 @@ func (r GetRefV1RefsRepositoryRefIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetRefV1RefsRepositoryRefIdGetResponse) StatusCode() int {
+func (r GetRefResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type DependenciesV1RefsRepositoryRefIdDependenciesGetResponse struct {
+type DependenciesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]RefDependency
@@ -6435,7 +6464,7 @@ type DependenciesV1RefsRepositoryRefIdDependenciesGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DependenciesV1RefsRepositoryRefIdDependenciesGetResponse) Status() string {
+func (r DependenciesResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6443,14 +6472,14 @@ func (r DependenciesV1RefsRepositoryRefIdDependenciesGetResponse) Status() strin
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DependenciesV1RefsRepositoryRefIdDependenciesGetResponse) StatusCode() int {
+func (r DependenciesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListRepositoriesV1RepositoriesGetResponse struct {
+type ListRepositoriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *PageRepository
@@ -6459,7 +6488,7 @@ type ListRepositoriesV1RepositoriesGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRepositoriesV1RepositoriesGetResponse) Status() string {
+func (r ListRepositoriesResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6467,14 +6496,14 @@ func (r ListRepositoriesV1RepositoriesGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRepositoriesV1RepositoriesGetResponse) StatusCode() int {
+func (r ListRepositoriesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetRepositoryV1RepositoriesRepositoryIdGetResponse struct {
+type GetRepositoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Repository
@@ -6484,7 +6513,7 @@ type GetRepositoryV1RepositoriesRepositoryIdGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetRepositoryV1RepositoriesRepositoryIdGetResponse) Status() string {
+func (r GetRepositoryResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6492,14 +6521,14 @@ func (r GetRepositoryV1RepositoriesRepositoryIdGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetRepositoryV1RepositoriesRepositoryIdGetResponse) StatusCode() int {
+func (r GetRepositoryResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse struct {
+type ListRepositoryAssessmentsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Assessment
@@ -6508,7 +6537,7 @@ type ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse s
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse) Status() string {
+func (r ListRepositoryAssessmentsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6516,14 +6545,14 @@ func (r ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetRespons
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse) StatusCode() int {
+func (r ListRepositoryAssessmentsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse struct {
+type ListRepositoryDecisionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Decision
@@ -6532,7 +6561,7 @@ type ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse struc
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse) Status() string {
+func (r ListRepositoryDecisionsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6540,14 +6569,14 @@ func (r ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse) S
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse) StatusCode() int {
+func (r ListRepositoryDecisionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse struct {
+type CheckpointResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Checkpoint
@@ -6559,7 +6588,7 @@ type CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse) Status() string {
+func (r CheckpointResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6567,14 +6596,14 @@ func (r CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse) Status
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse) StatusCode() int {
+func (r CheckpointResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse struct {
+type ListLayersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Layer
@@ -6584,7 +6613,7 @@ type ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse) Status() string {
+func (r ListLayersResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6592,14 +6621,14 @@ func (r ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse) Status() st
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse) StatusCode() int {
+func (r ListLayersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse struct {
+type ListOwnersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Team
@@ -6608,7 +6637,7 @@ type ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse) Status() string {
+func (r ListOwnersResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6616,14 +6645,14 @@ func (r ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse) StatusCode() int {
+func (r ListOwnersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse struct {
+type ListProductsOfResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Product
@@ -6632,7 +6661,7 @@ type ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse) Status() string {
+func (r ListProductsOfResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6640,14 +6669,14 @@ func (r ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse) Status() st
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse) StatusCode() int {
+func (r ListProductsOfResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListRefsV1RepositoriesRepositoryIdRefsGetResponse struct {
+type ListRefsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]RepositoryRef
@@ -6656,7 +6685,7 @@ type ListRefsV1RepositoriesRepositoryIdRefsGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRefsV1RepositoriesRepositoryIdRefsGetResponse) Status() string {
+func (r ListRefsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6664,14 +6693,14 @@ func (r ListRefsV1RepositoriesRepositoryIdRefsGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRefsV1RepositoriesRepositoryIdRefsGetResponse) StatusCode() int {
+func (r ListRefsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RecordValidationV1ValidationRecordsPostResponse struct {
+type RecordValidationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ValidationRecordResult
@@ -6683,7 +6712,7 @@ type RecordValidationV1ValidationRecordsPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RecordValidationV1ValidationRecordsPostResponse) Status() string {
+func (r RecordValidationResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6691,14 +6720,14 @@ func (r RecordValidationV1ValidationRecordsPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RecordValidationV1ValidationRecordsPostResponse) StatusCode() int {
+func (r RecordValidationResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RecordVerificationV1VerificationRecordsPostResponse struct {
+type RecordVerificationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Verification
@@ -6710,7 +6739,7 @@ type RecordVerificationV1VerificationRecordsPostResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RecordVerificationV1VerificationRecordsPostResponse) Status() string {
+func (r RecordVerificationResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6718,14 +6747,14 @@ func (r RecordVerificationV1VerificationRecordsPostResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RecordVerificationV1VerificationRecordsPostResponse) StatusCode() int {
+func (r RecordVerificationResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type WhoamiV1WhoamiGetResponse struct {
+type WhoamiResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Principal
@@ -6733,7 +6762,7 @@ type WhoamiV1WhoamiGetResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r WhoamiV1WhoamiGetResponse) Status() string {
+func (r WhoamiResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6741,559 +6770,559 @@ func (r WhoamiV1WhoamiGetResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r WhoamiV1WhoamiGetResponse) StatusCode() int {
+func (r WhoamiResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-// GetAdvisoryV1AdvisoriesAdvisoryIdGetWithResponse request returning *GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse
-func (c *ClientWithResponses) GetAdvisoryV1AdvisoriesAdvisoryIdGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse, error) {
-	rsp, err := c.GetAdvisoryV1AdvisoriesAdvisoryIdGet(ctx, advisoryId, reqEditors...)
+// GetAdvisoryWithResponse request returning *GetAdvisoryResponse
+func (c *ClientWithResponses) GetAdvisoryWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAdvisoryResponse, error) {
+	rsp, err := c.GetAdvisory(ctx, advisoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetAdvisoryV1AdvisoriesAdvisoryIdGetResponse(rsp)
+	return ParseGetAdvisoryResponse(rsp)
 }
 
-// AffectedV1AdvisoriesAdvisoryIdAffectedGetWithResponse request returning *AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse
-func (c *ClientWithResponses) AffectedV1AdvisoriesAdvisoryIdAffectedGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse, error) {
-	rsp, err := c.AffectedV1AdvisoriesAdvisoryIdAffectedGet(ctx, advisoryId, reqEditors...)
+// AffectedWithResponse request returning *AffectedResponse
+func (c *ClientWithResponses) AffectedWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*AffectedResponse, error) {
+	rsp, err := c.Affected(ctx, advisoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAffectedV1AdvisoriesAdvisoryIdAffectedGetResponse(rsp)
+	return ParseAffectedResponse(rsp)
 }
 
-// PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse request returning *PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse
-func (c *ClientWithResponses) PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse, error) {
-	rsp, err := c.PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGet(ctx, advisoryId, reqEditors...)
+// PackagesAffectedWithResponse request returning *PackagesAffectedResponse
+func (c *ClientWithResponses) PackagesAffectedWithResponse(ctx context.Context, advisoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PackagesAffectedResponse, error) {
+	rsp, err := c.PackagesAffected(ctx, advisoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse(rsp)
+	return ParsePackagesAffectedResponse(rsp)
 }
 
-// GetArtifactV1ArtifactsArtifactIdGetWithResponse request returning *GetArtifactV1ArtifactsArtifactIdGetResponse
-func (c *ClientWithResponses) GetArtifactV1ArtifactsArtifactIdGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactV1ArtifactsArtifactIdGetResponse, error) {
-	rsp, err := c.GetArtifactV1ArtifactsArtifactIdGet(ctx, artifactId, reqEditors...)
+// GetArtifactWithResponse request returning *GetArtifactResponse
+func (c *ClientWithResponses) GetArtifactWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactResponse, error) {
+	rsp, err := c.GetArtifact(ctx, artifactId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetArtifactV1ArtifactsArtifactIdGetResponse(rsp)
+	return ParseGetArtifactResponse(rsp)
 }
 
-// GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse request returning *GetArtifactContentV1ArtifactsArtifactIdContentGetResponse
-func (c *ClientWithResponses) GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactContentV1ArtifactsArtifactIdContentGetResponse, error) {
-	rsp, err := c.GetArtifactContentV1ArtifactsArtifactIdContentGet(ctx, artifactId, reqEditors...)
+// GetArtifactContentWithResponse request returning *GetArtifactContentResponse
+func (c *ClientWithResponses) GetArtifactContentWithResponse(ctx context.Context, artifactId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetArtifactContentResponse, error) {
+	rsp, err := c.GetArtifactContent(ctx, artifactId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse(rsp)
+	return ParseGetArtifactContentResponse(rsp)
 }
 
-// RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordAssessmentV1AssessmentRecordsPostResponse
-func (c *ClientWithResponses) RecordAssessmentV1AssessmentRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error) {
-	rsp, err := c.RecordAssessmentV1AssessmentRecordsPostWithBody(ctx, contentType, body, reqEditors...)
+// RecordAssessmentWithBodyWithResponse request with arbitrary body returning *RecordAssessmentResponse
+func (c *ClientWithResponses) RecordAssessmentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordAssessmentResponse, error) {
+	rsp, err := c.RecordAssessmentWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp)
+	return ParseRecordAssessmentResponse(rsp)
 }
 
-func (c *ClientWithResponses) RecordAssessmentV1AssessmentRecordsPostWithResponse(ctx context.Context, body RecordAssessmentV1AssessmentRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordAssessmentV1AssessmentRecordsPostResponse, error) {
-	rsp, err := c.RecordAssessmentV1AssessmentRecordsPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RecordAssessmentWithResponse(ctx context.Context, body RecordAssessmentJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordAssessmentResponse, error) {
+	rsp, err := c.RecordAssessment(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp)
+	return ParseRecordAssessmentResponse(rsp)
 }
 
-// ListAssessmentsV1AssessmentsGetWithResponse request returning *ListAssessmentsV1AssessmentsGetResponse
-func (c *ClientWithResponses) ListAssessmentsV1AssessmentsGetWithResponse(ctx context.Context, params *ListAssessmentsV1AssessmentsGetParams, reqEditors ...RequestEditorFn) (*ListAssessmentsV1AssessmentsGetResponse, error) {
-	rsp, err := c.ListAssessmentsV1AssessmentsGet(ctx, params, reqEditors...)
+// ListAssessmentsWithResponse request returning *ListAssessmentsResponse
+func (c *ClientWithResponses) ListAssessmentsWithResponse(ctx context.Context, params *ListAssessmentsParams, reqEditors ...RequestEditorFn) (*ListAssessmentsResponse, error) {
+	rsp, err := c.ListAssessments(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListAssessmentsV1AssessmentsGetResponse(rsp)
+	return ParseListAssessmentsResponse(rsp)
 }
 
-// GetAssessmentV1AssessmentsAssessmentIdGetWithResponse request returning *GetAssessmentV1AssessmentsAssessmentIdGetResponse
-func (c *ClientWithResponses) GetAssessmentV1AssessmentsAssessmentIdGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentV1AssessmentsAssessmentIdGetResponse, error) {
-	rsp, err := c.GetAssessmentV1AssessmentsAssessmentIdGet(ctx, assessmentId, reqEditors...)
+// GetAssessmentWithResponse request returning *GetAssessmentResponse
+func (c *ClientWithResponses) GetAssessmentWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentResponse, error) {
+	rsp, err := c.GetAssessment(ctx, assessmentId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp)
+	return ParseGetAssessmentResponse(rsp)
 }
 
-// GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse request returning *GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse
-func (c *ClientWithResponses) GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse, error) {
-	rsp, err := c.GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGet(ctx, assessmentId, reqEditors...)
+// GetAssessmentIntakeWithResponse request returning *GetAssessmentIntakeResponse
+func (c *ClientWithResponses) GetAssessmentIntakeWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetAssessmentIntakeResponse, error) {
+	rsp, err := c.GetAssessmentIntake(ctx, assessmentId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse(rsp)
+	return ParseGetAssessmentIntakeResponse(rsp)
 }
 
-// PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse request returning *PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse
-func (c *ClientWithResponses) PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error) {
-	rsp, err := c.PrepareTriageV1AssessmentsAssessmentIdTriageInputGet(ctx, assessmentId, reqEditors...)
+// PrepareTriageWithResponse request returning *PrepareTriageResponse
+func (c *ClientWithResponses) PrepareTriageWithResponse(ctx context.Context, assessmentId openapi_types.UUID, reqEditors ...RequestEditorFn) (*PrepareTriageResponse, error) {
+	rsp, err := c.PrepareTriage(ctx, assessmentId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse(rsp)
+	return ParsePrepareTriageResponse(rsp)
 }
 
-// RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse
-func (c *ClientWithResponses) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBodyWithResponse(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error) {
-	rsp, err := c.RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithBody(ctx, assessmentId, contentType, body, reqEditors...)
+// RecordTriageWithBodyWithResponse request with arbitrary body returning *RecordTriageResponse
+func (c *ClientWithResponses) RecordTriageWithBodyWithResponse(ctx context.Context, assessmentId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordTriageResponse, error) {
+	rsp, err := c.RecordTriageWithBody(ctx, assessmentId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp)
+	return ParseRecordTriageResponse(rsp)
 }
 
-func (c *ClientWithResponses) RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error) {
-	rsp, err := c.RecordTriageV1AssessmentsAssessmentIdTriageRecordsPost(ctx, assessmentId, body, reqEditors...)
+func (c *ClientWithResponses) RecordTriageWithResponse(ctx context.Context, assessmentId openapi_types.UUID, body RecordTriageJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordTriageResponse, error) {
+	rsp, err := c.RecordTriage(ctx, assessmentId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp)
+	return ParseRecordTriageResponse(rsp)
 }
 
-// GetDecisionV1DecisionsDecisionIdGetWithResponse request returning *GetDecisionV1DecisionsDecisionIdGetResponse
-func (c *ClientWithResponses) GetDecisionV1DecisionsDecisionIdGetWithResponse(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDecisionV1DecisionsDecisionIdGetResponse, error) {
-	rsp, err := c.GetDecisionV1DecisionsDecisionIdGet(ctx, decisionId, reqEditors...)
+// GetDecisionWithResponse request returning *GetDecisionResponse
+func (c *ClientWithResponses) GetDecisionWithResponse(ctx context.Context, decisionId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetDecisionResponse, error) {
+	rsp, err := c.GetDecision(ctx, decisionId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetDecisionV1DecisionsDecisionIdGetResponse(rsp)
+	return ParseGetDecisionResponse(rsp)
 }
 
-// RestateV1DecisionsDecisionIdRestatementPostWithBodyWithResponse request with arbitrary body returning *RestateV1DecisionsDecisionIdRestatementPostResponse
-func (c *ClientWithResponses) RestateV1DecisionsDecisionIdRestatementPostWithBodyWithResponse(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestateV1DecisionsDecisionIdRestatementPostResponse, error) {
-	rsp, err := c.RestateV1DecisionsDecisionIdRestatementPostWithBody(ctx, decisionId, contentType, body, reqEditors...)
+// RestateWithBodyWithResponse request with arbitrary body returning *RestateResponse
+func (c *ClientWithResponses) RestateWithBodyWithResponse(ctx context.Context, decisionId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RestateResponse, error) {
+	rsp, err := c.RestateWithBody(ctx, decisionId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRestateV1DecisionsDecisionIdRestatementPostResponse(rsp)
+	return ParseRestateResponse(rsp)
 }
 
-func (c *ClientWithResponses) RestateV1DecisionsDecisionIdRestatementPostWithResponse(ctx context.Context, decisionId openapi_types.UUID, body RestateV1DecisionsDecisionIdRestatementPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RestateV1DecisionsDecisionIdRestatementPostResponse, error) {
-	rsp, err := c.RestateV1DecisionsDecisionIdRestatementPost(ctx, decisionId, body, reqEditors...)
+func (c *ClientWithResponses) RestateWithResponse(ctx context.Context, decisionId openapi_types.UUID, body RestateJSONRequestBody, reqEditors ...RequestEditorFn) (*RestateResponse, error) {
+	rsp, err := c.Restate(ctx, decisionId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRestateV1DecisionsDecisionIdRestatementPostResponse(rsp)
+	return ParseRestateResponse(rsp)
 }
 
-// ReadFeedV1FeedGetWithResponse request returning *ReadFeedV1FeedGetResponse
-func (c *ClientWithResponses) ReadFeedV1FeedGetWithResponse(ctx context.Context, params *ReadFeedV1FeedGetParams, reqEditors ...RequestEditorFn) (*ReadFeedV1FeedGetResponse, error) {
-	rsp, err := c.ReadFeedV1FeedGet(ctx, params, reqEditors...)
+// ReadFeedWithResponse request returning *ReadFeedResponse
+func (c *ClientWithResponses) ReadFeedWithResponse(ctx context.Context, params *ReadFeedParams, reqEditors ...RequestEditorFn) (*ReadFeedResponse, error) {
+	rsp, err := c.ReadFeed(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseReadFeedV1FeedGetResponse(rsp)
+	return ParseReadFeedResponse(rsp)
 }
 
-// ReviewQueueV1FindingsReviewQueueGetWithResponse request returning *ReviewQueueV1FindingsReviewQueueGetResponse
-func (c *ClientWithResponses) ReviewQueueV1FindingsReviewQueueGetWithResponse(ctx context.Context, params *ReviewQueueV1FindingsReviewQueueGetParams, reqEditors ...RequestEditorFn) (*ReviewQueueV1FindingsReviewQueueGetResponse, error) {
-	rsp, err := c.ReviewQueueV1FindingsReviewQueueGet(ctx, params, reqEditors...)
+// ReviewQueueWithResponse request returning *ReviewQueueResponse
+func (c *ClientWithResponses) ReviewQueueWithResponse(ctx context.Context, params *ReviewQueueParams, reqEditors ...RequestEditorFn) (*ReviewQueueResponse, error) {
+	rsp, err := c.ReviewQueue(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseReviewQueueV1FindingsReviewQueueGetResponse(rsp)
+	return ParseReviewQueueResponse(rsp)
 }
 
-// GetFindingV1FindingsFindingIdGetWithResponse request returning *GetFindingV1FindingsFindingIdGetResponse
-func (c *ClientWithResponses) GetFindingV1FindingsFindingIdGetWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetFindingV1FindingsFindingIdGetResponse, error) {
-	rsp, err := c.GetFindingV1FindingsFindingIdGet(ctx, findingId, reqEditors...)
+// GetFindingWithResponse request returning *GetFindingResponse
+func (c *ClientWithResponses) GetFindingWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetFindingResponse, error) {
+	rsp, err := c.GetFinding(ctx, findingId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetFindingV1FindingsFindingIdGetResponse(rsp)
+	return ParseGetFindingResponse(rsp)
 }
 
-// ListDecisionsV1FindingsFindingIdDecisionsGetWithResponse request returning *ListDecisionsV1FindingsFindingIdDecisionsGetResponse
-func (c *ClientWithResponses) ListDecisionsV1FindingsFindingIdDecisionsGetWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListDecisionsV1FindingsFindingIdDecisionsGetResponse, error) {
-	rsp, err := c.ListDecisionsV1FindingsFindingIdDecisionsGet(ctx, findingId, reqEditors...)
+// ListDecisionsWithResponse request returning *ListDecisionsResponse
+func (c *ClientWithResponses) ListDecisionsWithResponse(ctx context.Context, findingId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListDecisionsResponse, error) {
+	rsp, err := c.ListDecisions(ctx, findingId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListDecisionsV1FindingsFindingIdDecisionsGetResponse(rsp)
+	return ParseListDecisionsResponse(rsp)
 }
 
-// DecideV1FindingsFindingIdDecisionsPostWithBodyWithResponse request with arbitrary body returning *DecideV1FindingsFindingIdDecisionsPostResponse
-func (c *ClientWithResponses) DecideV1FindingsFindingIdDecisionsPostWithBodyWithResponse(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideV1FindingsFindingIdDecisionsPostResponse, error) {
-	rsp, err := c.DecideV1FindingsFindingIdDecisionsPostWithBody(ctx, findingId, contentType, body, reqEditors...)
+// DecideWithBodyWithResponse request with arbitrary body returning *DecideResponse
+func (c *ClientWithResponses) DecideWithBodyWithResponse(ctx context.Context, findingId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DecideResponse, error) {
+	rsp, err := c.DecideWithBody(ctx, findingId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDecideV1FindingsFindingIdDecisionsPostResponse(rsp)
+	return ParseDecideResponse(rsp)
 }
 
-func (c *ClientWithResponses) DecideV1FindingsFindingIdDecisionsPostWithResponse(ctx context.Context, findingId openapi_types.UUID, body DecideV1FindingsFindingIdDecisionsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideV1FindingsFindingIdDecisionsPostResponse, error) {
-	rsp, err := c.DecideV1FindingsFindingIdDecisionsPost(ctx, findingId, body, reqEditors...)
+func (c *ClientWithResponses) DecideWithResponse(ctx context.Context, findingId openapi_types.UUID, body DecideJSONRequestBody, reqEditors ...RequestEditorFn) (*DecideResponse, error) {
+	rsp, err := c.Decide(ctx, findingId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDecideV1FindingsFindingIdDecisionsPostResponse(rsp)
+	return ParseDecideResponse(rsp)
 }
 
-// HealthzV1HealthzGetWithResponse request returning *HealthzV1HealthzGetResponse
-func (c *ClientWithResponses) HealthzV1HealthzGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzV1HealthzGetResponse, error) {
-	rsp, err := c.HealthzV1HealthzGet(ctx, reqEditors...)
+// HealthzWithResponse request returning *HealthzResponse
+func (c *ClientWithResponses) HealthzWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthzResponse, error) {
+	rsp, err := c.Healthz(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseHealthzV1HealthzGetResponse(rsp)
+	return ParseHealthzResponse(rsp)
 }
 
-// GetLayerV1LedgerLayersLayerIdGetWithResponse request returning *GetLayerV1LedgerLayersLayerIdGetResponse
-func (c *ClientWithResponses) GetLayerV1LedgerLayersLayerIdGetWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetLayerV1LedgerLayersLayerIdGetResponse, error) {
-	rsp, err := c.GetLayerV1LedgerLayersLayerIdGet(ctx, layerId, reqEditors...)
+// GetLayerWithResponse request returning *GetLayerResponse
+func (c *ClientWithResponses) GetLayerWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetLayerResponse, error) {
+	rsp, err := c.GetLayer(ctx, layerId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetLayerV1LedgerLayersLayerIdGetResponse(rsp)
+	return ParseGetLayerResponse(rsp)
 }
 
-// ListEventsV1LedgerLayersLayerIdEventsGetWithResponse request returning *ListEventsV1LedgerLayersLayerIdEventsGetResponse
-func (c *ClientWithResponses) ListEventsV1LedgerLayersLayerIdEventsGetWithResponse(ctx context.Context, layerId openapi_types.UUID, params *ListEventsV1LedgerLayersLayerIdEventsGetParams, reqEditors ...RequestEditorFn) (*ListEventsV1LedgerLayersLayerIdEventsGetResponse, error) {
-	rsp, err := c.ListEventsV1LedgerLayersLayerIdEventsGet(ctx, layerId, params, reqEditors...)
+// ListEventsWithResponse request returning *ListEventsResponse
+func (c *ClientWithResponses) ListEventsWithResponse(ctx context.Context, layerId openapi_types.UUID, params *ListEventsParams, reqEditors ...RequestEditorFn) (*ListEventsResponse, error) {
+	rsp, err := c.ListEvents(ctx, layerId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListEventsV1LedgerLayersLayerIdEventsGetResponse(rsp)
+	return ParseListEventsResponse(rsp)
 }
 
-// VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse request returning *VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse
-func (c *ClientWithResponses) VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse, error) {
-	rsp, err := c.VerifyLayerV1LedgerLayersLayerIdVerificationGet(ctx, layerId, reqEditors...)
+// VerifyLayerWithResponse request returning *VerifyLayerResponse
+func (c *ClientWithResponses) VerifyLayerWithResponse(ctx context.Context, layerId openapi_types.UUID, reqEditors ...RequestEditorFn) (*VerifyLayerResponse, error) {
+	rsp, err := c.VerifyLayer(ctx, layerId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseVerifyLayerV1LedgerLayersLayerIdVerificationGetResponse(rsp)
+	return ParseVerifyLayerResponse(rsp)
 }
 
-// OnboardV1OnboardingPostWithBodyWithResponse request with arbitrary body returning *OnboardV1OnboardingPostResponse
-func (c *ClientWithResponses) OnboardV1OnboardingPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error) {
-	rsp, err := c.OnboardV1OnboardingPostWithBody(ctx, contentType, body, reqEditors...)
+// OnboardWithBodyWithResponse request with arbitrary body returning *OnboardResponse
+func (c *ClientWithResponses) OnboardWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*OnboardResponse, error) {
+	rsp, err := c.OnboardWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseOnboardV1OnboardingPostResponse(rsp)
+	return ParseOnboardResponse(rsp)
 }
 
-func (c *ClientWithResponses) OnboardV1OnboardingPostWithResponse(ctx context.Context, body OnboardV1OnboardingPostJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardV1OnboardingPostResponse, error) {
-	rsp, err := c.OnboardV1OnboardingPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) OnboardWithResponse(ctx context.Context, body OnboardJSONRequestBody, reqEditors ...RequestEditorFn) (*OnboardResponse, error) {
+	rsp, err := c.Onboard(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseOnboardV1OnboardingPostResponse(rsp)
+	return ParseOnboardResponse(rsp)
 }
 
-// PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse request with arbitrary body returning *PlanOnboardingV1OnboardingPlanPostResponse
-func (c *ClientWithResponses) PlanOnboardingV1OnboardingPlanPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error) {
-	rsp, err := c.PlanOnboardingV1OnboardingPlanPostWithBody(ctx, contentType, body, reqEditors...)
+// PlanOnboardingWithBodyWithResponse request with arbitrary body returning *PlanOnboardingResponse
+func (c *ClientWithResponses) PlanOnboardingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PlanOnboardingResponse, error) {
+	rsp, err := c.PlanOnboardingWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp)
+	return ParsePlanOnboardingResponse(rsp)
 }
 
-func (c *ClientWithResponses) PlanOnboardingV1OnboardingPlanPostWithResponse(ctx context.Context, body PlanOnboardingV1OnboardingPlanPostJSONRequestBody, reqEditors ...RequestEditorFn) (*PlanOnboardingV1OnboardingPlanPostResponse, error) {
-	rsp, err := c.PlanOnboardingV1OnboardingPlanPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PlanOnboardingWithResponse(ctx context.Context, body PlanOnboardingJSONRequestBody, reqEditors ...RequestEditorFn) (*PlanOnboardingResponse, error) {
+	rsp, err := c.PlanOnboarding(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp)
+	return ParsePlanOnboardingResponse(rsp)
 }
 
-// ListOrdersV1OrdersGetWithResponse request returning *ListOrdersV1OrdersGetResponse
-func (c *ClientWithResponses) ListOrdersV1OrdersGetWithResponse(ctx context.Context, params *ListOrdersV1OrdersGetParams, reqEditors ...RequestEditorFn) (*ListOrdersV1OrdersGetResponse, error) {
-	rsp, err := c.ListOrdersV1OrdersGet(ctx, params, reqEditors...)
+// ListOrdersWithResponse request returning *ListOrdersResponse
+func (c *ClientWithResponses) ListOrdersWithResponse(ctx context.Context, params *ListOrdersParams, reqEditors ...RequestEditorFn) (*ListOrdersResponse, error) {
+	rsp, err := c.ListOrders(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListOrdersV1OrdersGetResponse(rsp)
+	return ParseListOrdersResponse(rsp)
 }
 
-// ClaimV1OrdersClaimPostWithBodyWithResponse request with arbitrary body returning *ClaimV1OrdersClaimPostResponse
-func (c *ClientWithResponses) ClaimV1OrdersClaimPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimV1OrdersClaimPostResponse, error) {
-	rsp, err := c.ClaimV1OrdersClaimPostWithBody(ctx, contentType, body, reqEditors...)
+// ClaimWithBodyWithResponse request with arbitrary body returning *ClaimResponse
+func (c *ClientWithResponses) ClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimResponse, error) {
+	rsp, err := c.ClaimWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseClaimV1OrdersClaimPostResponse(rsp)
+	return ParseClaimResponse(rsp)
 }
 
-func (c *ClientWithResponses) ClaimV1OrdersClaimPostWithResponse(ctx context.Context, body ClaimV1OrdersClaimPostJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimV1OrdersClaimPostResponse, error) {
-	rsp, err := c.ClaimV1OrdersClaimPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) ClaimWithResponse(ctx context.Context, body ClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimResponse, error) {
+	rsp, err := c.Claim(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseClaimV1OrdersClaimPostResponse(rsp)
+	return ParseClaimResponse(rsp)
 }
 
-// StartV1OrdersStartPostWithBodyWithResponse request with arbitrary body returning *StartV1OrdersStartPostResponse
-func (c *ClientWithResponses) StartV1OrdersStartPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error) {
-	rsp, err := c.StartV1OrdersStartPostWithBody(ctx, contentType, body, reqEditors...)
+// StartWithBodyWithResponse request with arbitrary body returning *StartResponse
+func (c *ClientWithResponses) StartWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartResponse, error) {
+	rsp, err := c.StartWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseStartV1OrdersStartPostResponse(rsp)
+	return ParseStartResponse(rsp)
 }
 
-func (c *ClientWithResponses) StartV1OrdersStartPostWithResponse(ctx context.Context, body StartV1OrdersStartPostJSONRequestBody, reqEditors ...RequestEditorFn) (*StartV1OrdersStartPostResponse, error) {
-	rsp, err := c.StartV1OrdersStartPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) StartWithResponse(ctx context.Context, body StartJSONRequestBody, reqEditors ...RequestEditorFn) (*StartResponse, error) {
+	rsp, err := c.Start(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseStartV1OrdersStartPostResponse(rsp)
+	return ParseStartResponse(rsp)
 }
 
-// GetOrderV1OrdersOrderIdGetWithResponse request returning *GetOrderV1OrdersOrderIdGetResponse
-func (c *ClientWithResponses) GetOrderV1OrdersOrderIdGetWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderV1OrdersOrderIdGetResponse, error) {
-	rsp, err := c.GetOrderV1OrdersOrderIdGet(ctx, orderId, reqEditors...)
+// GetOrderWithResponse request returning *GetOrderResponse
+func (c *ClientWithResponses) GetOrderWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderResponse, error) {
+	rsp, err := c.GetOrder(ctx, orderId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetOrderV1OrdersOrderIdGetResponse(rsp)
+	return ParseGetOrderResponse(rsp)
 }
 
-// CompleteV1OrdersOrderIdCompletePostWithBodyWithResponse request with arbitrary body returning *CompleteV1OrdersOrderIdCompletePostResponse
-func (c *ClientWithResponses) CompleteV1OrdersOrderIdCompletePostWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteV1OrdersOrderIdCompletePostResponse, error) {
-	rsp, err := c.CompleteV1OrdersOrderIdCompletePostWithBody(ctx, orderId, contentType, body, reqEditors...)
+// CompleteWithBodyWithResponse request with arbitrary body returning *CompleteResponse
+func (c *ClientWithResponses) CompleteWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CompleteResponse, error) {
+	rsp, err := c.CompleteWithBody(ctx, orderId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCompleteV1OrdersOrderIdCompletePostResponse(rsp)
+	return ParseCompleteResponse(rsp)
 }
 
-func (c *ClientWithResponses) CompleteV1OrdersOrderIdCompletePostWithResponse(ctx context.Context, orderId openapi_types.UUID, body CompleteV1OrdersOrderIdCompletePostJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteV1OrdersOrderIdCompletePostResponse, error) {
-	rsp, err := c.CompleteV1OrdersOrderIdCompletePost(ctx, orderId, body, reqEditors...)
+func (c *ClientWithResponses) CompleteWithResponse(ctx context.Context, orderId openapi_types.UUID, body CompleteJSONRequestBody, reqEditors ...RequestEditorFn) (*CompleteResponse, error) {
+	rsp, err := c.Complete(ctx, orderId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCompleteV1OrdersOrderIdCompletePostResponse(rsp)
+	return ParseCompleteResponse(rsp)
 }
 
-// HeartbeatV1OrdersOrderIdHeartbeatPostWithBodyWithResponse request with arbitrary body returning *HeartbeatV1OrdersOrderIdHeartbeatPostResponse
-func (c *ClientWithResponses) HeartbeatV1OrdersOrderIdHeartbeatPostWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatV1OrdersOrderIdHeartbeatPostResponse, error) {
-	rsp, err := c.HeartbeatV1OrdersOrderIdHeartbeatPostWithBody(ctx, orderId, contentType, body, reqEditors...)
+// HeartbeatWithBodyWithResponse request with arbitrary body returning *HeartbeatResponse
+func (c *ClientWithResponses) HeartbeatWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatResponse, error) {
+	rsp, err := c.HeartbeatWithBody(ctx, orderId, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseHeartbeatV1OrdersOrderIdHeartbeatPostResponse(rsp)
+	return ParseHeartbeatResponse(rsp)
 }
 
-func (c *ClientWithResponses) HeartbeatV1OrdersOrderIdHeartbeatPostWithResponse(ctx context.Context, orderId openapi_types.UUID, body HeartbeatV1OrdersOrderIdHeartbeatPostJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatV1OrdersOrderIdHeartbeatPostResponse, error) {
-	rsp, err := c.HeartbeatV1OrdersOrderIdHeartbeatPost(ctx, orderId, body, reqEditors...)
+func (c *ClientWithResponses) HeartbeatWithResponse(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatResponse, error) {
+	rsp, err := c.Heartbeat(ctx, orderId, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseHeartbeatV1OrdersOrderIdHeartbeatPostResponse(rsp)
+	return ParseHeartbeatResponse(rsp)
 }
 
-// FindPackageV1PackagesGetWithResponse request returning *FindPackageV1PackagesGetResponse
-func (c *ClientWithResponses) FindPackageV1PackagesGetWithResponse(ctx context.Context, params *FindPackageV1PackagesGetParams, reqEditors ...RequestEditorFn) (*FindPackageV1PackagesGetResponse, error) {
-	rsp, err := c.FindPackageV1PackagesGet(ctx, params, reqEditors...)
+// FindPackageWithResponse request returning *FindPackageResponse
+func (c *ClientWithResponses) FindPackageWithResponse(ctx context.Context, params *FindPackageParams, reqEditors ...RequestEditorFn) (*FindPackageResponse, error) {
+	rsp, err := c.FindPackage(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseFindPackageV1PackagesGetResponse(rsp)
+	return ParseFindPackageResponse(rsp)
 }
 
-// DependentsV1PackagesPackageIdDependentsGetWithResponse request returning *DependentsV1PackagesPackageIdDependentsGetResponse
-func (c *ClientWithResponses) DependentsV1PackagesPackageIdDependentsGetWithResponse(ctx context.Context, packageId openapi_types.UUID, params *DependentsV1PackagesPackageIdDependentsGetParams, reqEditors ...RequestEditorFn) (*DependentsV1PackagesPackageIdDependentsGetResponse, error) {
-	rsp, err := c.DependentsV1PackagesPackageIdDependentsGet(ctx, packageId, params, reqEditors...)
+// DependentsWithResponse request returning *DependentsResponse
+func (c *ClientWithResponses) DependentsWithResponse(ctx context.Context, packageId openapi_types.UUID, params *DependentsParams, reqEditors ...RequestEditorFn) (*DependentsResponse, error) {
+	rsp, err := c.Dependents(ctx, packageId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDependentsV1PackagesPackageIdDependentsGetResponse(rsp)
+	return ParseDependentsResponse(rsp)
 }
 
-// ListProductsV1ProductsGetWithResponse request returning *ListProductsV1ProductsGetResponse
-func (c *ClientWithResponses) ListProductsV1ProductsGetWithResponse(ctx context.Context, params *ListProductsV1ProductsGetParams, reqEditors ...RequestEditorFn) (*ListProductsV1ProductsGetResponse, error) {
-	rsp, err := c.ListProductsV1ProductsGet(ctx, params, reqEditors...)
+// ListProductsWithResponse request returning *ListProductsResponse
+func (c *ClientWithResponses) ListProductsWithResponse(ctx context.Context, params *ListProductsParams, reqEditors ...RequestEditorFn) (*ListProductsResponse, error) {
+	rsp, err := c.ListProducts(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListProductsV1ProductsGetResponse(rsp)
+	return ParseListProductsResponse(rsp)
 }
 
-// GetProductV1ProductsProductIdGetWithResponse request returning *GetProductV1ProductsProductIdGetResponse
-func (c *ClientWithResponses) GetProductV1ProductsProductIdGetWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProductV1ProductsProductIdGetResponse, error) {
-	rsp, err := c.GetProductV1ProductsProductIdGet(ctx, productId, reqEditors...)
+// GetProductWithResponse request returning *GetProductResponse
+func (c *ClientWithResponses) GetProductWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetProductResponse, error) {
+	rsp, err := c.GetProduct(ctx, productId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetProductV1ProductsProductIdGetResponse(rsp)
+	return ParseGetProductResponse(rsp)
 }
 
-// ListProductRefsV1ProductsProductIdRefsGetWithResponse request returning *ListProductRefsV1ProductsProductIdRefsGetResponse
-func (c *ClientWithResponses) ListProductRefsV1ProductsProductIdRefsGetWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductRefsV1ProductsProductIdRefsGetResponse, error) {
-	rsp, err := c.ListProductRefsV1ProductsProductIdRefsGet(ctx, productId, reqEditors...)
+// ListProductRefsWithResponse request returning *ListProductRefsResponse
+func (c *ClientWithResponses) ListProductRefsWithResponse(ctx context.Context, productId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductRefsResponse, error) {
+	rsp, err := c.ListProductRefs(ctx, productId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListProductRefsV1ProductsProductIdRefsGetResponse(rsp)
+	return ParseListProductRefsResponse(rsp)
 }
 
-// GetRefV1RefsRepositoryRefIdGetWithResponse request returning *GetRefV1RefsRepositoryRefIdGetResponse
-func (c *ClientWithResponses) GetRefV1RefsRepositoryRefIdGetWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRefV1RefsRepositoryRefIdGetResponse, error) {
-	rsp, err := c.GetRefV1RefsRepositoryRefIdGet(ctx, repositoryRefId, reqEditors...)
+// GetRefWithResponse request returning *GetRefResponse
+func (c *ClientWithResponses) GetRefWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRefResponse, error) {
+	rsp, err := c.GetRef(ctx, repositoryRefId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetRefV1RefsRepositoryRefIdGetResponse(rsp)
+	return ParseGetRefResponse(rsp)
 }
 
-// DependenciesV1RefsRepositoryRefIdDependenciesGetWithResponse request returning *DependenciesV1RefsRepositoryRefIdDependenciesGetResponse
-func (c *ClientWithResponses) DependenciesV1RefsRepositoryRefIdDependenciesGetWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DependenciesV1RefsRepositoryRefIdDependenciesGetResponse, error) {
-	rsp, err := c.DependenciesV1RefsRepositoryRefIdDependenciesGet(ctx, repositoryRefId, reqEditors...)
+// DependenciesWithResponse request returning *DependenciesResponse
+func (c *ClientWithResponses) DependenciesWithResponse(ctx context.Context, repositoryRefId openapi_types.UUID, reqEditors ...RequestEditorFn) (*DependenciesResponse, error) {
+	rsp, err := c.Dependencies(ctx, repositoryRefId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDependenciesV1RefsRepositoryRefIdDependenciesGetResponse(rsp)
+	return ParseDependenciesResponse(rsp)
 }
 
-// ListRepositoriesV1RepositoriesGetWithResponse request returning *ListRepositoriesV1RepositoriesGetResponse
-func (c *ClientWithResponses) ListRepositoriesV1RepositoriesGetWithResponse(ctx context.Context, params *ListRepositoriesV1RepositoriesGetParams, reqEditors ...RequestEditorFn) (*ListRepositoriesV1RepositoriesGetResponse, error) {
-	rsp, err := c.ListRepositoriesV1RepositoriesGet(ctx, params, reqEditors...)
+// ListRepositoriesWithResponse request returning *ListRepositoriesResponse
+func (c *ClientWithResponses) ListRepositoriesWithResponse(ctx context.Context, params *ListRepositoriesParams, reqEditors ...RequestEditorFn) (*ListRepositoriesResponse, error) {
+	rsp, err := c.ListRepositories(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRepositoriesV1RepositoriesGetResponse(rsp)
+	return ParseListRepositoriesResponse(rsp)
 }
 
-// GetRepositoryV1RepositoriesRepositoryIdGetWithResponse request returning *GetRepositoryV1RepositoriesRepositoryIdGetResponse
-func (c *ClientWithResponses) GetRepositoryV1RepositoriesRepositoryIdGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRepositoryV1RepositoriesRepositoryIdGetResponse, error) {
-	rsp, err := c.GetRepositoryV1RepositoriesRepositoryIdGet(ctx, repositoryId, reqEditors...)
+// GetRepositoryWithResponse request returning *GetRepositoryResponse
+func (c *ClientWithResponses) GetRepositoryWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetRepositoryResponse, error) {
+	rsp, err := c.GetRepository(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetRepositoryV1RepositoriesRepositoryIdGetResponse(rsp)
+	return ParseGetRepositoryResponse(rsp)
 }
 
-// ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetWithResponse request returning *ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse
-func (c *ClientWithResponses) ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetParams, reqEditors ...RequestEditorFn) (*ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse, error) {
-	rsp, err := c.ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGet(ctx, repositoryId, params, reqEditors...)
+// ListRepositoryAssessmentsWithResponse request returning *ListRepositoryAssessmentsResponse
+func (c *ClientWithResponses) ListRepositoryAssessmentsWithResponse(ctx context.Context, repositoryId openapi_types.UUID, params *ListRepositoryAssessmentsParams, reqEditors ...RequestEditorFn) (*ListRepositoryAssessmentsResponse, error) {
+	rsp, err := c.ListRepositoryAssessments(ctx, repositoryId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse(rsp)
+	return ParseListRepositoryAssessmentsResponse(rsp)
 }
 
-// ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetWithResponse request returning *ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse
-func (c *ClientWithResponses) ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse, error) {
-	rsp, err := c.ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGet(ctx, repositoryId, reqEditors...)
+// ListRepositoryDecisionsWithResponse request returning *ListRepositoryDecisionsResponse
+func (c *ClientWithResponses) ListRepositoryDecisionsWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRepositoryDecisionsResponse, error) {
+	rsp, err := c.ListRepositoryDecisions(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse(rsp)
+	return ParseListRepositoryDecisionsResponse(rsp)
 }
 
-// CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostWithResponse request returning *CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse
-func (c *ClientWithResponses) CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse, error) {
-	rsp, err := c.CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPost(ctx, repositoryId, reqEditors...)
+// CheckpointWithResponse request returning *CheckpointResponse
+func (c *ClientWithResponses) CheckpointWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*CheckpointResponse, error) {
+	rsp, err := c.Checkpoint(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse(rsp)
+	return ParseCheckpointResponse(rsp)
 }
 
-// ListLayersV1RepositoriesRepositoryIdLedgerLayersGetWithResponse request returning *ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse
-func (c *ClientWithResponses) ListLayersV1RepositoriesRepositoryIdLedgerLayersGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse, error) {
-	rsp, err := c.ListLayersV1RepositoriesRepositoryIdLedgerLayersGet(ctx, repositoryId, reqEditors...)
+// ListLayersWithResponse request returning *ListLayersResponse
+func (c *ClientWithResponses) ListLayersWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListLayersResponse, error) {
+	rsp, err := c.ListLayers(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse(rsp)
+	return ParseListLayersResponse(rsp)
 }
 
-// ListOwnersV1RepositoriesRepositoryIdOwnersGetWithResponse request returning *ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse
-func (c *ClientWithResponses) ListOwnersV1RepositoriesRepositoryIdOwnersGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse, error) {
-	rsp, err := c.ListOwnersV1RepositoriesRepositoryIdOwnersGet(ctx, repositoryId, reqEditors...)
+// ListOwnersWithResponse request returning *ListOwnersResponse
+func (c *ClientWithResponses) ListOwnersWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListOwnersResponse, error) {
+	rsp, err := c.ListOwners(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListOwnersV1RepositoriesRepositoryIdOwnersGetResponse(rsp)
+	return ParseListOwnersResponse(rsp)
 }
 
-// ListProductsOfV1RepositoriesRepositoryIdProductsGetWithResponse request returning *ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse
-func (c *ClientWithResponses) ListProductsOfV1RepositoriesRepositoryIdProductsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse, error) {
-	rsp, err := c.ListProductsOfV1RepositoriesRepositoryIdProductsGet(ctx, repositoryId, reqEditors...)
+// ListProductsOfWithResponse request returning *ListProductsOfResponse
+func (c *ClientWithResponses) ListProductsOfWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListProductsOfResponse, error) {
+	rsp, err := c.ListProductsOf(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListProductsOfV1RepositoriesRepositoryIdProductsGetResponse(rsp)
+	return ParseListProductsOfResponse(rsp)
 }
 
-// ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse request returning *ListRefsV1RepositoriesRepositoryIdRefsGetResponse
-func (c *ClientWithResponses) ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRefsV1RepositoriesRepositoryIdRefsGetResponse, error) {
-	rsp, err := c.ListRefsV1RepositoriesRepositoryIdRefsGet(ctx, repositoryId, reqEditors...)
+// ListRefsWithResponse request returning *ListRefsResponse
+func (c *ClientWithResponses) ListRefsWithResponse(ctx context.Context, repositoryId openapi_types.UUID, reqEditors ...RequestEditorFn) (*ListRefsResponse, error) {
+	rsp, err := c.ListRefs(ctx, repositoryId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRefsV1RepositoriesRepositoryIdRefsGetResponse(rsp)
+	return ParseListRefsResponse(rsp)
 }
 
-// RecordValidationV1ValidationRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordValidationV1ValidationRecordsPostResponse
-func (c *ClientWithResponses) RecordValidationV1ValidationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error) {
-	rsp, err := c.RecordValidationV1ValidationRecordsPostWithBody(ctx, contentType, body, reqEditors...)
+// RecordValidationWithBodyWithResponse request with arbitrary body returning *RecordValidationResponse
+func (c *ClientWithResponses) RecordValidationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordValidationResponse, error) {
+	rsp, err := c.RecordValidationWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordValidationV1ValidationRecordsPostResponse(rsp)
+	return ParseRecordValidationResponse(rsp)
 }
 
-func (c *ClientWithResponses) RecordValidationV1ValidationRecordsPostWithResponse(ctx context.Context, body RecordValidationV1ValidationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordValidationV1ValidationRecordsPostResponse, error) {
-	rsp, err := c.RecordValidationV1ValidationRecordsPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RecordValidationWithResponse(ctx context.Context, body RecordValidationJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordValidationResponse, error) {
+	rsp, err := c.RecordValidation(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordValidationV1ValidationRecordsPostResponse(rsp)
+	return ParseRecordValidationResponse(rsp)
 }
 
-// RecordVerificationV1VerificationRecordsPostWithBodyWithResponse request with arbitrary body returning *RecordVerificationV1VerificationRecordsPostResponse
-func (c *ClientWithResponses) RecordVerificationV1VerificationRecordsPostWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error) {
-	rsp, err := c.RecordVerificationV1VerificationRecordsPostWithBody(ctx, contentType, body, reqEditors...)
+// RecordVerificationWithBodyWithResponse request with arbitrary body returning *RecordVerificationResponse
+func (c *ClientWithResponses) RecordVerificationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordVerificationResponse, error) {
+	rsp, err := c.RecordVerificationWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordVerificationV1VerificationRecordsPostResponse(rsp)
+	return ParseRecordVerificationResponse(rsp)
 }
 
-func (c *ClientWithResponses) RecordVerificationV1VerificationRecordsPostWithResponse(ctx context.Context, body RecordVerificationV1VerificationRecordsPostJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordVerificationV1VerificationRecordsPostResponse, error) {
-	rsp, err := c.RecordVerificationV1VerificationRecordsPost(ctx, body, reqEditors...)
+func (c *ClientWithResponses) RecordVerificationWithResponse(ctx context.Context, body RecordVerificationJSONRequestBody, reqEditors ...RequestEditorFn) (*RecordVerificationResponse, error) {
+	rsp, err := c.RecordVerification(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRecordVerificationV1VerificationRecordsPostResponse(rsp)
+	return ParseRecordVerificationResponse(rsp)
 }
 
-// WhoamiV1WhoamiGetWithResponse request returning *WhoamiV1WhoamiGetResponse
-func (c *ClientWithResponses) WhoamiV1WhoamiGetWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiV1WhoamiGetResponse, error) {
-	rsp, err := c.WhoamiV1WhoamiGet(ctx, reqEditors...)
+// WhoamiWithResponse request returning *WhoamiResponse
+func (c *ClientWithResponses) WhoamiWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*WhoamiResponse, error) {
+	rsp, err := c.Whoami(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseWhoamiV1WhoamiGetResponse(rsp)
+	return ParseWhoamiResponse(rsp)
 }
 
-// ParseGetAdvisoryV1AdvisoriesAdvisoryIdGetResponse parses an HTTP response from a GetAdvisoryV1AdvisoriesAdvisoryIdGetWithResponse call
-func ParseGetAdvisoryV1AdvisoriesAdvisoryIdGetResponse(rsp *http.Response) (*GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse, error) {
+// ParseGetAdvisoryResponse parses an HTTP response from a GetAdvisoryWithResponse call
+func ParseGetAdvisoryResponse(rsp *http.Response) (*GetAdvisoryResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetAdvisoryV1AdvisoriesAdvisoryIdGetResponse{
+	response := &GetAdvisoryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7332,15 +7361,15 @@ func ParseGetAdvisoryV1AdvisoriesAdvisoryIdGetResponse(rsp *http.Response) (*Get
 	return response, nil
 }
 
-// ParseAffectedV1AdvisoriesAdvisoryIdAffectedGetResponse parses an HTTP response from a AffectedV1AdvisoriesAdvisoryIdAffectedGetWithResponse call
-func ParseAffectedV1AdvisoriesAdvisoryIdAffectedGetResponse(rsp *http.Response) (*AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse, error) {
+// ParseAffectedResponse parses an HTTP response from a AffectedWithResponse call
+func ParseAffectedResponse(rsp *http.Response) (*AffectedResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &AffectedV1AdvisoriesAdvisoryIdAffectedGetResponse{
+	response := &AffectedResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7372,15 +7401,15 @@ func ParseAffectedV1AdvisoriesAdvisoryIdAffectedGetResponse(rsp *http.Response) 
 	return response, nil
 }
 
-// ParsePackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse parses an HTTP response from a PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetWithResponse call
-func ParsePackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse(rsp *http.Response) (*PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse, error) {
+// ParsePackagesAffectedResponse parses an HTTP response from a PackagesAffectedWithResponse call
+func ParsePackagesAffectedResponse(rsp *http.Response) (*PackagesAffectedResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse{
+	response := &PackagesAffectedResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7412,15 +7441,15 @@ func ParsePackagesAffectedV1AdvisoriesAdvisoryIdPackagesGetResponse(rsp *http.Re
 	return response, nil
 }
 
-// ParseGetArtifactV1ArtifactsArtifactIdGetResponse parses an HTTP response from a GetArtifactV1ArtifactsArtifactIdGetWithResponse call
-func ParseGetArtifactV1ArtifactsArtifactIdGetResponse(rsp *http.Response) (*GetArtifactV1ArtifactsArtifactIdGetResponse, error) {
+// ParseGetArtifactResponse parses an HTTP response from a GetArtifactWithResponse call
+func ParseGetArtifactResponse(rsp *http.Response) (*GetArtifactResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetArtifactV1ArtifactsArtifactIdGetResponse{
+	response := &GetArtifactResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7459,15 +7488,15 @@ func ParseGetArtifactV1ArtifactsArtifactIdGetResponse(rsp *http.Response) (*GetA
 	return response, nil
 }
 
-// ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse parses an HTTP response from a GetArtifactContentV1ArtifactsArtifactIdContentGetWithResponse call
-func ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse(rsp *http.Response) (*GetArtifactContentV1ArtifactsArtifactIdContentGetResponse, error) {
+// ParseGetArtifactContentResponse parses an HTTP response from a GetArtifactContentWithResponse call
+func ParseGetArtifactContentResponse(rsp *http.Response) (*GetArtifactContentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetArtifactContentV1ArtifactsArtifactIdContentGetResponse{
+	response := &GetArtifactContentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7506,15 +7535,15 @@ func ParseGetArtifactContentV1ArtifactsArtifactIdContentGetResponse(rsp *http.Re
 	return response, nil
 }
 
-// ParseRecordAssessmentV1AssessmentRecordsPostResponse parses an HTTP response from a RecordAssessmentV1AssessmentRecordsPostWithResponse call
-func ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp *http.Response) (*RecordAssessmentV1AssessmentRecordsPostResponse, error) {
+// ParseRecordAssessmentResponse parses an HTTP response from a RecordAssessmentWithResponse call
+func ParseRecordAssessmentResponse(rsp *http.Response) (*RecordAssessmentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RecordAssessmentV1AssessmentRecordsPostResponse{
+	response := &RecordAssessmentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7567,15 +7596,15 @@ func ParseRecordAssessmentV1AssessmentRecordsPostResponse(rsp *http.Response) (*
 	return response, nil
 }
 
-// ParseListAssessmentsV1AssessmentsGetResponse parses an HTTP response from a ListAssessmentsV1AssessmentsGetWithResponse call
-func ParseListAssessmentsV1AssessmentsGetResponse(rsp *http.Response) (*ListAssessmentsV1AssessmentsGetResponse, error) {
+// ParseListAssessmentsResponse parses an HTTP response from a ListAssessmentsWithResponse call
+func ParseListAssessmentsResponse(rsp *http.Response) (*ListAssessmentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListAssessmentsV1AssessmentsGetResponse{
+	response := &ListAssessmentsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7607,15 +7636,15 @@ func ParseListAssessmentsV1AssessmentsGetResponse(rsp *http.Response) (*ListAsse
 	return response, nil
 }
 
-// ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse parses an HTTP response from a GetAssessmentV1AssessmentsAssessmentIdGetWithResponse call
-func ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp *http.Response) (*GetAssessmentV1AssessmentsAssessmentIdGetResponse, error) {
+// ParseGetAssessmentResponse parses an HTTP response from a GetAssessmentWithResponse call
+func ParseGetAssessmentResponse(rsp *http.Response) (*GetAssessmentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetAssessmentV1AssessmentsAssessmentIdGetResponse{
+	response := &GetAssessmentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7654,15 +7683,15 @@ func ParseGetAssessmentV1AssessmentsAssessmentIdGetResponse(rsp *http.Response) 
 	return response, nil
 }
 
-// ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse parses an HTTP response from a GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetWithResponse call
-func ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse(rsp *http.Response) (*GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse, error) {
+// ParseGetAssessmentIntakeResponse parses an HTTP response from a GetAssessmentIntakeWithResponse call
+func ParseGetAssessmentIntakeResponse(rsp *http.Response) (*GetAssessmentIntakeResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse{
+	response := &GetAssessmentIntakeResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7708,15 +7737,15 @@ func ParseGetAssessmentIntakeV1AssessmentsAssessmentIdIntakeGetResponse(rsp *htt
 	return response, nil
 }
 
-// ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse parses an HTTP response from a PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse call
-func ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse(rsp *http.Response) (*PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse, error) {
+// ParsePrepareTriageResponse parses an HTTP response from a PrepareTriageWithResponse call
+func ParsePrepareTriageResponse(rsp *http.Response) (*PrepareTriageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse{
+	response := &PrepareTriageResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7755,15 +7784,15 @@ func ParsePrepareTriageV1AssessmentsAssessmentIdTriageInputGetResponse(rsp *http
 	return response, nil
 }
 
-// ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse parses an HTTP response from a RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse call
-func ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp *http.Response) (*RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse, error) {
+// ParseRecordTriageResponse parses an HTTP response from a RecordTriageWithResponse call
+func ParseRecordTriageResponse(rsp *http.Response) (*RecordTriageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse{
+	response := &RecordTriageResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7823,15 +7852,15 @@ func ParseRecordTriageV1AssessmentsAssessmentIdTriageRecordsPostResponse(rsp *ht
 	return response, nil
 }
 
-// ParseGetDecisionV1DecisionsDecisionIdGetResponse parses an HTTP response from a GetDecisionV1DecisionsDecisionIdGetWithResponse call
-func ParseGetDecisionV1DecisionsDecisionIdGetResponse(rsp *http.Response) (*GetDecisionV1DecisionsDecisionIdGetResponse, error) {
+// ParseGetDecisionResponse parses an HTTP response from a GetDecisionWithResponse call
+func ParseGetDecisionResponse(rsp *http.Response) (*GetDecisionResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetDecisionV1DecisionsDecisionIdGetResponse{
+	response := &GetDecisionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7870,15 +7899,15 @@ func ParseGetDecisionV1DecisionsDecisionIdGetResponse(rsp *http.Response) (*GetD
 	return response, nil
 }
 
-// ParseRestateV1DecisionsDecisionIdRestatementPostResponse parses an HTTP response from a RestateV1DecisionsDecisionIdRestatementPostWithResponse call
-func ParseRestateV1DecisionsDecisionIdRestatementPostResponse(rsp *http.Response) (*RestateV1DecisionsDecisionIdRestatementPostResponse, error) {
+// ParseRestateResponse parses an HTTP response from a RestateWithResponse call
+func ParseRestateResponse(rsp *http.Response) (*RestateResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RestateV1DecisionsDecisionIdRestatementPostResponse{
+	response := &RestateResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7931,15 +7960,15 @@ func ParseRestateV1DecisionsDecisionIdRestatementPostResponse(rsp *http.Response
 	return response, nil
 }
 
-// ParseReadFeedV1FeedGetResponse parses an HTTP response from a ReadFeedV1FeedGetWithResponse call
-func ParseReadFeedV1FeedGetResponse(rsp *http.Response) (*ReadFeedV1FeedGetResponse, error) {
+// ParseReadFeedResponse parses an HTTP response from a ReadFeedWithResponse call
+func ParseReadFeedResponse(rsp *http.Response) (*ReadFeedResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ReadFeedV1FeedGetResponse{
+	response := &ReadFeedResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -7971,15 +8000,15 @@ func ParseReadFeedV1FeedGetResponse(rsp *http.Response) (*ReadFeedV1FeedGetRespo
 	return response, nil
 }
 
-// ParseReviewQueueV1FindingsReviewQueueGetResponse parses an HTTP response from a ReviewQueueV1FindingsReviewQueueGetWithResponse call
-func ParseReviewQueueV1FindingsReviewQueueGetResponse(rsp *http.Response) (*ReviewQueueV1FindingsReviewQueueGetResponse, error) {
+// ParseReviewQueueResponse parses an HTTP response from a ReviewQueueWithResponse call
+func ParseReviewQueueResponse(rsp *http.Response) (*ReviewQueueResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ReviewQueueV1FindingsReviewQueueGetResponse{
+	response := &ReviewQueueResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8011,15 +8040,15 @@ func ParseReviewQueueV1FindingsReviewQueueGetResponse(rsp *http.Response) (*Revi
 	return response, nil
 }
 
-// ParseGetFindingV1FindingsFindingIdGetResponse parses an HTTP response from a GetFindingV1FindingsFindingIdGetWithResponse call
-func ParseGetFindingV1FindingsFindingIdGetResponse(rsp *http.Response) (*GetFindingV1FindingsFindingIdGetResponse, error) {
+// ParseGetFindingResponse parses an HTTP response from a GetFindingWithResponse call
+func ParseGetFindingResponse(rsp *http.Response) (*GetFindingResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetFindingV1FindingsFindingIdGetResponse{
+	response := &GetFindingResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8058,15 +8087,15 @@ func ParseGetFindingV1FindingsFindingIdGetResponse(rsp *http.Response) (*GetFind
 	return response, nil
 }
 
-// ParseListDecisionsV1FindingsFindingIdDecisionsGetResponse parses an HTTP response from a ListDecisionsV1FindingsFindingIdDecisionsGetWithResponse call
-func ParseListDecisionsV1FindingsFindingIdDecisionsGetResponse(rsp *http.Response) (*ListDecisionsV1FindingsFindingIdDecisionsGetResponse, error) {
+// ParseListDecisionsResponse parses an HTTP response from a ListDecisionsWithResponse call
+func ParseListDecisionsResponse(rsp *http.Response) (*ListDecisionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListDecisionsV1FindingsFindingIdDecisionsGetResponse{
+	response := &ListDecisionsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8098,15 +8127,15 @@ func ParseListDecisionsV1FindingsFindingIdDecisionsGetResponse(rsp *http.Respons
 	return response, nil
 }
 
-// ParseDecideV1FindingsFindingIdDecisionsPostResponse parses an HTTP response from a DecideV1FindingsFindingIdDecisionsPostWithResponse call
-func ParseDecideV1FindingsFindingIdDecisionsPostResponse(rsp *http.Response) (*DecideV1FindingsFindingIdDecisionsPostResponse, error) {
+// ParseDecideResponse parses an HTTP response from a DecideWithResponse call
+func ParseDecideResponse(rsp *http.Response) (*DecideResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DecideV1FindingsFindingIdDecisionsPostResponse{
+	response := &DecideResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8159,15 +8188,15 @@ func ParseDecideV1FindingsFindingIdDecisionsPostResponse(rsp *http.Response) (*D
 	return response, nil
 }
 
-// ParseHealthzV1HealthzGetResponse parses an HTTP response from a HealthzV1HealthzGetWithResponse call
-func ParseHealthzV1HealthzGetResponse(rsp *http.Response) (*HealthzV1HealthzGetResponse, error) {
+// ParseHealthzResponse parses an HTTP response from a HealthzWithResponse call
+func ParseHealthzResponse(rsp *http.Response) (*HealthzResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &HealthzV1HealthzGetResponse{
+	response := &HealthzResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8185,15 +8214,15 @@ func ParseHealthzV1HealthzGetResponse(rsp *http.Response) (*HealthzV1HealthzGetR
 	return response, nil
 }
 
-// ParseGetLayerV1LedgerLayersLayerIdGetResponse parses an HTTP response from a GetLayerV1LedgerLayersLayerIdGetWithResponse call
-func ParseGetLayerV1LedgerLayersLayerIdGetResponse(rsp *http.Response) (*GetLayerV1LedgerLayersLayerIdGetResponse, error) {
+// ParseGetLayerResponse parses an HTTP response from a GetLayerWithResponse call
+func ParseGetLayerResponse(rsp *http.Response) (*GetLayerResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetLayerV1LedgerLayersLayerIdGetResponse{
+	response := &GetLayerResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8232,15 +8261,15 @@ func ParseGetLayerV1LedgerLayersLayerIdGetResponse(rsp *http.Response) (*GetLaye
 	return response, nil
 }
 
-// ParseListEventsV1LedgerLayersLayerIdEventsGetResponse parses an HTTP response from a ListEventsV1LedgerLayersLayerIdEventsGetWithResponse call
-func ParseListEventsV1LedgerLayersLayerIdEventsGetResponse(rsp *http.Response) (*ListEventsV1LedgerLayersLayerIdEventsGetResponse, error) {
+// ParseListEventsResponse parses an HTTP response from a ListEventsWithResponse call
+func ParseListEventsResponse(rsp *http.Response) (*ListEventsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListEventsV1LedgerLayersLayerIdEventsGetResponse{
+	response := &ListEventsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8279,15 +8308,15 @@ func ParseListEventsV1LedgerLayersLayerIdEventsGetResponse(rsp *http.Response) (
 	return response, nil
 }
 
-// ParseVerifyLayerV1LedgerLayersLayerIdVerificationGetResponse parses an HTTP response from a VerifyLayerV1LedgerLayersLayerIdVerificationGetWithResponse call
-func ParseVerifyLayerV1LedgerLayersLayerIdVerificationGetResponse(rsp *http.Response) (*VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse, error) {
+// ParseVerifyLayerResponse parses an HTTP response from a VerifyLayerWithResponse call
+func ParseVerifyLayerResponse(rsp *http.Response) (*VerifyLayerResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &VerifyLayerV1LedgerLayersLayerIdVerificationGetResponse{
+	response := &VerifyLayerResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8326,15 +8355,15 @@ func ParseVerifyLayerV1LedgerLayersLayerIdVerificationGetResponse(rsp *http.Resp
 	return response, nil
 }
 
-// ParseOnboardV1OnboardingPostResponse parses an HTTP response from a OnboardV1OnboardingPostWithResponse call
-func ParseOnboardV1OnboardingPostResponse(rsp *http.Response) (*OnboardV1OnboardingPostResponse, error) {
+// ParseOnboardResponse parses an HTTP response from a OnboardWithResponse call
+func ParseOnboardResponse(rsp *http.Response) (*OnboardResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &OnboardV1OnboardingPostResponse{
+	response := &OnboardResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8366,15 +8395,15 @@ func ParseOnboardV1OnboardingPostResponse(rsp *http.Response) (*OnboardV1Onboard
 	return response, nil
 }
 
-// ParsePlanOnboardingV1OnboardingPlanPostResponse parses an HTTP response from a PlanOnboardingV1OnboardingPlanPostWithResponse call
-func ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp *http.Response) (*PlanOnboardingV1OnboardingPlanPostResponse, error) {
+// ParsePlanOnboardingResponse parses an HTTP response from a PlanOnboardingWithResponse call
+func ParsePlanOnboardingResponse(rsp *http.Response) (*PlanOnboardingResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PlanOnboardingV1OnboardingPlanPostResponse{
+	response := &PlanOnboardingResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8406,15 +8435,15 @@ func ParsePlanOnboardingV1OnboardingPlanPostResponse(rsp *http.Response) (*PlanO
 	return response, nil
 }
 
-// ParseListOrdersV1OrdersGetResponse parses an HTTP response from a ListOrdersV1OrdersGetWithResponse call
-func ParseListOrdersV1OrdersGetResponse(rsp *http.Response) (*ListOrdersV1OrdersGetResponse, error) {
+// ParseListOrdersResponse parses an HTTP response from a ListOrdersWithResponse call
+func ParseListOrdersResponse(rsp *http.Response) (*ListOrdersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListOrdersV1OrdersGetResponse{
+	response := &ListOrdersResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8446,15 +8475,15 @@ func ParseListOrdersV1OrdersGetResponse(rsp *http.Response) (*ListOrdersV1Orders
 	return response, nil
 }
 
-// ParseClaimV1OrdersClaimPostResponse parses an HTTP response from a ClaimV1OrdersClaimPostWithResponse call
-func ParseClaimV1OrdersClaimPostResponse(rsp *http.Response) (*ClaimV1OrdersClaimPostResponse, error) {
+// ParseClaimResponse parses an HTTP response from a ClaimWithResponse call
+func ParseClaimResponse(rsp *http.Response) (*ClaimResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ClaimV1OrdersClaimPostResponse{
+	response := &ClaimResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8493,15 +8522,15 @@ func ParseClaimV1OrdersClaimPostResponse(rsp *http.Response) (*ClaimV1OrdersClai
 	return response, nil
 }
 
-// ParseStartV1OrdersStartPostResponse parses an HTTP response from a StartV1OrdersStartPostWithResponse call
-func ParseStartV1OrdersStartPostResponse(rsp *http.Response) (*StartV1OrdersStartPostResponse, error) {
+// ParseStartResponse parses an HTTP response from a StartWithResponse call
+func ParseStartResponse(rsp *http.Response) (*StartResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &StartV1OrdersStartPostResponse{
+	response := &StartResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8554,15 +8583,15 @@ func ParseStartV1OrdersStartPostResponse(rsp *http.Response) (*StartV1OrdersStar
 	return response, nil
 }
 
-// ParseGetOrderV1OrdersOrderIdGetResponse parses an HTTP response from a GetOrderV1OrdersOrderIdGetWithResponse call
-func ParseGetOrderV1OrdersOrderIdGetResponse(rsp *http.Response) (*GetOrderV1OrdersOrderIdGetResponse, error) {
+// ParseGetOrderResponse parses an HTTP response from a GetOrderWithResponse call
+func ParseGetOrderResponse(rsp *http.Response) (*GetOrderResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetOrderV1OrdersOrderIdGetResponse{
+	response := &GetOrderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8601,15 +8630,15 @@ func ParseGetOrderV1OrdersOrderIdGetResponse(rsp *http.Response) (*GetOrderV1Ord
 	return response, nil
 }
 
-// ParseCompleteV1OrdersOrderIdCompletePostResponse parses an HTTP response from a CompleteV1OrdersOrderIdCompletePostWithResponse call
-func ParseCompleteV1OrdersOrderIdCompletePostResponse(rsp *http.Response) (*CompleteV1OrdersOrderIdCompletePostResponse, error) {
+// ParseCompleteResponse parses an HTTP response from a CompleteWithResponse call
+func ParseCompleteResponse(rsp *http.Response) (*CompleteResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CompleteV1OrdersOrderIdCompletePostResponse{
+	response := &CompleteResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8662,15 +8691,15 @@ func ParseCompleteV1OrdersOrderIdCompletePostResponse(rsp *http.Response) (*Comp
 	return response, nil
 }
 
-// ParseHeartbeatV1OrdersOrderIdHeartbeatPostResponse parses an HTTP response from a HeartbeatV1OrdersOrderIdHeartbeatPostWithResponse call
-func ParseHeartbeatV1OrdersOrderIdHeartbeatPostResponse(rsp *http.Response) (*HeartbeatV1OrdersOrderIdHeartbeatPostResponse, error) {
+// ParseHeartbeatResponse parses an HTTP response from a HeartbeatWithResponse call
+func ParseHeartbeatResponse(rsp *http.Response) (*HeartbeatResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &HeartbeatV1OrdersOrderIdHeartbeatPostResponse{
+	response := &HeartbeatResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8723,15 +8752,15 @@ func ParseHeartbeatV1OrdersOrderIdHeartbeatPostResponse(rsp *http.Response) (*He
 	return response, nil
 }
 
-// ParseFindPackageV1PackagesGetResponse parses an HTTP response from a FindPackageV1PackagesGetWithResponse call
-func ParseFindPackageV1PackagesGetResponse(rsp *http.Response) (*FindPackageV1PackagesGetResponse, error) {
+// ParseFindPackageResponse parses an HTTP response from a FindPackageWithResponse call
+func ParseFindPackageResponse(rsp *http.Response) (*FindPackageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &FindPackageV1PackagesGetResponse{
+	response := &FindPackageResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8770,15 +8799,15 @@ func ParseFindPackageV1PackagesGetResponse(rsp *http.Response) (*FindPackageV1Pa
 	return response, nil
 }
 
-// ParseDependentsV1PackagesPackageIdDependentsGetResponse parses an HTTP response from a DependentsV1PackagesPackageIdDependentsGetWithResponse call
-func ParseDependentsV1PackagesPackageIdDependentsGetResponse(rsp *http.Response) (*DependentsV1PackagesPackageIdDependentsGetResponse, error) {
+// ParseDependentsResponse parses an HTTP response from a DependentsWithResponse call
+func ParseDependentsResponse(rsp *http.Response) (*DependentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DependentsV1PackagesPackageIdDependentsGetResponse{
+	response := &DependentsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8817,15 +8846,15 @@ func ParseDependentsV1PackagesPackageIdDependentsGetResponse(rsp *http.Response)
 	return response, nil
 }
 
-// ParseListProductsV1ProductsGetResponse parses an HTTP response from a ListProductsV1ProductsGetWithResponse call
-func ParseListProductsV1ProductsGetResponse(rsp *http.Response) (*ListProductsV1ProductsGetResponse, error) {
+// ParseListProductsResponse parses an HTTP response from a ListProductsWithResponse call
+func ParseListProductsResponse(rsp *http.Response) (*ListProductsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListProductsV1ProductsGetResponse{
+	response := &ListProductsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8857,15 +8886,15 @@ func ParseListProductsV1ProductsGetResponse(rsp *http.Response) (*ListProductsV1
 	return response, nil
 }
 
-// ParseGetProductV1ProductsProductIdGetResponse parses an HTTP response from a GetProductV1ProductsProductIdGetWithResponse call
-func ParseGetProductV1ProductsProductIdGetResponse(rsp *http.Response) (*GetProductV1ProductsProductIdGetResponse, error) {
+// ParseGetProductResponse parses an HTTP response from a GetProductWithResponse call
+func ParseGetProductResponse(rsp *http.Response) (*GetProductResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetProductV1ProductsProductIdGetResponse{
+	response := &GetProductResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8904,15 +8933,15 @@ func ParseGetProductV1ProductsProductIdGetResponse(rsp *http.Response) (*GetProd
 	return response, nil
 }
 
-// ParseListProductRefsV1ProductsProductIdRefsGetResponse parses an HTTP response from a ListProductRefsV1ProductsProductIdRefsGetWithResponse call
-func ParseListProductRefsV1ProductsProductIdRefsGetResponse(rsp *http.Response) (*ListProductRefsV1ProductsProductIdRefsGetResponse, error) {
+// ParseListProductRefsResponse parses an HTTP response from a ListProductRefsWithResponse call
+func ParseListProductRefsResponse(rsp *http.Response) (*ListProductRefsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListProductRefsV1ProductsProductIdRefsGetResponse{
+	response := &ListProductRefsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8944,15 +8973,15 @@ func ParseListProductRefsV1ProductsProductIdRefsGetResponse(rsp *http.Response) 
 	return response, nil
 }
 
-// ParseGetRefV1RefsRepositoryRefIdGetResponse parses an HTTP response from a GetRefV1RefsRepositoryRefIdGetWithResponse call
-func ParseGetRefV1RefsRepositoryRefIdGetResponse(rsp *http.Response) (*GetRefV1RefsRepositoryRefIdGetResponse, error) {
+// ParseGetRefResponse parses an HTTP response from a GetRefWithResponse call
+func ParseGetRefResponse(rsp *http.Response) (*GetRefResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetRefV1RefsRepositoryRefIdGetResponse{
+	response := &GetRefResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -8991,15 +9020,15 @@ func ParseGetRefV1RefsRepositoryRefIdGetResponse(rsp *http.Response) (*GetRefV1R
 	return response, nil
 }
 
-// ParseDependenciesV1RefsRepositoryRefIdDependenciesGetResponse parses an HTTP response from a DependenciesV1RefsRepositoryRefIdDependenciesGetWithResponse call
-func ParseDependenciesV1RefsRepositoryRefIdDependenciesGetResponse(rsp *http.Response) (*DependenciesV1RefsRepositoryRefIdDependenciesGetResponse, error) {
+// ParseDependenciesResponse parses an HTTP response from a DependenciesWithResponse call
+func ParseDependenciesResponse(rsp *http.Response) (*DependenciesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DependenciesV1RefsRepositoryRefIdDependenciesGetResponse{
+	response := &DependenciesResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9038,15 +9067,15 @@ func ParseDependenciesV1RefsRepositoryRefIdDependenciesGetResponse(rsp *http.Res
 	return response, nil
 }
 
-// ParseListRepositoriesV1RepositoriesGetResponse parses an HTTP response from a ListRepositoriesV1RepositoriesGetWithResponse call
-func ParseListRepositoriesV1RepositoriesGetResponse(rsp *http.Response) (*ListRepositoriesV1RepositoriesGetResponse, error) {
+// ParseListRepositoriesResponse parses an HTTP response from a ListRepositoriesWithResponse call
+func ParseListRepositoriesResponse(rsp *http.Response) (*ListRepositoriesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRepositoriesV1RepositoriesGetResponse{
+	response := &ListRepositoriesResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9078,15 +9107,15 @@ func ParseListRepositoriesV1RepositoriesGetResponse(rsp *http.Response) (*ListRe
 	return response, nil
 }
 
-// ParseGetRepositoryV1RepositoriesRepositoryIdGetResponse parses an HTTP response from a GetRepositoryV1RepositoriesRepositoryIdGetWithResponse call
-func ParseGetRepositoryV1RepositoriesRepositoryIdGetResponse(rsp *http.Response) (*GetRepositoryV1RepositoriesRepositoryIdGetResponse, error) {
+// ParseGetRepositoryResponse parses an HTTP response from a GetRepositoryWithResponse call
+func ParseGetRepositoryResponse(rsp *http.Response) (*GetRepositoryResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetRepositoryV1RepositoriesRepositoryIdGetResponse{
+	response := &GetRepositoryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9125,15 +9154,15 @@ func ParseGetRepositoryV1RepositoriesRepositoryIdGetResponse(rsp *http.Response)
 	return response, nil
 }
 
-// ParseListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse parses an HTTP response from a ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetWithResponse call
-func ParseListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse(rsp *http.Response) (*ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse, error) {
+// ParseListRepositoryAssessmentsResponse parses an HTTP response from a ListRepositoryAssessmentsWithResponse call
+func ParseListRepositoryAssessmentsResponse(rsp *http.Response) (*ListRepositoryAssessmentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetResponse{
+	response := &ListRepositoryAssessmentsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9165,15 +9194,15 @@ func ParseListRepositoryAssessmentsV1RepositoriesRepositoryIdAssessmentsGetRespo
 	return response, nil
 }
 
-// ParseListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse parses an HTTP response from a ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetWithResponse call
-func ParseListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse(rsp *http.Response) (*ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse, error) {
+// ParseListRepositoryDecisionsResponse parses an HTTP response from a ListRepositoryDecisionsWithResponse call
+func ParseListRepositoryDecisionsResponse(rsp *http.Response) (*ListRepositoryDecisionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse{
+	response := &ListRepositoryDecisionsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9205,15 +9234,15 @@ func ParseListRepositoryDecisionsV1RepositoriesRepositoryIdDecisionsGetResponse(
 	return response, nil
 }
 
-// ParseCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse parses an HTTP response from a CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostWithResponse call
-func ParseCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse(rsp *http.Response) (*CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse, error) {
+// ParseCheckpointResponse parses an HTTP response from a CheckpointWithResponse call
+func ParseCheckpointResponse(rsp *http.Response) (*CheckpointResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse{
+	response := &CheckpointResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9266,15 +9295,15 @@ func ParseCheckpointV1RepositoriesRepositoryIdLedgerCheckpointPostResponse(rsp *
 	return response, nil
 }
 
-// ParseListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse parses an HTTP response from a ListLayersV1RepositoriesRepositoryIdLedgerLayersGetWithResponse call
-func ParseListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse(rsp *http.Response) (*ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse, error) {
+// ParseListLayersResponse parses an HTTP response from a ListLayersWithResponse call
+func ParseListLayersResponse(rsp *http.Response) (*ListLayersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse{
+	response := &ListLayersResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9313,15 +9342,15 @@ func ParseListLayersV1RepositoriesRepositoryIdLedgerLayersGetResponse(rsp *http.
 	return response, nil
 }
 
-// ParseListOwnersV1RepositoriesRepositoryIdOwnersGetResponse parses an HTTP response from a ListOwnersV1RepositoriesRepositoryIdOwnersGetWithResponse call
-func ParseListOwnersV1RepositoriesRepositoryIdOwnersGetResponse(rsp *http.Response) (*ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse, error) {
+// ParseListOwnersResponse parses an HTTP response from a ListOwnersWithResponse call
+func ParseListOwnersResponse(rsp *http.Response) (*ListOwnersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListOwnersV1RepositoriesRepositoryIdOwnersGetResponse{
+	response := &ListOwnersResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9353,15 +9382,15 @@ func ParseListOwnersV1RepositoriesRepositoryIdOwnersGetResponse(rsp *http.Respon
 	return response, nil
 }
 
-// ParseListProductsOfV1RepositoriesRepositoryIdProductsGetResponse parses an HTTP response from a ListProductsOfV1RepositoriesRepositoryIdProductsGetWithResponse call
-func ParseListProductsOfV1RepositoriesRepositoryIdProductsGetResponse(rsp *http.Response) (*ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse, error) {
+// ParseListProductsOfResponse parses an HTTP response from a ListProductsOfWithResponse call
+func ParseListProductsOfResponse(rsp *http.Response) (*ListProductsOfResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListProductsOfV1RepositoriesRepositoryIdProductsGetResponse{
+	response := &ListProductsOfResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9393,15 +9422,15 @@ func ParseListProductsOfV1RepositoriesRepositoryIdProductsGetResponse(rsp *http.
 	return response, nil
 }
 
-// ParseListRefsV1RepositoriesRepositoryIdRefsGetResponse parses an HTTP response from a ListRefsV1RepositoriesRepositoryIdRefsGetWithResponse call
-func ParseListRefsV1RepositoriesRepositoryIdRefsGetResponse(rsp *http.Response) (*ListRefsV1RepositoriesRepositoryIdRefsGetResponse, error) {
+// ParseListRefsResponse parses an HTTP response from a ListRefsWithResponse call
+func ParseListRefsResponse(rsp *http.Response) (*ListRefsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRefsV1RepositoriesRepositoryIdRefsGetResponse{
+	response := &ListRefsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9433,15 +9462,15 @@ func ParseListRefsV1RepositoriesRepositoryIdRefsGetResponse(rsp *http.Response) 
 	return response, nil
 }
 
-// ParseRecordValidationV1ValidationRecordsPostResponse parses an HTTP response from a RecordValidationV1ValidationRecordsPostWithResponse call
-func ParseRecordValidationV1ValidationRecordsPostResponse(rsp *http.Response) (*RecordValidationV1ValidationRecordsPostResponse, error) {
+// ParseRecordValidationResponse parses an HTTP response from a RecordValidationWithResponse call
+func ParseRecordValidationResponse(rsp *http.Response) (*RecordValidationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RecordValidationV1ValidationRecordsPostResponse{
+	response := &RecordValidationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9494,15 +9523,15 @@ func ParseRecordValidationV1ValidationRecordsPostResponse(rsp *http.Response) (*
 	return response, nil
 }
 
-// ParseRecordVerificationV1VerificationRecordsPostResponse parses an HTTP response from a RecordVerificationV1VerificationRecordsPostWithResponse call
-func ParseRecordVerificationV1VerificationRecordsPostResponse(rsp *http.Response) (*RecordVerificationV1VerificationRecordsPostResponse, error) {
+// ParseRecordVerificationResponse parses an HTTP response from a RecordVerificationWithResponse call
+func ParseRecordVerificationResponse(rsp *http.Response) (*RecordVerificationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RecordVerificationV1VerificationRecordsPostResponse{
+	response := &RecordVerificationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9555,15 +9584,15 @@ func ParseRecordVerificationV1VerificationRecordsPostResponse(rsp *http.Response
 	return response, nil
 }
 
-// ParseWhoamiV1WhoamiGetResponse parses an HTTP response from a WhoamiV1WhoamiGetWithResponse call
-func ParseWhoamiV1WhoamiGetResponse(rsp *http.Response) (*WhoamiV1WhoamiGetResponse, error) {
+// ParseWhoamiResponse parses an HTTP response from a WhoamiWithResponse call
+func ParseWhoamiResponse(rsp *http.Response) (*WhoamiResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &WhoamiV1WhoamiGetResponse{
+	response := &WhoamiResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

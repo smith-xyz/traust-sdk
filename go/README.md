@@ -60,11 +60,11 @@ Import `github.com/traust-security/traust-sdk/go/v1/api`. Use
 rotating bearer-token files. Native recording methods are generated from Core's
 OpenAPI, not adapters over legacy ledger report conversion:
 
-- `RecordAssessmentV1AssessmentRecordsPostWithResponse`
-- `PrepareTriageV1AssessmentsAssessmentIdTriageInputGetWithResponse`
-- `RecordTriageV1AssessmentsAssessmentIdTriageRecordsPostWithResponse`
-- `RecordValidationV1ValidationRecordsPostWithResponse`
-- `RecordVerificationV1VerificationRecordsPostWithResponse`
+- `RecordAssessmentWithResponse`
+- `PrepareTriageWithResponse`
+- `RecordTriageWithResponse`
+- `RecordValidationWithResponse`
+- `RecordVerificationWithResponse`
 
 Use the generated request-body types and real Core repository/ref, assessment,
 artifact, occurrence and finding IDs where the relevant contract requires them.
@@ -122,8 +122,8 @@ fields may be nil. A nil Go error alone does not mean admission succeeded, and
 `BoundClient` does not automatically turn generated calls into `ProblemError`.
 `RecordingRun` handles this status/problem distinction for its lifecycle calls.
 
-Exact OpenAPI input refs and regeneration instructions are in
-[the generator documentation](internal/generate/openapi/README.md).
+Regenerate with `make api-generate`: it builds core's OpenAPI at `CORE_REF`
+(`go/Makefile`), generates `v1/api/client.gen.go` and deletes the spec.
 
 
 ## Skills SDK

@@ -2,6 +2,16 @@
 
 All notable changes to the Go SDK are documented here.
 
+## [0.27.0]
+
+### Breaking
+
+- Generated method and type names drop the path and method: `OnboardV1OnboardingPostWithResponse` → `OnboardWithResponse`, `ListProductsV1ProductsGetParams` → `ListProductsParams`. Rename call sites by deleting the `V1…Get`/`V1…Post` middle.
+
+### Changed
+
+- `make api-generate` builds core's OpenAPI at `CORE_REF` and deletes it; the spec is no longer committed.
+
 ## [0.26.0]
 
 ### Added
