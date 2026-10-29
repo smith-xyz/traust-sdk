@@ -222,3 +222,41 @@ func problem(w http.ResponseWriter, status int, detail string) {
 }
 
 func strp(s string) *string { return &s }
+
+func TestDecode(t *testing.T) {
+	order := &RunOrder{Asset: "a"}
+	for _, tc := range []struct {
+		name        string
+		status      int
+		contentType string
+		body        string
+		value       *RunOrder
+		problem     bool
+	}{
+		{"decoded body", 200, "application/json", `{"asset":"a"}`, order, false},
+		{"problem document", 409, "application/problem+json", `{"title":"Conflict","status":409}`, nil, true},
+		{"refusal without a document", 502, "text/plain", "bad gateway", nil, true},
+		{"2xx without a body", 200, "application/json", "", nil, false},
+		{"2xx with a null body", 200, "application/json", "null", order, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := &http.Response{StatusCode: tc.status, Header: http.Header{"Content-Type": {tc.contentType}}}
+			got, err := Decode(response, []byte(tc.body), tc.value)
+			var problem *ProblemError
+			switch {
+			case tc.problem:
+				if !errors.As(err, &problem) || problem.StatusCode != tc.status || got != nil {
+					t.Fatalf("got=%v err=%v", got, err)
+				}
+			case tc.value == order && tc.body != "null":
+				if err != nil || got != order {
+					t.Fatalf("got=%v err=%v", got, err)
+				}
+			default:
+				if err == nil || errors.As(err, &problem) || got != nil {
+					t.Fatalf("a 2xx without a body must fail as such: got=%v err=%v", got, err)
+				}
+			}
+		})
+	}
+}

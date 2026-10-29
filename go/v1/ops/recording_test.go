@@ -270,3 +270,16 @@ func TestDeterministicRefusalCanCompleteFailedAfterOwnershipCheck(t *testing.T) 
 		t.Fatal("refusal did not recheck ownership and complete using native outcome")
 	}
 }
+
+func TestUnknownExecutorOutcomeCompletesFailedWithoutRecording(t *testing.T) {
+	run, server := newLifecycleRun(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
+		return ProducedReport{Payload: []byte("original report"), Result: api.JobResult{Outcome: "exploded"}}, nil
+	}))
+	if _, err := run.Run(context.Background()); err == nil {
+		t.Fatal("an unknown outcome was accepted")
+	}
+	_, records, completions := server.counts()
+	if records != 0 || completions != 1 || server.completed.Outcome != api.OutcomeFailed {
+		t.Fatalf("records=%d completions=%d completed=%+v", records, completions, server.completed)
+	}
+}

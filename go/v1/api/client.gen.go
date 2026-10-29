@@ -236,6 +236,21 @@ const (
 	Restate Role = "restate"
 )
 
+// Defines values for RunOrderReason.
+const (
+	RunOrderReasonAssetNotInPack      RunOrderReason = "asset-not-in-pack"
+	RunOrderReasonBadRequest          RunOrderReason = "bad_request"
+	RunOrderReasonBudgetExhausted     RunOrderReason = "budget-exhausted"
+	RunOrderReasonBudgetOver          RunOrderReason = "budget-over"
+	RunOrderReasonDiffTooLarge        RunOrderReason = "diff-too-large"
+	RunOrderReasonLedgerUnconfigured  RunOrderReason = "ledger_unconfigured"
+	RunOrderReasonNotFound            RunOrderReason = "not_found"
+	RunOrderReasonRunnerCrashed       RunOrderReason = "runner-crashed"
+	RunOrderReasonSnapshotUnavailable RunOrderReason = "snapshot_unavailable"
+	RunOrderReasonSourceUnavailable   RunOrderReason = "source_unavailable"
+	RunOrderReasonUpstreamStale       RunOrderReason = "upstream-stale"
+)
+
 // Defines values for RunOrderState.
 const (
 	RunOrderStateAwaitingApproval RunOrderState = "awaiting_approval"
@@ -459,6 +474,13 @@ type CodeHash struct {
 // CompleteRequest defines model for CompleteRequest.
 type CompleteRequest struct {
 	Result JobResult `json:"result"`
+}
+
+// ConfigDigest A config document in force when an order was planned; `pack:<name>` is the pack version.
+type ConfigDigest struct {
+	ArtifactId *openapi_types.UUID `json:"artifact_id"`
+	Digest     string              `json:"digest"`
+	Name       string              `json:"name"`
 }
 
 // Decision A judgement on a finding; corrections are new decisions (restates_id).
@@ -706,7 +728,7 @@ type IntakeResult struct {
 type JobResult struct {
 	Degraded *map[string]int `json:"degraded,omitempty"`
 	Outcome  Outcome         `json:"outcome"`
-	Reason   *string         `json:"reason"`
+	Reason   *RunOrderReason `json:"reason,omitempty"`
 	Usage    *[]ModelUsage   `json:"usage,omitempty"`
 	Written  *[]string       `json:"written,omitempty"`
 }
@@ -794,6 +816,19 @@ type OnboardingResult struct {
 	OrderIds      *[]openapi_types.UUID `json:"order_ids,omitempty"`
 	ProductId     openapi_types.UUID    `json:"product_id"`
 	RepositoryIds *[]openapi_types.UUID `json:"repository_ids,omitempty"`
+}
+
+// OrderApproval Who let a human-gated order run, and when (the run manifest's `approval`).
+type OrderApproval struct {
+	ApprovedAt time.Time `json:"approved_at"`
+	Approver   string    `json:"approver"`
+}
+
+// OrderManifest What an order's run manifest says about the config it was planned with and its approval.
+type OrderManifest struct {
+	// Approval Who let a human-gated order run, and when (the run manifest's `approval`).
+	Approval *OrderApproval  `json:"approval,omitempty"`
+	Config   *[]ConfigDigest `json:"config,omitempty"`
 }
 
 // OrderRequest What admission puts on the queue: one asset for one partition, routed or not.
@@ -1078,6 +1113,9 @@ type RunOrder struct {
 	UpdatedAt      *time.Time          `json:"updated_at"`
 }
 
+// RunOrderReason defines model for RunOrderReason.
+type RunOrderReason string
+
 // RunOrderState defines model for RunOrderState.
 type RunOrderState string
 
@@ -1111,6 +1149,14 @@ type SubjectRef struct {
 	RepositoryRefId openapi_types.UUID  `json:"repository_ref_id"`
 	RepositoryUrl   string              `json:"repository_url"`
 	Sha             string              `json:"sha"`
+}
+
+// SubmitRequest defines model for SubmitRequest.
+type SubmitRequest struct {
+	Config *[]ConfigDigest `json:"config,omitempty"`
+
+	// Order What admission puts on the queue: one asset for one partition, routed or not.
+	Order OrderRequest `json:"order"`
 }
 
 // TargetAttestation defines model for TargetAttestation.
@@ -1355,6 +1401,9 @@ type OnboardJSONRequestBody = OnboardingRequest
 
 // PlanOnboardingJSONRequestBody defines body for PlanOnboarding for application/json ContentType.
 type PlanOnboardingJSONRequestBody = OnboardingRequest
+
+// SubmitJSONRequestBody defines body for Submit for application/json ContentType.
+type SubmitJSONRequestBody = SubmitRequest
 
 // ClaimJSONRequestBody defines body for Claim for application/json ContentType.
 type ClaimJSONRequestBody = ClaimRequest
@@ -2282,6 +2331,11 @@ type ClientInterface interface {
 	// ListOrders request
 	ListOrders(ctx context.Context, params *ListOrdersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SubmitWithBody request with any body
+	SubmitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	Submit(ctx context.Context, body SubmitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ClaimWithBody request with any body
 	ClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2304,6 +2358,9 @@ type ClientInterface interface {
 	HeartbeatWithBody(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	Heartbeat(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetOrderManifest request
+	GetOrderManifest(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// FindPackage request
 	FindPackage(ctx context.Context, params *FindPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2739,6 +2796,30 @@ func (c *Client) ListOrders(ctx context.Context, params *ListOrdersParams, reqEd
 	return c.Client.Do(req)
 }
 
+func (c *Client) SubmitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) Submit(ctx context.Context, body SubmitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewClaimRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -2837,6 +2918,18 @@ func (c *Client) HeartbeatWithBody(ctx context.Context, orderId openapi_types.UU
 
 func (c *Client) Heartbeat(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHeartbeatRequest(c.Server, orderId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetOrderManifest(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOrderManifestRequest(c.Server, orderId)
 	if err != nil {
 		return nil, err
 	}
@@ -4349,6 +4442,46 @@ func NewListOrdersRequest(server string, params *ListOrdersParams) (*http.Reques
 	return req, nil
 }
 
+// NewSubmitRequest calls the generic Submit builder with application/json body
+func NewSubmitRequest(server string, body SubmitJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSubmitRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSubmitRequestWithBody generates requests for Submit with any type of body
+func NewSubmitRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/orders")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewClaimRequest calls the generic Claim builder with application/json body
 func NewClaimRequest(server string, body ClaimJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -4553,6 +4686,40 @@ func NewHeartbeatRequestWithBody(server string, orderId openapi_types.UUID, cont
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetOrderManifestRequest generates requests for GetOrderManifest
+func NewGetOrderManifestRequest(server string, orderId openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "order_id", runtime.ParamLocationPath, orderId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/orders/%s/manifest", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -5467,6 +5634,11 @@ type ClientWithResponsesInterface interface {
 	// ListOrdersWithResponse request
 	ListOrdersWithResponse(ctx context.Context, params *ListOrdersParams, reqEditors ...RequestEditorFn) (*ListOrdersResponse, error)
 
+	// SubmitWithBodyWithResponse request with any body
+	SubmitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitResponse, error)
+
+	SubmitWithResponse(ctx context.Context, body SubmitJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitResponse, error)
+
 	// ClaimWithBodyWithResponse request with any body
 	ClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimResponse, error)
 
@@ -5489,6 +5661,9 @@ type ClientWithResponsesInterface interface {
 	HeartbeatWithBodyWithResponse(ctx context.Context, orderId openapi_types.UUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HeartbeatResponse, error)
 
 	HeartbeatWithResponse(ctx context.Context, orderId openapi_types.UUID, body HeartbeatJSONRequestBody, reqEditors ...RequestEditorFn) (*HeartbeatResponse, error)
+
+	// GetOrderManifestWithResponse request
+	GetOrderManifestWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderManifestResponse, error)
 
 	// FindPackageWithResponse request
 	FindPackageWithResponse(ctx context.Context, params *FindPackageParams, reqEditors ...RequestEditorFn) (*FindPackageResponse, error)
@@ -6175,6 +6350,31 @@ func (r ListOrdersResponse) StatusCode() int {
 	return 0
 }
 
+type SubmitResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RunOrder
+	JSON401      *Problem
+	JSON403      *Problem
+	JSON422      *Problem
+}
+
+// Status returns HTTPResponse.Status
+func (r SubmitResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SubmitResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ClaimResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6300,6 +6500,31 @@ func (r HeartbeatResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r HeartbeatResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetOrderManifestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OrderManifest
+	JSON401      *Problem
+	JSON404      *Problem
+	JSON422      *HTTPValidationError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOrderManifestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOrderManifestResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7050,6 +7275,23 @@ func (c *ClientWithResponses) ListOrdersWithResponse(ctx context.Context, params
 	return ParseListOrdersResponse(rsp)
 }
 
+// SubmitWithBodyWithResponse request with arbitrary body returning *SubmitResponse
+func (c *ClientWithResponses) SubmitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitResponse, error) {
+	rsp, err := c.SubmitWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSubmitResponse(rsp)
+}
+
+func (c *ClientWithResponses) SubmitWithResponse(ctx context.Context, body SubmitJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitResponse, error) {
+	rsp, err := c.Submit(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSubmitResponse(rsp)
+}
+
 // ClaimWithBodyWithResponse request with arbitrary body returning *ClaimResponse
 func (c *ClientWithResponses) ClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimResponse, error) {
 	rsp, err := c.ClaimWithBody(ctx, contentType, body, reqEditors...)
@@ -7125,6 +7367,15 @@ func (c *ClientWithResponses) HeartbeatWithResponse(ctx context.Context, orderId
 		return nil, err
 	}
 	return ParseHeartbeatResponse(rsp)
+}
+
+// GetOrderManifestWithResponse request returning *GetOrderManifestResponse
+func (c *ClientWithResponses) GetOrderManifestWithResponse(ctx context.Context, orderId openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetOrderManifestResponse, error) {
+	rsp, err := c.GetOrderManifest(ctx, orderId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOrderManifestResponse(rsp)
 }
 
 // FindPackageWithResponse request returning *FindPackageResponse
@@ -8475,6 +8726,53 @@ func ParseListOrdersResponse(rsp *http.Response) (*ListOrdersResponse, error) {
 	return response, nil
 }
 
+// ParseSubmitResponse parses an HTTP response from a SubmitWithResponse call
+func ParseSubmitResponse(rsp *http.Response) (*SubmitResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SubmitResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 403:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 422:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RunOrder
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseClaimResponse parses an HTTP response from a ClaimWithResponse call
 func ParseClaimResponse(rsp *http.Response) (*ClaimResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -8735,6 +9033,53 @@ func ParseHeartbeatResponse(rsp *http.Response) (*HeartbeatResponse, error) {
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest RunOrder
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest HTTPValidationError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetOrderManifestResponse parses an HTTP response from a GetOrderManifestWithResponse call
+func ParseGetOrderManifestResponse(rsp *http.Response) (*GetOrderManifestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOrderManifestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 401:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case rsp.Header.Get("Content-Type") == "application/json" && rsp.StatusCode == 404:
+		var dest Problem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OrderManifest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

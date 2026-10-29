@@ -4,80 +4,88 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/traust-security/traust-sdk/go/v1/api"
 )
 
-func (run RecordingRun) record(ctx context.Context, original api.RunOrder, current *api.RunOrder, raw []byte) (RecordingReceipt, error) {
+// record posts the executor's bytes through the run's one template.
+func (run RecordingRun) record(ctx context.Context, l *lease, raw []byte) (RecordingReceipt, error) {
 	var receipt RecordingReceipt
-	if err := usableOrder(current); err != nil {
-		return receipt, &LeaseLostError{Err: err}
+	ctx, cancel, err := l.call(ctx)
+	if err != nil {
+		return receipt, err
 	}
-	if err := ctx.Err(); err != nil {
-		return receipt, &LeaseLostError{Err: err}
-	}
-	requestCtx, cancel := run.ownedContext(ctx, current)
 	defer cancel()
-	// Conversion occurs only after utf8.Valid in Run; encoding/json therefore
-	// carries the exact original bytes instead of replacing malformed sequences.
+	// raw passed utf8.Valid, so the string carries the exact original bytes.
 	payload := string(raw)
+	request := run.Request
 	switch {
-	case run.Request.Assessment != nil:
-		body := *run.Request.Assessment
-		provenance, err := bindProvenance(original, body.RunOrderId, body.Provenance)
+	case request.Assessment != nil:
+		body := *request.Assessment
+		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
+			return receipt, err
+		}
+		response, err := run.Client.RecordAssessmentWithResponse(ctx, body)
 		if err != nil {
 			return receipt, err
 		}
-		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordAssessmentWithResponse(requestCtx, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Assessment, err = nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+		receipt.Assessment, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 		return receipt, err
-	case run.Request.Triage != nil:
-		body := *run.Request.Triage
-		provenance, err := bindProvenance(original, body.RunOrderId, body.Provenance)
+	case request.Triage != nil:
+		body := *request.Triage
+		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
+			return receipt, err
+		}
+		response, err := run.Client.RecordTriageWithResponse(ctx, request.AssessmentID, body)
 		if err != nil {
 			return receipt, err
 		}
-		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordTriageWithResponse(requestCtx, run.Request.AssessmentID, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Triage, err = nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+		receipt.Triage, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 		return receipt, err
-	case run.Request.Validation != nil:
-		body := *run.Request.Validation
-		provenance, err := bindProvenance(original, body.RunOrderId, body.Provenance)
+	case request.Validation != nil:
+		body := *request.Validation
+		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
+			return receipt, err
+		}
+		response, err := run.Client.RecordValidationWithResponse(ctx, body)
 		if err != nil {
 			return receipt, err
 		}
-		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordValidationWithResponse(requestCtx, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Validation, err = nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+		receipt.Validation, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 		return receipt, err
-	case run.Request.Verification != nil:
-		body := *run.Request.Verification
-		provenance, err := bindProvenance(original, body.RunOrderId, body.Provenance)
+	case request.Verification != nil:
+		body := *request.Verification
+		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
+			return receipt, err
+		}
+		response, err := run.Client.RecordVerificationWithResponse(ctx, body)
 		if err != nil {
 			return receipt, err
 		}
-		body.RunOrderId, body.Provenance, body.Payload = *original.Id, provenance, payload
-		response, err := run.Client.RecordVerificationWithResponse(requestCtx, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Verification, err = nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+		receipt.Verification, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 		return receipt, err
 	}
-	return receipt, errors.New("recording run has no native request template")
+	return receipt, errors.New("ops: recording run has no request template")
 }
 
-func (request RecordingRequest) templateInput() (string, api.Provenance) {
+// stamp binds a template to the held order: its id and start time are the record's run identity.
+func (l *lease) stamp(runOrderID *uuid.UUID, provenance *api.Provenance, payload *string, raw string) error {
+	id, started := l.id(), *l.origin.StartedAt
+	switch {
+	case *runOrderID != uuid.Nil && *runOrderID != id:
+		return errors.New("ops: template run_order_id is not the server's order")
+	case provenance.RunId != uuid.Nil && provenance.RunId != id:
+		return errors.New("ops: template provenance run_id is not the server's order")
+	case !provenance.OccurredAt.IsZero() && !provenance.OccurredAt.Equal(started):
+		return errors.New("ops: template provenance occurred_at is not the server's start time")
+	case provenance.Source == "":
+		return errors.New("ops: template needs an explicit provenance source")
+	}
+	*runOrderID, provenance.RunId, provenance.OccurredAt, *payload = id, id, started, raw
+	return nil
+}
+
+func (request RecordingRequest) template() (string, api.Provenance) {
 	switch {
 	case request.Assessment != nil:
 		return request.Assessment.Payload, request.Assessment.Provenance

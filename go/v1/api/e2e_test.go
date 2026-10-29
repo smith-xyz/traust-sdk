@@ -55,7 +55,7 @@ func TestE2EUnknownResourceIsATypedProblem(t *testing.T) {
 		t.Fatal(err)
 	}
 	var problem *ProblemError
-	err = checkResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type"))
+	_, err = Decode(resp.HTTPResponse, resp.Body, resp.JSON200)
 	if !errors.As(err, &problem) || problem.StatusCode != http.StatusNotFound || problem.Problem == nil || problem.Problem.RequestId == "" {
 		t.Fatalf("want a 404 problem with a request id, got %v", err)
 	}
@@ -75,7 +75,7 @@ func TestE2EUnverifiedTokenIsUnauthorized(t *testing.T) {
 		t.Fatal(err)
 	}
 	var problem *ProblemError
-	err = checkResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type"))
+	_, err = Decode(resp.HTTPResponse, resp.Body, resp.JSON200)
 	if !errors.As(err, &problem) || problem.StatusCode != http.StatusUnauthorized || problem.Problem == nil {
 		t.Fatalf("want a 401 problem, got %v", err)
 	}

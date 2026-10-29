@@ -56,17 +56,18 @@ or cross-field policy are introduced.
 
 ## Queued fleet commands
 
-`ops.LoadPack` validates the installed pack against the pinned Contracts
-schema and retains its byte digest. Configure `ops.NewRunner` with a
-`BoundClient`, the pack, an `Executor`, eligible asset names, lease duration
-and poll interval. `RunOnce` claims one order; `Run` keeps claiming until
-cancelled. The runner checks Core's run-manifest pack digest, resolves
-`{run_id}`, maintains the lease, and completes from the executor's native
-`api.JobResult`. The executor runs `Execution.Argv`, returns its outcome, and
-stops all work when its context is cancelled. This path currently accepts only fleet-wide
-commands without model or repository inputs, such as `ledger_audit`.
-The queued fleet-command runner sends only `ProducedReport.Result` to Core;
-`RecordingRun` uses `ProducedReport.Payload` for native record doors.
+`ops.LoadPack` validates a pack against the schema core loads packs with and pins it by
+the digest of its bytes. `ops.NewRunner` takes a `BoundClient`, the pack, an `Executor`,
+the assets this host runs, a lease and a poll interval. `RunOnce` claims one order and
+`Run` keeps claiming until cancelled. The runner runs an order only when core planned it
+with exactly this pack (`GetOrderManifest`), resolves `{run_id}` in the asset's command,
+holds the lease while the executor runs `Execution.Argv`, and completes with the
+executor's `api.JobResult`. Refusals carry a `api.RunOrderReason`. Fleet-wide commands
+only: an asset with partitions, a model or params is refused at `NewRunner`.
+The runner sends only `ProducedReport.Result` to core; `RecordingRun` sends
+`ProducedReport.Payload` to its record door.
+
+A person asks for a run with `Submit`, naming the pack version it must run under.
 
 ## Native report recording
 

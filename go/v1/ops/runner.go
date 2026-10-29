@@ -1,25 +1,18 @@
 package ops
 
 import (
+	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
 	"slices"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/traust-security/traust-sdk/go/v1/api"
 )
 
-const defaultRunnerRequestTimeout = time.Minute
-
-var commandParameter = regexp.MustCompile(`^\{([a-z][a-z0-9_]*)\}$`)
-
-// RunnerConfig binds a pinned pack and the assets this host can execute.
+// RunnerConfig binds a pinned pack and the assets this host runs.
 type RunnerConfig struct {
 	Client            *api.BoundClient
 	Pack              *Pack
@@ -31,61 +24,40 @@ type RunnerConfig struct {
 	PollInterval      time.Duration
 }
 
-// Runner claims and executes deterministic fleet-wide pack commands.
+// Runner claims queued orders for its assets and runs each one's pinned pack command.
 type Runner struct {
 	config RunnerConfig
 }
 
-// NewRunner refuses assets this first command runner cannot resolve safely.
+// NewRunner refuses assets a fleet-wide runner cannot run from its pinned pack.
 func NewRunner(cfg RunnerConfig) (*Runner, error) {
 	if cfg.Client == nil || cfg.Pack == nil || cfg.Executor == nil {
-		return nil, errors.New("ops: runner requires Client, Pack, and Executor")
+		return nil, errors.New("ops: runner needs a Client, a Pack and an Executor")
 	}
-	if cfg.LeaseSeconds <= 0 || cfg.LeaseSeconds > 24*60*60 || len(cfg.Assets) == 0 {
-		return nil, errors.New("ops: runner requires assets and a lease of 1..86400 seconds")
+	if len(cfg.Assets) == 0 || cfg.LeaseSeconds <= 0 || cfg.LeaseSeconds > maxLeaseSeconds {
+		return nil, fmt.Errorf("ops: runner needs assets and a lease of 1..%d seconds", maxLeaseSeconds)
 	}
-	if cfg.HeartbeatInterval == 0 {
-		cfg.HeartbeatInterval = time.Duration(cfg.LeaseSeconds) * time.Second / 3
+	lease := leaseDuration(cfg.LeaseSeconds)
+	cfg.HeartbeatInterval = cmp.Or(cfg.HeartbeatInterval, lease/3)
+	cfg.RequestTimeout = cmp.Or(cfg.RequestTimeout, defaultRequestTimeout)
+	if cfg.HeartbeatInterval <= 0 || cfg.HeartbeatInterval >= lease || cfg.RequestTimeout <= 0 || cfg.PollInterval <= 0 {
+		return nil, errors.New("ops: runner needs positive request and poll intervals and a heartbeat shorter than the lease")
 	}
-	if cfg.RequestTimeout == 0 {
-		cfg.RequestTimeout = defaultRunnerRequestTimeout
-	}
-	if cfg.HeartbeatInterval <= 0 || cfg.HeartbeatInterval >= time.Duration(cfg.LeaseSeconds)*time.Second || cfg.RequestTimeout <= 0 || cfg.PollInterval <= 0 {
-		return nil, errors.New("ops: runner needs positive request and poll durations and a heartbeat shorter than the lease")
-	}
-	seen := make(map[string]bool, len(cfg.Assets))
-	for _, name := range cfg.Assets {
-		if seen[name] {
-			return nil, fmt.Errorf("ops: duplicate asset %q", name)
+	for i, name := range cfg.Assets {
+		if slices.Contains(cfg.Assets[:i], name) {
+			return nil, fmt.Errorf("ops: asset %q listed twice", name)
 		}
-		seen[name] = true
-		asset, ok := cfg.Pack.assets[name]
-		if !ok || len(asset.Run) == 0 {
-			return nil, fmt.Errorf("ops: asset %q has no runnable command in the pinned pack", name)
-		}
-		if asset.Partitions != "" || asset.Model != nil || len(asset.Params) != 0 {
-			return nil, fmt.Errorf("ops: asset %q needs input resolution beyond this fleet-wide command runner", name)
-		}
-		for _, token := range asset.Run {
-			if match := commandParameter.FindStringSubmatch(token); match != nil {
-				if match[1] != "run_id" {
-					return nil, fmt.Errorf("ops: asset %q requires unresolved parameter %q", name, match[1])
-				}
-			} else if strings.ContainsAny(token, "{}") {
-				return nil, fmt.Errorf("ops: asset %q has an unresolved command token %q", name, token)
-			}
+		if _, err := cfg.Pack.command(name); err != nil {
+			return nil, err
 		}
 	}
-	cfg.Assets = append([]string(nil), cfg.Assets...)
+	cfg.Assets = slices.Clone(cfg.Assets)
 	return &Runner{config: cfg}, nil
 }
 
-// Run drains eligible orders and waits after an empty claim until cancellation.
+// Run claims and runs orders until ctx is done, waiting PollInterval after an empty claim.
 func (r *Runner) Run(ctx context.Context) error {
 	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
 		order, err := r.RunOnce(ctx)
 		if err != nil {
 			return err
@@ -93,153 +65,112 @@ func (r *Runner) Run(ctx context.Context) error {
 		if order != nil {
 			continue
 		}
-		timer := time.NewTimer(r.config.PollInterval)
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return ctx.Err()
-		case <-timer.C:
+		case <-time.After(r.config.PollInterval):
 		}
 	}
 }
 
-// RunOnce claims one eligible order, or returns nil when the queue is empty.
+// RunOnce claims and runs one order. It returns nil, nil when the queue has nothing for this runner.
 func (r *Runner) RunOnce(ctx context.Context) (*api.RunOrder, error) {
-	requestCtx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
-	assets := append([]string(nil), r.config.Assets...)
-	response, err := r.config.Client.ClaimWithResponse(requestCtx, api.ClaimRequest{
-		Assets: &assets, LeaseSeconds: r.config.LeaseSeconds,
-	})
-	cancel()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	order, err := r.claim(ctx)
+	if err != nil || order == nil {
+		return nil, err
+	}
+	l, err := hold(r.config.Client, order, r.config.LeaseSeconds, r.config.HeartbeatInterval, r.config.RequestTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("ops: claim order: %w", err)
+		return order, err
+	}
+	command, err := r.config.Pack.command(order.Asset)
+	if err != nil || !slices.Contains(r.config.Assets, order.Asset) {
+		return r.finish(ctx, l, refused(api.RunOrderReasonAssetNotInPack))
+	}
+	if order.RepositoryId != nil {
+		return r.finish(ctx, l, refused(api.RunOrderReasonBadRequest))
+	}
+	if err := l.renew(ctx); err != nil {
+		return l.snapshot(), err
+	}
+	pinned, err := supervise(ctx, l, func(read context.Context) (bool, error) { return r.pinned(read, l) })
+	if err != nil {
+		return l.snapshot(), err
+	}
+	if !pinned {
+		return r.finish(ctx, l, refused(api.RunOrderReasonBadRequest))
+	}
+	if err := l.renew(ctx); err != nil {
+		return l.snapshot(), err
+	}
+	produced, err := l.run(ctx, r.config.Executor, Execution{Argv: command.resolve(l.id())})
+	if lost(err) || ctx.Err() != nil {
+		return l.snapshot(), err
+	}
+	if err == nil {
+		err = checkOutcome(produced.Result)
+	}
+	if err != nil {
+		finished, finishErr := r.finish(ctx, l, api.JobResult{Outcome: api.OutcomeFailed, Reason: reason(api.RunOrderReasonRunnerCrashed)})
+		return finished, errors.Join(err, finishErr)
+	}
+	return r.finish(ctx, l, produced.Result)
+}
+
+func (r *Runner) claim(ctx context.Context) (*api.RunOrder, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
+	defer cancel()
+	assets := slices.Clone(r.config.Assets)
+	response, err := r.config.Client.ClaimWithResponse(ctx, api.ClaimRequest{Assets: &assets, LeaseSeconds: r.config.LeaseSeconds})
+	if err != nil {
+		return nil, fmt.Errorf("ops: claim: %w", err)
 	}
 	if response.StatusCode() == http.StatusNoContent {
 		return nil, nil
 	}
-	order, err := nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+	order, err := api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 	if err != nil {
-		return nil, fmt.Errorf("ops: claim order: %w", err)
+		return nil, fmt.Errorf("ops: claim: %w", err)
 	}
-	if err := usableOrder(order); err != nil {
-		return nil, fmt.Errorf("ops: claimed order: %w", err)
-	}
-	asset, allowed := r.config.Pack.assets[order.Asset]
-	if !allowed || !slices.Contains(r.config.Assets, order.Asset) {
-		return r.finish(ctx, order, api.JobResult{Outcome: api.OutcomeRefused, Reason: stringPtr("asset-not-in-pack")})
-	}
-	if order.ArtifactId == nil || order.RepositoryId != nil {
-		return r.finish(ctx, order, api.JobResult{Outcome: api.OutcomeRefused, Reason: stringPtr("bad_request")})
-	}
-	run := RecordingRun{
-		Client: r.config.Client, Executor: r.config.Executor,
-		Start:             api.StartRecordingRequest{LeaseSeconds: r.config.LeaseSeconds},
-		HeartbeatInterval: r.config.HeartbeatInterval, RequestTimeout: r.config.RequestTimeout,
-	}
-	owned, err := run.heartbeat(ctx, *order, order)
-	if err != nil {
-		return order, err
-	}
-	match, err := superviseLease(ctx, run, *order, owned, func(workCtx context.Context) (bool, error) {
-		return r.matchesPack(workCtx, *order.ArtifactId)
-	})
-	if err != nil {
-		return owned, fmt.Errorf("ops: verify pack for order %s: %w", *order.Id, err)
-	}
-	if !match {
-		return r.finish(ctx, owned, api.JobResult{Outcome: api.OutcomeRefused, Reason: stringPtr("pack version mismatch")})
-	}
-	argv := make([]string, 0, len(asset.Run))
-	for _, token := range asset.Run {
-		if match := commandParameter.FindStringSubmatch(token); match != nil {
-			argv = append(argv, order.Id.String())
-		} else {
-			argv = append(argv, token)
-		}
-	}
-	updated, err := run.heartbeat(ctx, *order, owned)
-	if err != nil {
-		return owned, err
-	}
-	owned = updated
-	produced, err := run.execute(ctx, *order, owned, Execution{Order: *order, Argv: argv})
-	if err != nil {
-		var lost *LeaseLostError
-		if errors.As(err, &lost) || ctx.Err() != nil {
-			return owned, err
-		}
-		finished, finishErr := r.finish(ctx, owned, api.JobResult{Outcome: api.OutcomeFailed, Reason: stringPtr("runner-crashed")})
-		return finished, errors.Join(err, finishErr)
-	}
-	if err := validateJobResult(produced.Result); err != nil {
-		finished, finishErr := r.finish(ctx, owned, api.JobResult{Outcome: api.OutcomeFailed, Reason: stringPtr("runner-crashed")})
-		return finished, errors.Join(err, finishErr)
-	}
-	return r.finish(ctx, owned, produced.Result)
+	return order, nil
 }
 
-func (r *Runner) matchesPack(ctx context.Context, artifactID uuid.UUID) (bool, error) {
-	requestCtx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
-	response, err := r.config.Client.GetArtifactContentWithResponse(requestCtx, artifactID)
-	cancel()
+// pinned reports whether core planned the order with exactly this runner's pack. It runs under
+// supervise, so a slow read keeps the lease and a lost lease cancels it.
+func (r *Runner) pinned(ctx context.Context, l *lease) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
+	defer cancel()
+	response, err := r.config.Client.GetOrderManifestWithResponse(ctx, l.id())
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("ops: order %s manifest: %w", l.id(), err)
 	}
-	if response.HTTPResponse == nil {
-		return false, errors.New("Core returned a run manifest without an HTTP response")
+	manifest, err := api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	if err != nil {
+		return false, fmt.Errorf("ops: order %s manifest: %w", l.id(), err)
 	}
-	if response.StatusCode() != http.StatusOK {
-		if err := api.CheckResponse(response.StatusCode(), response.Body, response.HTTPResponse.Header.Get("Content-Type")); err != nil {
-			return false, err
-		}
-		return false, fmt.Errorf("Core returned HTTP %d without a run manifest", response.StatusCode())
+	if manifest.Config == nil {
+		return false, nil
 	}
-	var manifest struct {
-		Artifact string `json:"artifact"`
-		Config   []struct {
-			Name   string `json:"name"`
-			Digest string `json:"digest"`
-		} `json:"config"`
-	}
-	if err := json.Unmarshal(response.Body, &manifest); err != nil || manifest.Artifact != "run-manifest" {
-		return false, errors.New("Core returned an invalid run manifest")
-	}
-	var found int
-	for _, item := range manifest.Config {
-		if item.Name == "pack:"+r.config.Pack.name {
-			found++
-			if item.Digest != r.config.Pack.digest {
-				return false, nil
-			}
+	var digests []string
+	for _, config := range *manifest.Config {
+		if config.Name == r.config.Pack.ref() {
+			digests = append(digests, config.Digest)
 		}
 	}
-	return found == 1, nil
+	return len(digests) == 1 && digests[0] == r.config.Pack.digest, nil
 }
 
-func (r *Runner) finish(ctx context.Context, order *api.RunOrder, result api.JobResult) (*api.RunOrder, error) {
-	run := RecordingRun{
-		Client:         r.config.Client,
-		Start:          api.StartRecordingRequest{LeaseSeconds: r.config.LeaseSeconds},
-		RequestTimeout: r.config.RequestTimeout,
-	}
-	owned, err := run.heartbeat(ctx, *order, order)
-	if err != nil {
-		return order, err
-	}
-	completed, err := run.complete(ctx, owned, result)
-	if err != nil {
-		return order, err
-	}
-	return completed, nil
+func (r *Runner) finish(ctx context.Context, l *lease, result api.JobResult) (*api.RunOrder, error) {
+	completed, err := l.complete(ctx, result)
+	order := l.latest(completed)
+	return &order, err
 }
 
-func validateJobResult(result api.JobResult) error {
-	switch result.Outcome {
-	case api.OutcomeSucceeded, api.OutcomeDegraded, api.OutcomeRefused, api.OutcomeFailed:
-		return nil
-	default:
-		return fmt.Errorf("ops: invalid job outcome %q", result.Outcome)
-	}
+func refused(why api.RunOrderReason) api.JobResult {
+	return api.JobResult{Outcome: api.OutcomeRefused, Reason: reason(why)}
 }
 
-func stringPtr(value string) *string { return &value }
+func reason(why api.RunOrderReason) *api.RunOrderReason { return &why }
