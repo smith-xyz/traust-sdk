@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
 	"github.com/traust-security/traust-sdk/go/v1/ops"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 const pack = `pack: example
@@ -35,9 +35,9 @@ func ExampleRunner() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runnerClient, err := api.NewBoundClient(api.ClientConfig{
+	runnerClient, err := traust.NewClient(traust.Config{
 		BaseURL: os.Getenv("TRAUST_CORE_URL"),
-		Tokens:  api.FileTokenSource{Path: "/var/run/secrets/traust-core/token"},
+		Tokens:  traust.FileTokenSource{Path: "/var/run/secrets/traust-core/token"},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -50,15 +50,15 @@ func ExampleRunner() {
 		log.Fatal(err)
 	}
 
-	person, err := api.NewBoundClient(api.ClientConfig{
-		BaseURL: os.Getenv("TRAUST_CORE_URL"), Tokens: api.StaticToken(os.Getenv("TRAUST_TOKEN")),
+	person, err := traust.NewClient(traust.Config{
+		BaseURL: os.Getenv("TRAUST_CORE_URL"), Tokens: traust.StaticToken(os.Getenv("TRAUST_TOKEN")),
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	if _, err := person.Submit(ctx, api.SubmitRequest{
-		Order:  api.OrderRequest{Asset: "ledger_audit", Priority: 1},
-		Config: &[]api.ConfigDigest{p.Pin()},
+	if _, err := person.Submit(ctx, traust.SubmitRequest{
+		Order:  traust.OrderRequest{Asset: "ledger_audit", Priority: 1},
+		Config: &[]traust.ConfigDigest{p.Pin()},
 	}); err != nil {
 		log.Fatal(err)
 	}

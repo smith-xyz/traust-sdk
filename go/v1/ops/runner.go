@@ -8,12 +8,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // RunnerConfig binds a pinned pack and the assets this host runs.
 type RunnerConfig struct {
-	Client            *api.BoundClient
+	Client            *traust.Client
 	Pack              *Pack
 	Executor          Executor
 	Assets            []string
@@ -73,7 +73,7 @@ func (r *Runner) Run(ctx context.Context) error {
 }
 
 // RunOnce claims and runs one order. It returns nil, nil when the queue has nothing for this runner.
-func (r *Runner) RunOnce(ctx context.Context) (*api.RunOrder, error) {
+func (r *Runner) RunOnce(ctx context.Context) (*traust.RunOrder, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -87,10 +87,10 @@ func (r *Runner) RunOnce(ctx context.Context) (*api.RunOrder, error) {
 	}
 	command, err := r.config.Pack.command(order.Asset)
 	if err != nil || !slices.Contains(r.config.Assets, order.Asset) {
-		return r.finish(ctx, l, refused(api.RunOrderReasonAssetNotInPack))
+		return r.finish(ctx, l, refused(traust.RunOrderReasonAssetNotInPack))
 	}
 	if order.RepositoryId != nil {
-		return r.finish(ctx, l, refused(api.RunOrderReasonBadRequest))
+		return r.finish(ctx, l, refused(traust.RunOrderReasonBadRequest))
 	}
 	if err := l.renew(ctx); err != nil {
 		return l.snapshot(), err
@@ -100,7 +100,7 @@ func (r *Runner) RunOnce(ctx context.Context) (*api.RunOrder, error) {
 		return l.snapshot(), err
 	}
 	if !pinned {
-		return r.finish(ctx, l, refused(api.RunOrderReasonBadRequest))
+		return r.finish(ctx, l, refused(traust.RunOrderReasonBadRequest))
 	}
 	if err := l.renew(ctx); err != nil {
 		return l.snapshot(), err
@@ -113,17 +113,17 @@ func (r *Runner) RunOnce(ctx context.Context) (*api.RunOrder, error) {
 		err = checkOutcome(produced.Result)
 	}
 	if err != nil {
-		finished, finishErr := r.finish(ctx, l, api.JobResult{Outcome: api.OutcomeFailed, Reason: reason(api.RunOrderReasonRunnerCrashed)})
+		finished, finishErr := r.finish(ctx, l, traust.JobResult{Outcome: traust.OutcomeFailed, Reason: reason(traust.RunOrderReasonRunnerCrashed)})
 		return finished, errors.Join(err, finishErr)
 	}
 	return r.finish(ctx, l, produced.Result)
 }
 
-func (r *Runner) claim(ctx context.Context) (*api.RunOrder, error) {
+func (r *Runner) claim(ctx context.Context) (*traust.RunOrder, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
 	defer cancel()
 	assets := slices.Clone(r.config.Assets)
-	order, err := r.config.Client.Claim(ctx, api.ClaimRequest{Assets: &assets, LeaseSeconds: r.config.LeaseSeconds})
+	order, err := r.config.Client.Claim(ctx, traust.ClaimRequest{Assets: &assets, LeaseSeconds: r.config.LeaseSeconds})
 	if err != nil {
 		return nil, fmt.Errorf("ops: claim: %w", err)
 	}
@@ -151,14 +151,14 @@ func (r *Runner) pinned(ctx context.Context, l *lease) (bool, error) {
 	return len(digests) == 1 && digests[0] == r.config.Pack.digest, nil
 }
 
-func (r *Runner) finish(ctx context.Context, l *lease, result api.JobResult) (*api.RunOrder, error) {
+func (r *Runner) finish(ctx context.Context, l *lease, result traust.JobResult) (*traust.RunOrder, error) {
 	completed, err := l.complete(ctx, result)
 	order := l.latest(completed)
 	return &order, err
 }
 
-func refused(why api.RunOrderReason) api.JobResult {
-	return api.JobResult{Outcome: api.OutcomeRefused, Reason: reason(why)}
+func refused(why traust.RunOrderReason) traust.JobResult {
+	return traust.JobResult{Outcome: traust.OutcomeRefused, Reason: reason(why)}
 }
 
-func reason(why api.RunOrderReason) *api.RunOrderReason { return &why }
+func reason(why traust.RunOrderReason) *traust.RunOrderReason { return &why }

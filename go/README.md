@@ -11,34 +11,34 @@ go get github.com/traust-security/traust-sdk/go
 ## Quickstart
 
 ```go
-import "github.com/traust-security/traust-sdk/go/v1/api"
+import "github.com/traust-security/traust-sdk/go/v1/traust"
 
-client, err := api.NewBoundClient(api.ClientConfig{
+client, err := traust.NewClient(traust.Config{
     BaseURL: "https://traust-core.example.com",
-    Tokens:  api.FileTokenSource{Path: "/var/run/secrets/traust-core/token"},
+    Tokens:  traust.FileTokenSource{Path: "/var/run/secrets/traust-core/token"},
 })
 
 url := "https://github.com/example/api"
-repos, err := client.ListRepositories(ctx, &api.ListRepositoriesParams{Url: &url})
+repos, err := client.ListRepositories(ctx, &traust.ListRepositoriesParams{Url: &url})
 repo := repos.Items[0]
 
 counts, err := client.SummarizeFindings(ctx, *repo.Id,
-    &api.SummarizeFindingsParams{GroupBy: api.FindingDimensionSeverity})
+    &traust.SummarizeFindingsParams{GroupBy: traust.FindingDimensionSeverity})
 ```
 
 Every operation is a method named after core's operation: `client.GetRepository(ctx, id)`
-returns `(*api.Repository, error)`. The full list, by task, is the "Using the SDK" table in
-[AGENTS.md](../AGENTS.md#using-the-sdk); `go doc ./v1/api` shows every signature and the runnable
+returns `(*traust.Repository, error)`. The full list, by task, is the "Using the SDK" table in
+[AGENTS.md](../AGENTS.md#using-the-sdk); `go doc ./v1/traust` shows every signature and the runnable
 examples.
 
 ## Connect
 
 | Token | Use |
 |---|---|
-| `api.FileTokenSource{Path}` | services: re-reads the file on every request, so rotated tokens just work |
-| `api.StaticToken("…")` | scripts, local development and tests |
+| `traust.FileTokenSource{Path}` | services: re-reads the file on every request, so rotated tokens just work |
+| `traust.StaticToken("…")` | scripts, local development and tests |
 
-`ClientConfig` also takes your own `*http.Client`, the retry count and the backoff. Reads (GET)
+`Config` also takes your own `*http.Client`, the retry count and the backoff. Reads (GET)
 retry on 429, 502, 503, 504 and transport errors; writes are never retried.
 
 ## Read
@@ -57,9 +57,9 @@ Counts, rollups and dashboards come from core, never from walking a listing:
 ## Keep inventory current
 
 ```go
-client.Onboard(ctx, api.OnboardingRequest{…})                     // product, repositories, refs, teams
-client.RegisterRef(ctx, repoID, api.RefRegistration{Sha: sha})     // a commit you're about to scan
-client.SetOwners(ctx, repoID, api.Owners{Teams: []string{"red"}})  // the teams your source reports
+client.Onboard(ctx, traust.OnboardingRequest{…})                     // product, repositories, refs, teams
+client.RegisterRef(ctx, repoID, traust.RefRegistration{Sha: sha})     // a commit you're about to scan
+client.SetOwners(ctx, repoID, traust.Owners{Teams: []string{"red"}})  // the teams your source reports
 ```
 
 Writes are idempotent: re-sending the same request changes nothing. Core stamps when ownership
@@ -67,11 +67,11 @@ opens and closes, so "who owned this on date X" stays answerable.
 
 ## Errors
 
-A refusal is a `*api.ProblemError` with the HTTP status and core's problem document; a transport
+A refusal is a `*traust.ProblemError` with the HTTP status and core's problem document; a transport
 failure is the underlying error.
 
 ```go
-var problem *api.ProblemError
+var problem *traust.ProblemError
 if errors.As(err, &problem) && problem.StatusCode == http.StatusNotFound { … }
 ```
 
@@ -97,7 +97,7 @@ err = runner.Run(ctx)
   set `Outcome` for commands that print something else. Write your own `ops.Executor` for other
   runtimes (a Kubernetes Job, a container).
 - **Asking for a run** (a person's token) pins the order to the pack:
-  `client.Submit(ctx, api.SubmitRequest{Order: …, Config: &[]api.ConfigDigest{pack.Pin()}})`.
+  `client.Submit(ctx, traust.SubmitRequest{Order: …, Config: &[]traust.ConfigDigest{pack.Pin()}})`.
 - **`ops.RecordingRun`** runs one explicitly dispatched order and records the executor's report
   through core's record door (triage, validation, verification, assessments). Give it one request
   template with an empty payload; it binds the server's order id and start time as provenance,
@@ -105,30 +105,30 @@ err = runner.Run(ctx)
 
 ## Test your code
 
-`apitest` is a fake core: register the responses your code should see and check what it sent.
+`traustest` is a fake core: register the responses your code should see and check what it sent.
 
 ```go
-core := apitest.New(t)
-core.Handle("GET /v1/repositories/{id}", apitest.JSON(200, api.Repository{Url: "https://github.com/example/api"}))
-core.Handle("POST /v1/orders/claim", apitest.Status(204))
+core := traustest.New(t)
+core.Handle("GET /v1/repositories/{id}", traustest.JSON(200, traust.Repository{Url: "https://github.com/example/api"}))
+core.Handle("POST /v1/orders/claim", traustest.Status(204))
 client := core.Client()
 // … exercise your code …
 sent := core.Requests()
 ```
 
-An unregistered route answers with a 404 problem. Use `apitest.Start()` (and `Close`) outside a test,
+An unregistered route answers with a 404 problem. Use `traustest.Start()` (and `Close`) outside a test,
 as the runnable examples do. `make e2e` runs the SDK itself against a real `traust-server`.
 
 ## Regenerating
 
 `make -C go api-generate` builds core's OpenAPI at `CORE_REF` (`go/Makefile`), generates
-`v1/api/client.gen.go` and the `(T, error)` calls and iterators in `v1/api/calls.gen.go`, writes
+`v1/traust/client.gen.go` and the `(T, error)` calls and iterators in `v1/traust/calls.gen.go`, writes
 `v1/ops/pack.schema.json`, and deletes the spec. `make -C go check-drift` fails when they're stale.
 
 ## Legacy packages
 
 `storage`, `ledger`, `skills`, `types`, `enums` and `validate` predate the REST API. They keep
-working for existing callers and take bug fixes only; new code uses `api` and `ops`.
+working for existing callers and take bug fixes only; new code uses `traust` and `ops`.
 
 ### Skills SDK
 

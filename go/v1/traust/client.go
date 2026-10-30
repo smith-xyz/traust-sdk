@@ -1,4 +1,4 @@
-package api
+package traust
 
 // Bindings over the generated client: bearer-token auth, bounded retries on transient
 // failures, typed problem errors and cursor paging. calls.gen.go builds the `(T, error)` calls
@@ -47,14 +47,13 @@ type StaticToken string
 
 func (t StaticToken) BearerToken(_ context.Context) (string, error) {
 	if strings.TrimSpace(string(t)) == "" {
-		return "", errors.New("api: static token is empty")
+		return "", errors.New("traust: static token is empty")
 	}
 	return string(t), nil
 }
 
-// ClientConfig configures the bound client. BaseURL and Tokens are
-// required; the rest have defaults.
-type ClientConfig struct {
+// Config configures a Client. BaseURL and Tokens are required; the rest have defaults.
+type Config struct {
 	BaseURL string
 	Tokens  TokenSource
 
@@ -64,21 +63,22 @@ type ClientConfig struct {
 	Now        func() time.Time // clock for tests; default time.Now
 }
 
-// BoundClient is the generated client with auth, retries and typed errors bound.
-type BoundClient struct {
+// Client is traust-core's client: every operation as a `(T, error)` call and every paged listing
+// as an `…All` iterator, with auth, retries and typed errors.
+type Client struct {
 	*ClientWithResponses
 }
 
-// NewBoundClient validates the configuration and wires the generated client.
-func NewBoundClient(cfg ClientConfig) (*BoundClient, error) {
+// NewClient validates cfg and connects to traust-core.
+func NewClient(cfg Config) (*Client, error) {
 	if cfg.BaseURL == "" {
-		return nil, errors.New("api: BaseURL is required")
+		return nil, errors.New("traust: BaseURL is required")
 	}
 	if cfg.Tokens == nil {
-		return nil, errors.New("api: Tokens is required")
+		return nil, errors.New("traust: Tokens is required")
 	}
 	if cfg.Retries < 0 {
-		return nil, fmt.Errorf("api: Retries must not be negative, got %d", cfg.Retries)
+		return nil, fmt.Errorf("traust: Retries must not be negative, got %d", cfg.Retries)
 	}
 	if cfg.Retries == 0 {
 		cfg.Retries = 2
@@ -108,16 +108,16 @@ func NewBoundClient(cfg ClientConfig) (*BoundClient, error) {
 	editor := func(ctx context.Context, req *http.Request) error {
 		token, err := cfg.Tokens.BearerToken(ctx)
 		if err != nil {
-			return fmt.Errorf("api: bearer token: %w", err)
+			return fmt.Errorf("traust: bearer token: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		return nil
 	}
 	generated, err := NewClientWithResponses(cfg.BaseURL, WithRequestEditorFn(editor), WithHTTPClient(httpClient))
 	if err != nil {
-		return nil, fmt.Errorf("api: building client: %w", err)
+		return nil, fmt.Errorf("traust: building client: %w", err)
 	}
-	return &BoundClient{ClientWithResponses: generated}, nil
+	return &Client{ClientWithResponses: generated}, nil
 }
 
 // ProblemError reports a non-retryable failed response. Problem carries the

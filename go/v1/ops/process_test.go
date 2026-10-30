@@ -10,24 +10,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 func TestProcessExecutorTurnsOutputIntoTheResult(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		argv    []string
-		outcome func([]byte) (api.JobResult, error)
-		want    api.Outcome
+		outcome func([]byte) (traust.JobResult, error)
+		want    traust.Outcome
 		fails   bool
 	}{
-		{"job result on stdout", []string{"sh", "-c", `echo '{"outcome":"degraded"}'`}, nil, api.OutcomeDegraded, false},
-		{"failure the command reports", []string{"sh", "-c", `echo '{"outcome":"failed"}'; exit 3`}, nil, api.OutcomeFailed, false},
+		{"job result on stdout", []string{"sh", "-c", `echo '{"outcome":"degraded"}'`}, nil, traust.OutcomeDegraded, false},
+		{"failure the command reports", []string{"sh", "-c", `echo '{"outcome":"failed"}'; exit 3`}, nil, traust.OutcomeFailed, false},
 		{"output that is not a job result", []string{"sh", "-c", "echo done"}, nil, "", true},
 		{"unknown outcome", []string{"sh", "-c", `echo '{"outcome":"exploded"}'`}, nil, "", true},
-		{"custom outcome", []string{"sh", "-c", "echo done"}, func([]byte) (api.JobResult, error) {
-			return api.JobResult{Outcome: api.OutcomeSucceeded}, nil
-		}, api.OutcomeSucceeded, false},
+		{"custom outcome", []string{"sh", "-c", "echo done"}, func([]byte) (traust.JobResult, error) {
+			return traust.JobResult{Outcome: traust.OutcomeSucceeded}, nil
+		}, traust.OutcomeSucceeded, false},
 		{"missing binary", []string{"traust-sdk-no-such-binary"}, nil, "", true},
 		{"no argv", nil, nil, "", true},
 	} {

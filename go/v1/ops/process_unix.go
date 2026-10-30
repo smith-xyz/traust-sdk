@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // ProcessExecutor runs an order's argv as a child process: no shell, its own process group, and
@@ -19,7 +19,7 @@ import (
 type ProcessExecutor struct {
 	Dir     string
 	Env     []string // nil inherits the runner's environment
-	Outcome func(stdout []byte) (api.JobResult, error)
+	Outcome func(stdout []byte) (traust.JobResult, error)
 }
 
 func (p ProcessExecutor) Execute(ctx context.Context, execution Execution) (ProducedReport, error) {
@@ -47,10 +47,10 @@ func (p ProcessExecutor) Execute(ctx context.Context, execution Execution) (Prod
 	return ProducedReport{Payload: stdout, Result: result}, nil
 }
 
-func jobResult(stdout []byte) (api.JobResult, error) {
-	var result api.JobResult
+func jobResult(stdout []byte) (traust.JobResult, error) {
+	var result traust.JobResult
 	if err := json.Unmarshal(stdout, &result); err != nil {
-		return api.JobResult{}, err
+		return traust.JobResult{}, err
 	}
 	return result, checkOutcome(result)
 }

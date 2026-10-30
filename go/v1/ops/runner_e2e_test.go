@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // Runs against traust-server built from core at CORE_REF; `make e2e` starts it.
-func e2eClient(t *testing.T, tokens string) *api.BoundClient {
+func e2eClient(t *testing.T, tokens string) *traust.Client {
 	t.Helper()
 	url, path := os.Getenv("TRAUST_E2E_URL"), os.Getenv(tokens)
 	if url == "" || path == "" {
 		t.Fatalf("TRAUST_E2E_URL and %s are required; run make e2e", tokens)
 	}
-	client, err := api.NewBoundClient(api.ClientConfig{BaseURL: url, Tokens: api.FileTokenSource{Path: path}})
+	client, err := traust.NewClient(traust.Config{BaseURL: url, Tokens: traust.FileTokenSource{Path: path}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,9 +38,9 @@ func TestE2ERunnerRunsASubmittedPackCommand(t *testing.T) {
 	defer cancel()
 
 	person := e2eClient(t, "TRAUST_E2E_TOKEN_FILE")
-	want, err := person.Submit(ctx, api.SubmitRequest{
-		Order:  api.OrderRequest{Asset: "command_result", Priority: 1},
-		Config: &[]api.ConfigDigest{pack.Pin()},
+	want, err := person.Submit(ctx, traust.SubmitRequest{
+		Order:  traust.OrderRequest{Asset: "command_result", Priority: 1},
+		Config: &[]traust.ConfigDigest{pack.Pin()},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestE2ERunnerRunsASubmittedPackCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	order, err := runner.RunOnce(ctx)
-	if err != nil || order == nil || *order.Id != *want.Id || order.State != api.RunOrderStateSucceeded {
+	if err != nil || order == nil || *order.Id != *want.Id || order.State != traust.RunOrderStateSucceeded {
 		t.Fatalf("order=%+v err=%v", order, err)
 	}
 	if idle, err := runner.RunOnce(ctx); err != nil || idle != nil {

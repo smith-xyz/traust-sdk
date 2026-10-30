@@ -1,4 +1,4 @@
-package api
+package traust
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func products(client *BoundClient, limit int) ([]Product, error) {
+func products(client *Client, limit int) ([]Product, error) {
 	var found []Product
 	for p, err := range client.ListProductsAll(context.Background(), &ListProductsParams{Limit: &limit}) {
 		if err != nil {
@@ -45,7 +45,7 @@ func TestFileTokenSourceRotates(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewBoundClient(ClientConfig{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
+	client, err := NewClient(Config{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +84,7 @@ func TestListProductsAllFollowsCursorAndReportsProblems(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewBoundClient(ClientConfig{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
+	client, err := NewClient(Config{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestProblemErrorCarriesTheDocument(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewBoundClient(ClientConfig{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
+	client, err := NewClient(Config{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestRetryAbsorbsTransientFailures(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := NewBoundClient(ClientConfig{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
+	client, err := NewClient(Config{BaseURL: server.URL, Tokens: FileTokenSource{Path: tokenPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,11 +163,11 @@ func TestRetryAbsorbsTransientFailures(t *testing.T) {
 	}
 }
 
-func TestNewBoundClientValidatesConfig(t *testing.T) {
-	if _, err := NewBoundClient(ClientConfig{Tokens: FileTokenSource{Path: "x"}}); err == nil {
+func TestNewClientValidatesConfig(t *testing.T) {
+	if _, err := NewClient(Config{Tokens: FileTokenSource{Path: "x"}}); err == nil {
 		t.Fatal("empty BaseURL accepted")
 	}
-	if _, err := NewBoundClient(ClientConfig{BaseURL: "http://x"}); err == nil {
+	if _, err := NewClient(Config{BaseURL: "http://x"}); err == nil {
 		t.Fatal("missing Tokens accepted")
 	}
 }
@@ -197,7 +197,7 @@ func TestCallerHTTPClientPolicySurvives(t *testing.T) {
 	caller := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}}
-	client, err := NewBoundClient(ClientConfig{
+	client, err := NewClient(Config{
 		BaseURL:    server.URL,
 		Tokens:     FileTokenSource{Path: tokenPath},
 		HTTPClient: caller,

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 type executorFunc func(context.Context, Execution) (ProducedReport, error)
@@ -25,14 +25,14 @@ func (execute executorFunc) Execute(ctx context.Context, execution Execution) (P
 
 type lifecycleServer struct {
 	mu              sync.Mutex
-	order           api.RunOrder
+	order           traust.RunOrder
 	leaseLength     time.Duration
 	heartbeatStatus int
 	recordStatus    int
 	disconnect      bool
 	changeOrigin    bool
 	events          []string
-	completed       api.JobResult
+	completed       traust.JobResult
 }
 
 func (server *lifecycleServer) ServeHTTP(w http.ResponseWriter, request *http.Request) {
@@ -50,7 +50,7 @@ func (server *lifecycleServer) ServeHTTP(w http.ResponseWriter, request *http.Re
 		if server.heartbeatStatus != 0 {
 			w.Header().Set("Content-Type", "application/problem+json")
 			w.WriteHeader(server.heartbeatStatus)
-			json.NewEncoder(w).Encode(api.Problem{Title: "lease refused", Status: server.heartbeatStatus})
+			json.NewEncoder(w).Encode(traust.Problem{Title: "lease refused", Status: server.heartbeatStatus})
 			return
 		}
 		expires := time.Now().Add(server.leaseLength)
@@ -72,22 +72,22 @@ func (server *lifecycleServer) ServeHTTP(w http.ResponseWriter, request *http.Re
 		if server.recordStatus != 0 {
 			w.Header().Set("Content-Type", "application/problem+json")
 			w.WriteHeader(server.recordStatus)
-			json.NewEncoder(w).Encode(api.Problem{Title: "record refused", Status: server.recordStatus})
+			json.NewEncoder(w).Encode(traust.Problem{Title: "record refused", Status: server.recordStatus})
 			return
 		}
-		json.NewEncoder(w).Encode(api.AssessmentRecordResult{
+		json.NewEncoder(w).Encode(traust.AssessmentRecordResult{
 			AssessmentId: uuid.MustParse("cbb60c79-1c48-4938-b71e-e19d0b9b9ca7"),
 			ArtifactId:   uuid.MustParse("06415613-84a6-4a90-8e39-a7a5d8d5fcef"),
 		})
 	case strings.HasSuffix(request.URL.Path, "/complete"):
 		server.events = append(server.events, "complete")
-		var body api.CompleteRequest
+		var body traust.CompleteRequest
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			w.WriteHeader(400)
 			return
 		}
 		server.completed = body.Result
-		server.order.State = api.RunOrderState(body.Result.Outcome)
+		server.order.State = traust.RunOrderState(body.Result.Outcome)
 		json.NewEncoder(w).Encode(server.order)
 	default:
 		server.events = append(server.events, "unexpected")
@@ -100,7 +100,7 @@ func newLifecycleRun(t *testing.T, executor Executor) (RecordingRun, *lifecycleS
 	id := uuid.MustParse("dfc7fdca-cba2-4a54-a9d3-4b57041bbb5f")
 	started := time.Date(2026, 10, 28, 1, 2, 3, 123456789, time.UTC)
 	server := &lifecycleServer{
-		order:       api.RunOrder{Id: &id, StartedAt: &started, State: api.RunOrderStateLeased},
+		order:       traust.RunOrder{Id: &id, StartedAt: &started, State: traust.RunOrderStateLeased},
 		leaseLength: time.Second,
 	}
 	httpServer := httptest.NewServer(server)
@@ -109,14 +109,14 @@ func newLifecycleRun(t *testing.T, executor Executor) (RecordingRun, *lifecycleS
 	if err := os.WriteFile(tokenFile, []byte("test-token"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	client, err := api.NewBoundClient(api.ClientConfig{BaseURL: httpServer.URL, Tokens: api.FileTokenSource{Path: tokenFile}})
+	client, err := traust.NewClient(traust.Config{BaseURL: httpServer.URL, Tokens: traust.FileTokenSource{Path: tokenFile}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return RecordingRun{
-		Client: client, Start: api.StartRecordingRequest{LeaseSeconds: 30, Order: api.OrderRequest{Asset: "explicit-asset"}},
-		Request: RecordingRequest{Assessment: &api.AssessmentRecordRequest{
-			Provenance: api.Provenance{Source: api.SourceTypeVulnScanReport}, AssessorVersion: "test-assessor",
+		Client: client, Start: traust.StartRecordingRequest{LeaseSeconds: 30, Order: traust.OrderRequest{Asset: "explicit-asset"}},
+		Request: RecordingRequest{Assessment: &traust.AssessmentRecordRequest{
+			Provenance: traust.Provenance{Source: traust.SourceTypeVulnScanReport}, AssessorVersion: "test-assessor",
 		}},
 		Executor: executor, HeartbeatInterval: 10 * time.Millisecond, RequestTimeout: time.Second,
 	}, server
@@ -147,7 +147,7 @@ func TestRecordingRunMaintainsLeaseAndCompletesNativeOutcome(t *testing.T) {
 		case <-ctx.Done():
 			return ProducedReport{}, ctx.Err()
 		case <-time.After(45 * time.Millisecond):
-			return ProducedReport{Payload: []byte("original report"), Result: api.JobResult{Outcome: api.OutcomeDegraded}}, nil
+			return ProducedReport{Payload: []byte("original report"), Result: traust.JobResult{Outcome: traust.OutcomeDegraded}}, nil
 		}
 	}))
 	result, err := run.Run(context.Background())
@@ -155,7 +155,7 @@ func TestRecordingRunMaintainsLeaseAndCompletesNativeOutcome(t *testing.T) {
 		t.Fatal(err)
 	}
 	heartbeats, records, completions := server.counts()
-	if heartbeats < 3 || records != 1 || completions != 1 || result.Receipt.Assessment == nil || result.Result.Outcome != api.OutcomeDegraded {
+	if heartbeats < 3 || records != 1 || completions != 1 || result.Receipt.Assessment == nil || result.Result.Outcome != traust.OutcomeDegraded {
 		t.Fatal("run did not heartbeat during execution and record/complete exactly once")
 	}
 	if result.Order.Id == nil || *result.Order.Id != *server.order.Id || !result.Order.StartedAt.Equal(*server.order.StartedAt) {
@@ -173,7 +173,7 @@ func TestHeartbeatRefusalStopsExecutorBeforeReturningAndNeverWrites(t *testing.T
 	server.heartbeatStatus = 403
 	result, err := run.Run(context.Background())
 	var lost *LeaseLostError
-	var problem *api.ProblemError
+	var problem *traust.ProblemError
 	if !errors.As(err, &lost) || !errors.As(err, &problem) || problem.StatusCode != 403 || result == nil || result.Order.Id == nil {
 		t.Fatal("lease loss did not preserve typed refusal and native run identity")
 	}
@@ -232,7 +232,7 @@ func TestExecutorFailureCompletesFailedOnlyWhileStillOwned(t *testing.T) {
 		t.Fatal("executor failure was hidden")
 	}
 	_, records, completions := server.counts()
-	if records != 0 || completions != 1 || server.completed.Outcome != api.OutcomeFailed || server.completed.Reason != nil {
+	if records != 0 || completions != 1 || server.completed.Outcome != traust.OutcomeFailed || server.completed.Reason != nil {
 		t.Fatal("executor failure did not use native failed outcome without an invented reason classifier")
 	}
 }
@@ -240,7 +240,7 @@ func TestExecutorFailureCompletesFailedOnlyWhileStillOwned(t *testing.T) {
 func TestAmbiguousRecordingFailurePreservesRunWithoutRetryOrCompletion(t *testing.T) {
 	for _, disconnect := range []bool{false, true} {
 		run, server := newLifecycleRun(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
-			return ProducedReport{Payload: []byte("original report"), Result: api.JobResult{Outcome: api.OutcomeSucceeded}}, nil
+			return ProducedReport{Payload: []byte("original report"), Result: traust.JobResult{Outcome: traust.OutcomeSucceeded}}, nil
 		}))
 		server.disconnect = disconnect
 		server.recordStatus = 500
@@ -257,29 +257,29 @@ func TestAmbiguousRecordingFailurePreservesRunWithoutRetryOrCompletion(t *testin
 
 func TestDeterministicRefusalCanCompleteFailedAfterOwnershipCheck(t *testing.T) {
 	run, server := newLifecycleRun(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
-		return ProducedReport{Payload: []byte("original report"), Result: api.JobResult{Outcome: api.OutcomeSucceeded}}, nil
+		return ProducedReport{Payload: []byte("original report"), Result: traust.JobResult{Outcome: traust.OutcomeSucceeded}}, nil
 	}))
 	server.recordStatus = 422
 	_, err := run.Run(context.Background())
-	var problem *api.ProblemError
+	var problem *traust.ProblemError
 	if !errors.As(err, &problem) || problem.StatusCode != 422 {
 		t.Fatal("native deterministic refusal was not preserved")
 	}
 	heartbeats, records, completions := server.counts()
-	if heartbeats != 2 || records != 1 || completions != 1 || server.completed.Outcome != api.OutcomeFailed || server.completed.Reason != nil {
+	if heartbeats != 2 || records != 1 || completions != 1 || server.completed.Outcome != traust.OutcomeFailed || server.completed.Reason != nil {
 		t.Fatal("refusal did not recheck ownership and complete using native outcome")
 	}
 }
 
 func TestUnknownExecutorOutcomeCompletesFailedWithoutRecording(t *testing.T) {
 	run, server := newLifecycleRun(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
-		return ProducedReport{Payload: []byte("original report"), Result: api.JobResult{Outcome: "exploded"}}, nil
+		return ProducedReport{Payload: []byte("original report"), Result: traust.JobResult{Outcome: "exploded"}}, nil
 	}))
 	if _, err := run.Run(context.Background()); err == nil {
 		t.Fatal("an unknown outcome was accepted")
 	}
 	_, records, completions := server.counts()
-	if records != 0 || completions != 1 || server.completed.Outcome != api.OutcomeFailed {
+	if records != 0 || completions != 1 || server.completed.Outcome != traust.OutcomeFailed {
 		t.Fatalf("records=%d completions=%d completed=%+v", records, completions, server.completed)
 	}
 }

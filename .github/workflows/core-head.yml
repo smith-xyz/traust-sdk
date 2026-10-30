@@ -36,7 +36,7 @@ jobs:
           {
             echo "core development: \`$CORE_REF\`"
             echo '```'
-            git diff --stat -- go/v1/api/client.gen.go
+            git diff --stat -- go/v1/traust/client.gen.go
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          git diff --quiet -- go/v1/api/client.gen.go || { echo "::error::core development changes the generated client; bump CORE_REF"; exit 1; }
+          git diff --quiet -- go/v1/traust/client.gen.go || { echo "::error::core development changes the generated client; bump CORE_REF"; exit 1; }

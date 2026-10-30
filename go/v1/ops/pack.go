@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 	"gopkg.in/yaml.v3"
 )
 
@@ -90,7 +90,7 @@ func (p *Pack) ref() string { return "pack:" + p.name }
 
 // Pin is the pack version an order must run under: pass it in Submit's config so runners with
 // this exact pack, and only those, run the order.
-func (p *Pack) Pin() api.ConfigDigest { return api.ConfigDigest{Name: p.ref(), Digest: p.digest} }
+func (p *Pack) Pin() traust.ConfigDigest { return traust.ConfigDigest{Name: p.ref(), Digest: p.digest} }
 
 // Assets are the assets the pack declares, sorted.
 func (p *Pack) Assets() []string { return slices.Sorted(maps.Keys(p.assets)) }

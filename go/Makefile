@@ -43,7 +43,7 @@ test-integration:
 	go test -count=1 -v ./v1/storage/...
 
 check-drift: generate api-generate
-	@git diff --exit-code $(OUT_DIR) ./v1/types/ ./v1/validate/schemas_gen.go ./v1/storage/operations.go ./v1/storage/projection_identifiers.go ./v1/storage/schema.go ./v1/storage/queries.go ./v1/storage/storagetest/testdata/ ./v1/api/client.gen.go ./v1/api/calls.gen.go ./v1/ops/pack.schema.json || (echo "ERROR: generated files are out of date; run 'make generate api-generate' and commit" && exit 1)
+	@git diff --exit-code $(OUT_DIR) ./v1/types/ ./v1/validate/schemas_gen.go ./v1/storage/operations.go ./v1/storage/projection_identifiers.go ./v1/storage/schema.go ./v1/storage/queries.go ./v1/storage/storagetest/testdata/ ./v1/traust/client.gen.go ./v1/traust/calls.gen.go ./v1/ops/pack.schema.json || (echo "ERROR: generated files are out of date; run 'make generate api-generate' and commit" && exit 1)
 
 core:
 	@set -eu; \
@@ -67,7 +67,7 @@ api-generate: core
 	$(MAKE) -s -C "$(CORE_SOURCE)" api-check; \
 	python3 $(OPENAPI_DIR)/normalize.py "$(CORE_SOURCE)/.openapi/openapi.json" "$$tmp/openapi.json"; \
 	go tool oapi-codegen --config $(OPENAPI_DIR)/oapi-codegen.yaml "$$tmp/openapi.json"; \
-	go run ./internal/generate/calls ./v1/api/client.gen.go "$$tmp/openapi.json" ./v1/api/calls.gen.go; \
+	go run ./internal/generate/calls ./v1/traust/client.gen.go "$$tmp/openapi.json" ./v1/traust/calls.gen.go; \
 	($(CORE_PYTHON) -c "import json; from traust_core.v1.contracts import config_schema; print(json.dumps(config_schema('pack'), indent=2))") > ./v1/ops/pack.schema.json
 
 # A local-issuer token for the e2e server: $(1) identity, $(2) machine (True/False), $(3) file.
@@ -85,7 +85,7 @@ e2e: core
 	$(call mint,e2e@example.com,False,person); \
 	$(call mint,e2e-runner,True,runner); \
 	TRAUST_E2E_URL=http://127.0.0.1:$$port TRAUST_E2E_TOKEN_FILE="$$home/person" TRAUST_E2E_RUNNER_TOKEN_FILE="$$home/runner" \
-	  go test -count=1 -tags e2e -run E2E -v ./v1/api/ ./v1/ops/
+	  go test -count=1 -tags e2e -run E2E -v ./v1/traust/ ./v1/ops/
 
 fmt:
 	gofmt -w .

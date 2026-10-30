@@ -6,29 +6,29 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // lease is an order this process holds. Every call after claim or start goes through it, and
 // origin keeps the server's id and start time, which no heartbeat may change.
 type lease struct {
-	client   *api.BoundClient
-	origin   api.RunOrder
-	current  api.RunOrder
+	client   *traust.Client
+	origin   traust.RunOrder
+	current  traust.RunOrder
 	seconds  int
 	interval time.Duration
 	timeout  time.Duration
 }
 
-func hold(client *api.BoundClient, order *api.RunOrder, seconds int, interval, timeout time.Duration) (*lease, error) {
+func hold(client *traust.Client, order *traust.RunOrder, seconds int, interval, timeout time.Duration) (*lease, error) {
 	if err := live(order); err != nil {
 		return nil, &LeaseLostError{Err: err}
 	}
 	return &lease{client: client, origin: *order, current: *order, seconds: seconds, interval: interval, timeout: timeout}, nil
 }
 
-func live(order *api.RunOrder) error {
-	if order == nil || order.State != api.RunOrderStateLeased ||
+func live(order *traust.RunOrder) error {
+	if order == nil || order.State != traust.RunOrderStateLeased ||
 		order.Id == nil || *order.Id == uuid.Nil ||
 		order.StartedAt == nil || order.StartedAt.IsZero() ||
 		order.LeaseExpiresAt == nil || !order.LeaseExpiresAt.After(time.Now()) {
@@ -41,7 +41,7 @@ func (l *lease) id() uuid.UUID { return *l.origin.Id }
 
 // order is the server's original order with its own copies of the pointers an executor could
 // otherwise use to rewrite the lease.
-func (l *lease) order() api.RunOrder {
+func (l *lease) order() traust.RunOrder {
 	order := l.origin
 	id, started, expires := *l.origin.Id, *l.origin.StartedAt, *l.origin.LeaseExpiresAt
 	order.Id, order.StartedAt, order.LeaseExpiresAt = &id, &started, &expires
@@ -79,7 +79,7 @@ func (l *lease) renew(ctx context.Context) error {
 		return err
 	}
 	defer cancel()
-	order, err := l.client.Heartbeat(ctx, l.id(), api.LeaseRequest{LeaseSeconds: l.seconds})
+	order, err := l.client.Heartbeat(ctx, l.id(), traust.LeaseRequest{LeaseSeconds: l.seconds})
 	if err == nil {
 		err = live(order)
 	}
@@ -155,7 +155,7 @@ func supervise[T any](ctx context.Context, l *lease, work func(context.Context) 
 }
 
 // complete renews the lease, then finishes the order with result.
-func (l *lease) complete(ctx context.Context, result api.JobResult) (*api.RunOrder, error) {
+func (l *lease) complete(ctx context.Context, result traust.JobResult) (*traust.RunOrder, error) {
 	if err := l.renew(ctx); err != nil {
 		return nil, err
 	}
@@ -164,17 +164,17 @@ func (l *lease) complete(ctx context.Context, result api.JobResult) (*api.RunOrd
 		return nil, err
 	}
 	defer cancel()
-	return l.client.Complete(ctx, l.id(), api.CompleteRequest{Result: result})
+	return l.client.Complete(ctx, l.id(), traust.CompleteRequest{Result: result})
 }
 
 // snapshot is a copy of the lease's current view of the order.
-func (l *lease) snapshot() *api.RunOrder {
+func (l *lease) snapshot() *traust.RunOrder {
 	order := l.current
 	return &order
 }
 
 // latest is the completed order when there is one, else the lease's current view of it.
-func (l *lease) latest(completed *api.RunOrder) api.RunOrder {
+func (l *lease) latest(completed *traust.RunOrder) traust.RunOrder {
 	if completed != nil {
 		return *completed
 	}

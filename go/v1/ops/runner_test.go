@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 const ledgerPack = `pack: security
@@ -49,11 +49,11 @@ func TestLoadPackUsesPinnedSchema(t *testing.T) {
 
 type queuedServer struct {
 	mu               sync.Mutex
-	order            api.RunOrder
+	order            traust.RunOrder
 	pack             *Pack
 	empty            bool
 	wrongDigest      bool
-	manifest         *api.OrderManifest
+	manifest         *traust.OrderManifest
 	malformed        bool
 	heartbeatStatus  int
 	claimStatus      int
@@ -63,7 +63,7 @@ type queuedServer struct {
 	heartbeatCalls   int
 	heartbeatFailAt  int
 	events           []string
-	result           api.JobResult
+	result           traust.JobResult
 	onClaim          func()
 }
 
@@ -79,10 +79,10 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 		}
 		if server.claimStatus != 0 {
 			w.WriteHeader(server.claimStatus)
-			_ = json.NewEncoder(w).Encode(api.Problem{Title: "claim unavailable", Status: server.claimStatus})
+			_ = json.NewEncoder(w).Encode(traust.Problem{Title: "claim unavailable", Status: server.claimStatus})
 			return
 		}
-		var body api.ClaimRequest
+		var body traust.ClaimRequest
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil || body.Assets == nil || len(*body.Assets) != 1 || (*body.Assets)[0] != "ledger_audit" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -115,7 +115,7 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 		}
 		if server.manifestStatus != 0 {
 			w.WriteHeader(server.manifestStatus)
-			_ = json.NewEncoder(w).Encode(api.Problem{Title: "manifest unavailable", Status: server.manifestStatus})
+			_ = json.NewEncoder(w).Encode(traust.Problem{Title: "manifest unavailable", Status: server.manifestStatus})
 			return
 		}
 		if server.malformed {
@@ -130,11 +130,11 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 		if server.wrongDigest {
 			digest = strings.Repeat("0", 64)
 		}
-		_ = json.NewEncoder(w).Encode(api.OrderManifest{Config: &[]api.ConfigDigest{{Name: "pack:security", Digest: digest}}})
+		_ = json.NewEncoder(w).Encode(traust.OrderManifest{Config: &[]traust.ConfigDigest{{Name: "pack:security", Digest: digest}}})
 	case strings.HasSuffix(request.URL.Path, "/heartbeat"):
 		server.events = append(server.events, "heartbeat")
 		server.heartbeatCalls++
-		var body api.LeaseRequest
+		var body traust.LeaseRequest
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil || body.LeaseSeconds <= 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -142,7 +142,7 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 		if server.heartbeatStatus != 0 && (server.heartbeatFailAt == 0 || server.heartbeatCalls >= server.heartbeatFailAt) {
 			w.Header().Set("Content-Type", "application/problem+json")
 			w.WriteHeader(server.heartbeatStatus)
-			_ = json.NewEncoder(w).Encode(api.Problem{Title: "lease lost", Status: server.heartbeatStatus})
+			_ = json.NewEncoder(w).Encode(traust.Problem{Title: "lease lost", Status: server.heartbeatStatus})
 			return
 		}
 		expires := time.Now().Add(time.Duration(body.LeaseSeconds) * time.Second)
@@ -150,13 +150,13 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 		_ = json.NewEncoder(w).Encode(server.order)
 	case strings.HasSuffix(request.URL.Path, "/complete"):
 		server.events = append(server.events, "complete")
-		var body api.CompleteRequest
+		var body traust.CompleteRequest
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		server.result = body.Result
-		server.order.State = api.RunOrderState(body.Result.Outcome)
+		server.order.State = traust.RunOrderState(body.Result.Outcome)
 		_ = json.NewEncoder(w).Encode(server.order)
 	default:
 		w.WriteHeader(http.StatusNotFound)
@@ -171,8 +171,8 @@ func queuedRunner(t *testing.T, executor Executor) (*Runner, *queuedServer) {
 	}
 	id, artifactID := uuid.New(), uuid.New()
 	started, expires := time.Now(), time.Now().Add(time.Minute)
-	server := &queuedServer{pack: pack, order: api.RunOrder{
-		Id: &id, ArtifactId: &artifactID, Asset: "ledger_audit", State: api.RunOrderStateLeased,
+	server := &queuedServer{pack: pack, order: traust.RunOrder{
+		Id: &id, ArtifactId: &artifactID, Asset: "ledger_audit", State: traust.RunOrderStateLeased,
 		StartedAt: &started, LeaseExpiresAt: &expires, RequestedBy: "human:operator",
 	}}
 	httpServer := httptest.NewServer(server)
@@ -181,7 +181,7 @@ func queuedRunner(t *testing.T, executor Executor) (*Runner, *queuedServer) {
 	if err := os.WriteFile(tokenFile, []byte("test-token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	client, err := api.NewBoundClient(api.ClientConfig{BaseURL: httpServer.URL, Tokens: api.FileTokenSource{Path: tokenFile}})
+	client, err := traust.NewClient(traust.Config{BaseURL: httpServer.URL, Tokens: traust.FileTokenSource{Path: tokenFile}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func queuedRunner(t *testing.T, executor Executor) (*Runner, *queuedServer) {
 	return runner, server
 }
 
-func (server *queuedServer) snapshot() ([]string, api.JobResult) {
+func (server *queuedServer) snapshot() ([]string, traust.JobResult) {
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	return append([]string(nil), server.events...), server.result
@@ -220,16 +220,16 @@ func TestQueuedRunnerClaimsExecutesAndCompletesLedgerAudit(t *testing.T) {
 		argv = append([]string(nil), execution.Argv...)
 		return ProducedReport{
 			Payload: []byte("command output need not be JSON"),
-			Result:  api.JobResult{Outcome: api.OutcomeDegraded, Degraded: &map[string]int{"unverified": 1}},
+			Result:  traust.JobResult{Outcome: traust.OutcomeDegraded, Degraded: &map[string]int{"unverified": 1}},
 		}, nil
 	}))
 	completed, err := runner.RunOnce(context.Background())
-	if err != nil || completed == nil || completed.State != api.RunOrderStateDegraded {
+	if err != nil || completed == nil || completed.State != traust.RunOrderStateDegraded {
 		t.Fatalf("completed=%+v err=%v", completed, err)
 	}
 	events, result := server.snapshot()
 	assertQueuedLifecycle(t, events, 2)
-	if result.Outcome != api.OutcomeDegraded {
+	if result.Outcome != traust.OutcomeDegraded {
 		t.Fatalf("events=%v result=%+v", events, result)
 	}
 	if len(argv) != 7 || argv[0] != "python3" || argv[3] != "ledger" || argv[6] != completed.Id.String() {
@@ -278,7 +278,7 @@ func TestQueuedRunnerRefusesPackMismatchBeforeExecution(t *testing.T) {
 	}))
 	server.wrongDigest = true
 	order, err := runner.RunOnce(context.Background())
-	if err != nil || order == nil || order.State != api.RunOrderStateRefused {
+	if err != nil || order == nil || order.State != traust.RunOrderStateRefused {
 		t.Fatalf("order=%+v err=%v", order, err)
 	}
 	events, _ := server.snapshot()
@@ -292,7 +292,7 @@ func TestQueuedRunnerRefusesUnknownClaimedAsset(t *testing.T) {
 	}))
 	server.order.Asset = "unknown"
 	order, err := runner.RunOnce(context.Background())
-	if err != nil || order == nil || order.State != api.RunOrderStateRefused {
+	if err != nil || order == nil || order.State != traust.RunOrderStateRefused {
 		t.Fatalf("order=%+v err=%v", order, err)
 	}
 	events, result := server.snapshot()
@@ -303,7 +303,7 @@ func TestQueuedRunnerRefusesUnknownClaimedAsset(t *testing.T) {
 
 func TestQueuedRunnerRenewsLeaseDuringSlowManifestRead(t *testing.T) {
 	runner, server := queuedRunner(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
-		return ProducedReport{Result: api.JobResult{Outcome: api.OutcomeSucceeded}}, nil
+		return ProducedReport{Result: traust.JobResult{Outcome: traust.OutcomeSucceeded}}, nil
 	}))
 	runner.config.LeaseSeconds = 1
 	runner.config.HeartbeatInterval = 50 * time.Millisecond
@@ -312,7 +312,7 @@ func TestQueuedRunnerRenewsLeaseDuringSlowManifestRead(t *testing.T) {
 	server.order.LeaseExpiresAt = &expires
 	server.manifestDelay = 1100 * time.Millisecond
 	order, err := runner.RunOnce(context.Background())
-	if err != nil || order == nil || order.State != api.RunOrderStateSucceeded {
+	if err != nil || order == nil || order.State != traust.RunOrderStateSucceeded {
 		t.Fatalf("order=%+v err=%v", order, err)
 	}
 	events, _ := server.snapshot()
@@ -352,7 +352,7 @@ func TestQueuedRunnerRefusesRepositoryBoundFleetOrder(t *testing.T) {
 	repositoryID := uuid.New()
 	server.order.RepositoryId = &repositoryID
 	order, err := runner.RunOnce(context.Background())
-	if err != nil || order == nil || order.State != api.RunOrderStateRefused {
+	if err != nil || order == nil || order.State != traust.RunOrderStateRefused {
 		t.Fatalf("order=%+v err=%v", order, err)
 	}
 }
@@ -486,7 +486,7 @@ func TestQueuedRunnerStopsOnCoreReadFailure(t *testing.T) {
 				t.Fatal("Core failure was ignored")
 			}
 			if server.manifestStatus == http.StatusServiceUnavailable {
-				var problem *api.ProblemError
+				var problem *traust.ProblemError
 				if !errors.As(err, &problem) || problem.StatusCode != http.StatusServiceUnavailable {
 					t.Fatalf("manifest failure was not typed: %v", err)
 				}
@@ -518,7 +518,7 @@ func TestQueuedRunnerCompletesFailedAfterInvalidExecution(t *testing.T) {
 				return tc.produced, tc.err
 			}))
 			order, err := runner.RunOnce(context.Background())
-			if err == nil || order == nil || order.State != api.RunOrderStateFailed {
+			if err == nil || order == nil || order.State != traust.RunOrderStateFailed {
 				t.Fatalf("order=%+v err=%v", order, err)
 			}
 			events, result := server.snapshot()
@@ -531,20 +531,20 @@ func TestQueuedRunnerCompletesFailedAfterInvalidExecution(t *testing.T) {
 }
 
 func TestQueuedRunnerRefusesAnOrderNotPinnedToExactlyItsPack(t *testing.T) {
-	pinned := func(digests ...string) *api.OrderManifest {
-		config := []api.ConfigDigest{{Name: "pack:other", Digest: strings.Repeat("1", 64)}}
+	pinned := func(digests ...string) *traust.OrderManifest {
+		config := []traust.ConfigDigest{{Name: "pack:other", Digest: strings.Repeat("1", 64)}}
 		for _, digest := range digests {
-			config = append(config, api.ConfigDigest{Name: "pack:security", Digest: digest})
+			config = append(config, traust.ConfigDigest{Name: "pack:security", Digest: digest})
 		}
-		return &api.OrderManifest{Config: &config}
+		return &traust.OrderManifest{Config: &config}
 	}
 	for _, tc := range []struct {
 		name     string
-		manifest func(pack string) *api.OrderManifest
+		manifest func(pack string) *traust.OrderManifest
 	}{
-		{"no config", func(string) *api.OrderManifest { return &api.OrderManifest{} }},
-		{"another pack only", func(string) *api.OrderManifest { return pinned() }},
-		{"this pack twice", func(pack string) *api.OrderManifest { return pinned(pack, pack) }},
+		{"no config", func(string) *traust.OrderManifest { return &traust.OrderManifest{} }},
+		{"another pack only", func(string) *traust.OrderManifest { return pinned() }},
+		{"this pack twice", func(pack string) *traust.OrderManifest { return pinned(pack, pack) }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			runner, server := queuedRunner(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
@@ -553,10 +553,10 @@ func TestQueuedRunnerRefusesAnOrderNotPinnedToExactlyItsPack(t *testing.T) {
 			}))
 			server.manifest = tc.manifest(server.pack.digest)
 			order, err := runner.RunOnce(context.Background())
-			if err != nil || order == nil || order.State != api.RunOrderStateRefused {
+			if err != nil || order == nil || order.State != traust.RunOrderStateRefused {
 				t.Fatalf("order=%+v err=%v", order, err)
 			}
-			if _, result := server.snapshot(); result.Reason == nil || *result.Reason != api.RunOrderReasonBadRequest {
+			if _, result := server.snapshot(); result.Reason == nil || *result.Reason != traust.RunOrderReasonBadRequest {
 				t.Fatalf("result=%+v", result)
 			}
 		})

@@ -5,7 +5,7 @@
 ## Checklist
 
 - [ ] Targets `development`
-- [ ] It's an extension point the SDK calls, a lifecycle step in `ops`, or a regenerated `v1/api`; a missing endpoint went to traust-core instead
+- [ ] It's an extension point the SDK calls, a lifecycle step in `ops`, or a regenerated `v1/traust`; a missing endpoint went to traust-core instead
 - [ ] No decision core owns (authorization, ordering, identity, IDs, time) derived, cached or defaulted here
 - [ ] Generated code regenerated, not edited; no spec or hand-written type/enum committed
 - [ ] Any non-answer stops with a typed error; no fallbacks

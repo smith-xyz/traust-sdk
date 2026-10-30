@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 const (
@@ -25,17 +25,17 @@ type Executor interface {
 
 // Execution is what an Executor runs: server context, never credentials.
 type Execution struct {
-	Order       api.RunOrder     `json:"order"`
-	TriageInput *api.TriageInput `json:"triage_input,omitempty"`
-	Input       json.RawMessage  `json:"input,omitempty"`
-	Argv        []string         `json:"argv,omitempty"`
+	Order       traust.RunOrder     `json:"order"`
+	TriageInput *traust.TriageInput `json:"triage_input,omitempty"`
+	Input       json.RawMessage     `json:"input,omitempty"`
+	Argv        []string            `json:"argv,omitempty"`
 }
 
 // ProducedReport is the executor's outcome and its original output, byte for byte. RecordingRun
 // sends Payload to its record door; Runner sends only Result.
 type ProducedReport struct {
 	Payload []byte
-	Result  api.JobResult
+	Result  traust.JobResult
 }
 
 // LeaseLostError means the order is no longer this process's: nothing may be recorded or completed.
@@ -49,9 +49,9 @@ func lost(err error) bool {
 	return errors.As(err, &lease)
 }
 
-func checkOutcome(result api.JobResult) error {
+func checkOutcome(result traust.JobResult) error {
 	switch result.Outcome {
-	case api.OutcomeSucceeded, api.OutcomeDegraded, api.OutcomeRefused, api.OutcomeFailed:
+	case traust.OutcomeSucceeded, traust.OutcomeDegraded, traust.OutcomeRefused, traust.OutcomeFailed:
 		return nil
 	}
 	return fmt.Errorf("ops: executor returned outcome %q", result.Outcome)

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // record posts the executor's bytes through the run's one template.
@@ -53,7 +53,7 @@ func (run RecordingRun) record(ctx context.Context, l *lease, raw []byte) (Recor
 }
 
 // stamp binds a template to the held order: its id and start time are the record's run identity.
-func (l *lease) stamp(runOrderID *uuid.UUID, provenance *api.Provenance, payload *string, raw string) error {
+func (l *lease) stamp(runOrderID *uuid.UUID, provenance *traust.Provenance, payload *string, raw string) error {
 	id, started := l.id(), *l.origin.StartedAt
 	switch {
 	case *runOrderID != uuid.Nil && *runOrderID != id:
@@ -69,7 +69,7 @@ func (l *lease) stamp(runOrderID *uuid.UUID, provenance *api.Provenance, payload
 	return nil
 }
 
-func (request RecordingRequest) template() (string, api.Provenance) {
+func (request RecordingRequest) template() (string, traust.Provenance) {
 	switch {
 	case request.Assessment != nil:
 		return request.Assessment.Payload, request.Assessment.Provenance
@@ -80,5 +80,5 @@ func (request RecordingRequest) template() (string, api.Provenance) {
 	case request.Verification != nil:
 		return request.Verification.Payload, request.Verification.Provenance
 	}
-	return "", api.Provenance{}
+	return "", traust.Provenance{}
 }

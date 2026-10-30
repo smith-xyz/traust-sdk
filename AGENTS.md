@@ -7,7 +7,7 @@ The Go SDK for traust: it does the work for the user, like a cloud provider's SD
 One client for everything you ask traust; one runner for the work you do for it.
 
 ```go
-c, err := api.NewBoundClient(api.ClientConfig{BaseURL: coreURL, Tokens: api.FileTokenSource{Path: tokenPath}})
+c, err := traust.NewClient(traust.Config{BaseURL: coreURL, Tokens: traust.FileTokenSource{Path: tokenPath}})
 repo, err := c.GetRepository(ctx, id)                         // every operation: (T, error)
 for f, err := range c.ListFindingsAll(ctx, repoID, nil) { … }  // every paged listing: an iterator
 pack, err := ops.LoadPack(packYAML)
@@ -23,7 +23,7 @@ err = r.Run(ctx)
 | onboard a product and its repositories | `c` | `PlanOnboarding` (dry run) → `Onboard` |
 | keep inventory current | `c` | `RegisterRef` (a commit and its branch), `SetOwners` (the teams a source reports; core stamps when ownership opens and closes) |
 | look up inventory | `c` | `ListRepositories` (by `url`), `ListRefs` (by `sha`), `ListProducts`, `ListOwners`, `ListProductsOf`, `ListOwnedRepositories` |
-| ask for a run (a person's token) | `c` | `Submit` with `Config: &[]api.ConfigDigest{pack.Pin()}`, the pack version it must run under |
+| ask for a run (a person's token) | `c` | `Submit` with `Config: &[]traust.ConfigDigest{pack.Pin()}`, the pack version it must run under |
 | run queued pack commands | `ops.Runner` + `ops.ProcessExecutor` or your `Executor` | `Claim` → `GetOrderManifest` → your run → `Complete` (the runner calls these, you don't) |
 | run and record a dispatched order | `ops.RecordingRun` + your `Executor` | `Start` → `Prepare*` → your run → `Record*` → `Complete` (same) |
 | read what a run produced | `c` | `ListOrderAssessments` (what an order recorded), `GetAssessment`, `GetArtifact`, `GetArtifactContent`, `ListRepositoryAssessments` |
@@ -35,7 +35,7 @@ err = r.Run(ctx)
 | read validation | `c` | `ListValidationAttempts` |
 | show a dashboard, rollup or export | `c` | `GetInsight` (one call for every insight: findings-rollup, exposure, sla, sarif, …) |
 | react to changes | `c` | `ReadFeed` / `ReadFeedAll` |
-| test code that uses the SDK | `apitest` | a fake core: `apitest.New(t)`, `Handle`, `Client()`, `Requests()` |
+| test code that uses the SDK | `traustest` | a fake core: `traustest.New(t)`, `Handle`, `Client()`, `Requests()` |
 
 Counts, rollups and dashboards come from `SummarizeFindings`, `SummarizeExposure` and `GetInsight`; never compute them from listings.
 
@@ -79,8 +79,8 @@ Each step is one core endpoint. A step core doesn't serve is not a step: never s
 
 | Package | Owns | Consumer writes |
 |---|---|---|
-| `v1/api` | the client, types and enums generated from core's OpenAPI; the generated `(T, error)` calls and `…All` iterators; auth, read retries, typed problem errors | a `TokenSource` |
-| `v1/api/apitest` | a fake core for consumers' tests: canned responses, recorded requests | — |
+| `v1/traust` | `traust.Client`: types and enums generated from core's OpenAPI; the generated `(T, error)` calls and `…All` iterators; auth, read retries, typed problem errors | a `TokenSource` |
+| `v1/traust/traustest` | a fake core for consumers' tests: canned responses, recorded requests | — |
 | `v1/ops` | the lease (heartbeat, lease loss, complete) and its two ways in: `Runner` (claim, pinned pack, the asset's command) and `RecordingRun` (start, prepare, record); `ProcessExecutor` | an `Executor` (or `ProcessExecutor`); the pack file |
 | `v1/<pkg>/<pkg>test` | test doubles for each extension point; the conformance suite every `Executor` passes against `traust serve` | — |
 
@@ -88,7 +88,7 @@ Packages not in this table (`storage`, `ledger`, `skills`, `types`, `enums`, `va
 
 ## Rules
 
-- **Every change is one of four things:** an extension point the SDK calls, a lifecycle step in `ops`, a regenerated `v1/api`, or a helper that saves every consumer the same work (`ProcessExecutor`, `apitest`, a generated iterator). Anything else is glue; don't add it. A missing endpoint is a traust-core change, not a workaround here
+- **Every change is one of four things:** an extension point the SDK calls, a lifecycle step in `ops`, a regenerated `v1/traust`, or a helper that saves every consumer the same work (`ProcessExecutor`, `traustest`, a generated iterator). Anything else is glue; don't add it. A missing endpoint is a traust-core change, not a workaround here
 - **Core decides; the SDK enforces.** Authorization, ordering, budget, classification, identity, IDs and timestamps come from core; the SDK never derives, caches or defaults them. Approvals and decisions come from verified people through core; the runner's identity only claims, heartbeats, records and completes. The SDK's one local check is schema validation, which core re-checks
 - **Core's REST API is the only way in.** No database handle, DDL, contracts tables, URL building or path splicing: call the generated method
 - **Generated, never committed by hand.** Everything the SDK knows about core comes from core at `CORE_REF`: `make api-generate` builds its OpenAPI, generates `client.gen.go` and, from it, the `(T, error)` calls and `…All` iterators in `calls.gen.go` (`internal/generate/calls`), deletes the spec, and writes `v1/ops/pack.schema.json` from the contracts core validates packs with. Commit those generated files and the pin, nothing else; there is no second contracts pin. Never edit `*.gen.go`; never hand-write a type or enum core already publishes, or a method per endpoint: a better call shape is a change to the generator

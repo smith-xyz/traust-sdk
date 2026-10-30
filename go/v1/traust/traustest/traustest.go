@@ -1,6 +1,6 @@
-// Package apitest is a fake traust-core for testing code that uses the SDK: register the
+// Package traustest is a fake traust-core for testing code that uses the SDK: register the
 // responses your code should see, take a client bound to the fake, and check what it sent.
-package apitest
+package traustest
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // Request is one call the fake core received.
@@ -43,7 +43,7 @@ func New(t testing.TB) *Server {
 // Start starts a fake core outside a test (examples, TestMain); Close stops it.
 func Start() *Server {
 	s := &Server{mux: http.NewServeMux()}
-	s.mux.Handle("/", Problem(http.StatusNotFound, "no apitest handler for this route"))
+	s.mux.Handle("/", Problem(http.StatusNotFound, "no traustest handler for this route"))
 	s.server = httptest.NewServer(http.HandlerFunc(s.serve))
 	return s
 }
@@ -57,10 +57,10 @@ func (s *Server) Handle(pattern string, handler http.Handler) {
 }
 
 // Client is a client bound to the fake core with a static token.
-func (s *Server) Client() *api.BoundClient {
-	client, err := api.NewBoundClient(api.ClientConfig{BaseURL: s.server.URL, Tokens: api.StaticToken("apitest")})
+func (s *Server) Client() *traust.Client {
+	client, err := traust.NewClient(traust.Config{BaseURL: s.server.URL, Tokens: traust.StaticToken("traustest")})
 	if err != nil {
-		panic("apitest: " + err.Error()) // the URL and token are always set
+		panic("traustest: " + err.Error()) // the URL and token are always set
 	}
 	return client
 }
@@ -98,9 +98,9 @@ func Problem(status int, detail string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/problem+json")
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(api.Problem{
+		_ = json.NewEncoder(w).Encode(traust.Problem{
 			Type: "about:blank", Title: http.StatusText(status), Status: status,
-			Detail: detail, Instance: r.URL.Path, RequestId: "apitest",
+			Detail: detail, Instance: r.URL.Path, RequestId: "traustest",
 		})
 	})
 }

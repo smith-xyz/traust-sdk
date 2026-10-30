@@ -5,7 +5,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 # Framework packages (AGENTS.md "How it works") and the frozen ones. A new package is a design
 # change: add it here in the same PR, which routes the PR to a code owner.
-framework="api ops feed"
+framework="traust ops feed"
 frozen="enums ledger skills storage types validate"
 
 fail=0
@@ -28,7 +28,7 @@ for pkg in $framework; do
   if hits=$(grep -nE 'os\.(Getenv|LookupEnv)\(' $src); then rule "library code never reads env vars:"$'\n'"$hits"; fi
   # shellcheck disable=SC2086
   if hits=$(grep -n '"database/sql"' $src); then rule "core's REST API is the only way in:"$'\n'"$hits"; fi
-  if [ "$pkg" != api ]; then
+  if [ "$pkg" != traust ]; then
     # shellcheck disable=SC2086
     if hits=$(grep -nE 'http\.NewRequest|url\.JoinPath|"/v1/' $src); then
       rule "call the generated client, never build URLs:"$'\n'"$hits"

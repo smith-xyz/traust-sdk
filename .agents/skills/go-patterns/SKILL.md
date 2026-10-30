@@ -11,7 +11,7 @@ The SDK is a library other teams import: every exported symbol is a promise. Sma
 
 ```text
 go/
-├── v1/api/                 generated client (client.gen.go) + bindings (client.go)
+├── v1/traust/              generated client (client.gen.go, calls.gen.go) + bindings (client.go); traustest
 ├── v1/ops/                 the runner and the Executor extension point
 ├── v1/feed/                feed receiver over GET /v1/feed
 ├── v1/<pkg>/<pkg>test/     test doubles for <pkg>'s extension points
@@ -41,7 +41,7 @@ go/
 - Validate every required dependency: nil or empty → error naming the field (`"api: BaseURL is required"`), never a default
 - Defaults only for transport tuning, as named `const`s; anything deployment-specific (URLs, credentials, paths) is passed in
 - No package-level mutable state, no `init()` side effects, no `os.Getenv`, no reading files the caller didn't name
-- Clock and randomness are injected where behaviour depends on them (`Now func() time.Time`, as in `api.ClientConfig`); IDs and recorded timestamps come from core, never minted here
+- Clock and randomness are injected where behaviour depends on them (`Now func() time.Time`, as in `traust.Config`); IDs and recorded timestamps come from core, never minted here
 
 ## Context and concurrency
 
@@ -60,15 +60,15 @@ go/
 ## Errors
 
 - Wrap with context: `fmt.Errorf("recording triage for order %s: %w", id, err)`; what was being done, on what
-- Sentinels (`ErrX`) for conditions a caller branches on; typed structs (`*api.ProblemError`, `*ops.LeaseLostError`) when the caller needs data; both reachable through `errors.Is` / `errors.As`
-- Problem responses map once, in `v1/api`, keyed on HTTP status and, where core sends one, the problem `code`; nothing anywhere matches on `detail` or `err.Error()` text
+- Sentinels (`ErrX`) for conditions a caller branches on; typed structs (`*traust.ProblemError`, `*ops.LeaseLostError`) when the caller needs data; both reachable through `errors.Is` / `errors.As`
+- Problem responses map once, in `v1/traust`, keyed on HTTP status and, where core sends one, the problem `code`; nothing anywhere matches on `detail` or `err.Error()` text
 - Unknown code, malformed body, transport failure → an error, never a guess or a zero value
 - No `panic` in library code; no `log` or `fmt.Print` in library code: return the error. A long-running component that must report (the runner) takes a `*slog.Logger` from the consumer
 - Never put tokens, credentials or document bodies in errors or logs: IDs, counts, digests
 
 ## HTTP and generated code
 
-- All traust calls go through `api.BoundClient` (auth, retries, problem mapping bound once). No `http.NewRequest`, no URL string building, no path splicing in other packages
+- All traust calls go through `traust.Client` (auth, retries, problem mapping bound once). No `http.NewRequest`, no URL string building, no path splicing in other packages
 - `*.gen.go` is never edited; extend the generated type in a hand-written file in the same package
 - Don't wrap generated methods one-for-one. Hand-written code only where the SDK adds behaviour, and generic over the endpoints it serves (one paging helper over `Page`, not one `EachX` per resource)
 - Retries: bounded, backoff, idempotent reads only; POSTs are never retried blindly
