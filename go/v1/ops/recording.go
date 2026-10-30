@@ -130,11 +130,11 @@ func (run RecordingRun) validate() error {
 func (run RecordingRun) start(ctx context.Context, timeout time.Duration) (*api.RunOrder, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	response, err := run.Client.StartWithResponse(ctx, run.Start)
+	order, err := run.Client.Start(ctx, run.Start)
 	if err != nil {
 		return nil, fmt.Errorf("ops: start order: %w", err)
 	}
-	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	return order, nil
 }
 
 func (run RecordingRun) prepareTriage(ctx context.Context, l *lease) (*api.TriageInput, error) {
@@ -143,11 +143,11 @@ func (run RecordingRun) prepareTriage(ctx context.Context, l *lease) (*api.Triag
 		return nil, err
 	}
 	defer cancel()
-	response, err := run.Client.PrepareTriageWithResponse(ctx, run.Request.AssessmentID)
+	input, err := run.Client.PrepareTriage(ctx, run.Request.AssessmentID)
 	if err != nil {
 		return nil, fmt.Errorf("ops: prepare triage: %w", err)
 	}
-	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	return input, nil
 }
 
 // fail completes the order failed while it is still held, keeping the executor's result.

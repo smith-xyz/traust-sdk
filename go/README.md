@@ -1,148 +1,136 @@
 # traust-sdk (Go)
 
+Program against traust: read its inventory, findings and insights, keep inventory current, and
+run work for it. Every call goes to traust-core's REST API; the SDK handles auth, retries,
+paging, typed errors and the run lifecycle.
+
 ```bash
-go get github.com/traust-security/traust-sdk/go@latest
+go get github.com/traust-security/traust-sdk/go
 ```
 
-Consumer setup uses focused handles, with no traust tables or types of your own:
-
-| Need | Package | You supply |
-|---|---|---|
-| Store and read traust artifacts | [`v1/storage`](#storage-sdk) | `*sql.DB` (+ optional `storage.Resolver` for reads); `Init` bootstraps the contracts DDL in `traust_storage` |
-| Record native machine reports | `v1/api`, `v1/ops` | Core URL, machine credential, native IDs and explicit dispatched order |
-| Run queued fleet commands | `v1/api`, `v1/ops` | Core URL, machine credential, pinned pack, and an `Executor` |
-| Historical ledger reads and raw/human actions | [`v1/ledger`](#ledger-sdk) | ledger URL + token |
-| Run skills | [`v1/skills`](#skills-sdk) | a `skills.Provider` |
-
-Keep consumer tables for consumer data only and reference traust rows by `binding_id` / `layer_id`. Overview: [../README.md → Purpose](../README.md#purpose).
-
-## Reader normalization review candidate
-
-The unreleased `v1/enums.Normalize` reader interprets generated registry metadata,
-not constants. Placement and affected-contract review remain pending; this does
-not activate ledger reads or writers.
+## Quickstart
 
 ```go
-view, err := enums.Normalize("severity", "high")
-if err != nil {
-    return err
-}
-for i := 0; i < view.Len(); i++ {
-    pair := view.At(i)
-    fmt.Println(pair.Enum, pair.Value)
-}
+import "github.com/traust-security/traust-sdk/go/v1/api"
+
+client, err := api.NewBoundClient(api.ClientConfig{
+    BaseURL: "https://traust-core.example.com",
+    Tokens:  api.FileTokenSource{Path: "/var/run/secrets/traust-core/token"},
+})
+
+url := "https://github.com/example/api"
+repos, err := client.ListRepositories(ctx, &api.ListRepositoriesParams{Url: &url})
+repo := repos.Items[0]
+
+counts, err := client.SummarizeFindings(ctx, *repo.Id,
+    &api.SummarizeFindingsParams{GroupBy: api.FindingDimensionSeverity})
 ```
 
-Import `github.com/traust-security/traust-sdk/go/v1/enums`. Use a registry
-document's `name`, such as `remediation_effort`, not its hyphenated filename.
-Replacements preserve declared order across rename/merge/split cases; retired
-keys work without a current constant. A one-way drop returns the original pair
-and `view.Dropped=true`. Unknown values in a known enum retain their exact
-spelling; an unknown enum returns an error. `At` returns a value, not shared
-mutable registry data, and known-enum calls allocate nothing. Out-of-range
-indices panic like slice indexing.
+Every operation is a method named after core's operation: `client.GetRepository(ctx, id)`
+returns `(*api.Repository, error)`. The full list, by task, is the "Using the SDK" table in
+[AGENTS.md](../AGENTS.md#using-the-sdk); `go doc ./v1/api` shows every signature and the runnable
+examples.
 
-`make generate` produces `normalization_gen.go` from the same verified published
-contracts pin as the existing assets. That pin currently has no deprecations;
-no legacy effort-to-size relationship is inferred. Neutral shared cases exercise
-replacement metadata in isolated candidate generation, not the published assets.
-The generator also resolves shared property references across schema files,
-including inline object names and chained references, without dropping nested
-metadata. Compiled artifact round-trip tests exercise these references. This
-generator repair does not uplift the SDK's embedded contracts/storage pin;
-adopting new scanner-observation validation remains an explicit pin update.
-No runtime files, sibling checkout, event/identifier rewriting, free-text mapping
-or cross-field policy are introduced.
+## Connect
 
-## Queued fleet commands
+| Token | Use |
+|---|---|
+| `api.FileTokenSource{Path}` | services: re-reads the file on every request, so rotated tokens just work |
+| `api.StaticToken("…")` | scripts, local development and tests |
 
-`ops.LoadPack` validates a pack against the schema core loads packs with and pins it by
-the digest of its bytes. `ops.NewRunner` takes a `BoundClient`, the pack, an `Executor`,
-the assets this host runs, a lease and a poll interval. `RunOnce` claims one order and
-`Run` keeps claiming until cancelled. The runner runs an order only when core planned it
-with exactly this pack (`GetOrderManifest`), resolves `{run_id}` in the asset's command,
-holds the lease while the executor runs `Execution.Argv`, and completes with the
-executor's `api.JobResult`. Refusals carry a `api.RunOrderReason`. Fleet-wide commands
-only: an asset with partitions, a model or params is refused at `NewRunner`.
-The runner sends only `ProducedReport.Result` to core; `RecordingRun` sends
-`ProducedReport.Payload` to its record door.
+`ClientConfig` also takes your own `*http.Client`, the retry count and the backoff. Reads (GET)
+retry on 429, 502, 503, 504 and transport errors; writes are never retried.
 
-A person asks for a run with `Submit`, naming the pack version it must run under.
+## Read
 
-## Native report recording
+```go
+finding, err := client.GetFinding(ctx, id)            // one resource
+page, err := client.ListFindings(ctx, repoID, nil)     // one page
+for f, err := range client.ListFindingsAll(ctx, repoID, nil) { … } // every page
+```
 
-Import `github.com/traust-security/traust-sdk/go/v1/api`. Use
-`api.NewBoundClient` with `api.ClientConfig` and `api.FileTokenSource` for
-rotating bearer-token files. Native recording methods are generated from Core's
-OpenAPI, not adapters over legacy ledger report conversion:
+Each paged listing has an `…All` iterator that follows the cursor and stops at the first error.
+Counts, rollups and dashboards come from core, never from walking a listing:
+`SummarizeFindings`, `FindingTimeline`, `SummarizeExposure`, `ExposureTimeline`, and
+`GetInsight(ctx, "findings-rollup", params)` for any insight (dashboards, SARIF, OSCAL, …).
 
-- `RecordAssessmentWithResponse`
-- `PrepareTriageWithResponse`
-- `RecordTriageWithResponse`
-- `RecordValidationWithResponse`
-- `RecordVerificationWithResponse`
+## Keep inventory current
 
-Use the generated request-body types and real Core repository/ref, assessment,
-artifact, occurrence and finding IDs where the relevant contract requires them.
-Obtain IDs from Core preparation/recording responses and preserve native validation
-source bindings. Legacy layer IDs, finding labels and fingerprints are not
-substitutes for these IDs.
+```go
+client.Onboard(ctx, api.OnboardingRequest{…})                     // product, repositories, refs, teams
+client.RegisterRef(ctx, repoID, api.RefRegistration{Sha: sha})     // a commit you're about to scan
+client.SetOwners(ctx, repoID, api.Owners{Teams: []string{"red"}})  // the teams your source reports
+```
 
-Each recording request carries the owned native `RunOrderId`, original report
-text in `Payload`, and `Provenance` whose `RunId` and `OccurredAt` match the
-server-created order ID and start time. Keep the exact UTF-8 report bytes; do not
-decode and re-marshal a DTO to construct the evidence payload. Core requires a
-live lease owned by the same machine credential, a matching repository and a
-server-configured `Config.recording` asset capability; capabilities default to
-deny. Actor, signer, admission and closure policy remain Core-owned.
+Writes are idempotent: re-sending the same request changes nothing. Core stamps when ownership
+opens and closes, so "who owned this on date X" stays answerable.
 
-### One dispatched recording run
+## Errors
 
-Import `github.com/traust-security/traust-sdk/go/v1/ops` and use
-`ops.RecordingRun` for the start → execute → record → complete lifecycle. Supply
-its `Client`, an `api.StartRecordingRequest` for the explicitly dispatched order,
-exactly one native request template in `ops.RecordingRequest`, and an
-`ops.Executor`. Templates contain explicit source/provenance, native repository
-references and bindings, but leave `Payload` empty. For triage, supply the real
-`AssessmentID`; the run fetches its native prepared input before execution.
+A refusal is a `*api.ProblemError` with the HTTP status and core's problem document; a transport
+failure is the underlying error.
 
-The run starts the owned order, maintains its lease, binds recording provenance
-to the immutable server order ID/start time, and completes with the executor's
-native `api.JobResult`. The executor returns the original bytes in
-`ops.ProducedReport.Payload` and must stop actual work and wait for subprocess
-descendants when its context is cancelled. A lost lease forbids recording and
-completion. Ambiguous recording failures require reconciliation using the real
-run identity, not a fresh order or a replayed POST; recording POSTs are not retried.
-The lifecycle does not poll queues, select assets or classify reports.
+```go
+var problem *api.ProblemError
+if errors.As(err, &problem) && problem.StatusCode == http.StatusNotFound { … }
+```
 
-### Producer gate and source migration
+## Run work
 
-The producer must pass its canonical final report gate after all enrichment and
-before returning successful report bytes for recording. Fix noncanonical output
-at that producer. The SDK does not infer a decision from historical `hardening`,
-map classifiers, or turn report verdicts into legacy disposition events. Core's
-recording admission remains authoritative.
+A runner claims the orders its pack can run, runs each asset's command, and completes it. You
+supply the pack and an executor; the SDK holds the lease, stops the work if the lease is lost,
+and never runs an order planned with a different pack.
 
-The ledger report converters, report input wrappers and
-`SubmitTriageReport` / `SubmitValidationReport` / `SubmitVerificationReport`
-methods have been removed without aliases or forwarders. Consumers must migrate
-to native recording rather than rebuilding a report-to-event conversion around
-`ledger.BatchSubmit`. Historical models, enums, schema validation and ledger reads
-remain available, as do raw submissions and human countersign/severity actions.
+```go
+import "github.com/traust-security/traust-sdk/go/v1/ops"
 
-Direct generated calls return transport/decoding errors separately from HTTP
-refusal. Always check `StatusCode()` and require `JSON200` for a successful
-recording. For a non-2xx response, retain status and decode `Body` into
-`api.Problem`; Core uses `application/problem+json`, so generated `JSON4xx`
-fields may be nil. A nil Go error alone does not mean admission succeeded, and
-`BoundClient` does not automatically turn generated calls into `ProblemError`.
-`RecordingRun` handles this status/problem distinction for its lifecycle calls.
+pack, err := ops.LoadPack(packYAML)   // validated against core's pack schema
+runner, err := ops.NewRunner(ops.RunnerConfig{
+    Client: client, Pack: pack, Executor: ops.ProcessExecutor{},
+    Assets: pack.Assets(), LeaseSeconds: 300, PollInterval: 10 * time.Second,
+})
+err = runner.Run(ctx)
+```
 
-Regenerate with `make api-generate`: it builds core's OpenAPI at `CORE_REF`
-(`go/Makefile`), generates `v1/api/client.gen.go` and deletes the spec.
+- **`ops.ProcessExecutor`** runs the asset's argv with no shell in its own process group and
+  kills the group when the lease is lost. The command prints its `JobResult` as JSON on stdout;
+  set `Outcome` for commands that print something else. Write your own `ops.Executor` for other
+  runtimes (a Kubernetes Job, a container).
+- **Asking for a run** (a person's token) pins the order to the pack:
+  `client.Submit(ctx, api.SubmitRequest{Order: …, Config: &[]api.ConfigDigest{pack.Pin()}})`.
+- **`ops.RecordingRun`** runs one explicitly dispatched order and records the executor's report
+  through core's record door (triage, validation, verification, assessments). Give it one request
+  template with an empty payload; it binds the server's order id and start time as provenance,
+  and never retries a record POST: an ambiguous failure keeps the order for reconciliation.
 
+## Test your code
 
-## Skills SDK
+`apitest` is a fake core: register the responses your code should see and check what it sent.
+
+```go
+core := apitest.New(t)
+core.Handle("GET /v1/repositories/{id}", apitest.JSON(200, api.Repository{Url: "https://github.com/example/api"}))
+core.Handle("POST /v1/orders/claim", apitest.Status(204))
+client := core.Client()
+// … exercise your code …
+sent := core.Requests()
+```
+
+An unregistered route answers with a 404 problem. Use `apitest.Start()` (and `Close`) outside a test,
+as the runnable examples do. `make e2e` runs the SDK itself against a real `traust-server`.
+
+## Regenerating
+
+`make -C go api-generate` builds core's OpenAPI at `CORE_REF` (`go/Makefile`), generates
+`v1/api/client.gen.go` and the `(T, error)` calls and iterators in `v1/api/calls.gen.go`, writes
+`v1/ops/pack.schema.json`, and deletes the spec. `make -C go check-drift` fails when they're stale.
+
+## Legacy packages
+
+`storage`, `ledger`, `skills`, `types`, `enums` and `validate` predate the REST API. They keep
+working for existing callers and take bug fixes only; new code uses `api` and `ops`.
+
+### Skills SDK
 
 Import a skill, plug in your provider, call it — typed input in, typed result out:
 
@@ -177,7 +165,7 @@ The SDK validates the response and retains its exact bytes with the generated
 Go type. `Artifact.Value` decodes typed data; `Artifact.Payload` returns owned,
 byte-identical evidence suitable for storage or export.
 
-### Calling multiple skills
+#### Calling multiple skills
 
 Bind the provider once with a Client:
 
@@ -187,7 +175,7 @@ report, _ := client.Scan(ctx, skills.ScanInput{...})
 triage, _ := client.Triage(ctx, skills.TriageInput{...})
 ```
 
-### Testing
+#### Testing
 
 ```go
 import "github.com/traust-security/traust-sdk/go/v1/skills/skillstest"
@@ -201,7 +189,7 @@ report, _ := skills.Scan.Run(ctx, provider, skills.ScanInput{
 })
 ```
 
-## Ledger SDK
+### Ledger SDK
 
 Read the historical ledger and submit raw or human actions to the ledger service.
 Machine reports use [native report recording](#native-report-recording), not this
@@ -249,7 +237,7 @@ describe historical data; they do not expose a report writer.
 The built-in HTTP transport handles envelope formatting, lane routing, and auth.
 For custom transports, implement `ledger.Provider` and use `ledger.NewClient(provider)`.
 
-### Testing
+#### Testing
 
 ```go
 import "github.com/traust-security/traust-sdk/go/v1/ledger/ingesttest"
@@ -259,7 +247,7 @@ provider := ingesttest.NewStaticProvider().
 client := ledger.NewClient(provider)
 ```
 
-## Query SDK
+### Query SDK
 
 Read layers, findings, and verification results from the ledger service:
 
@@ -283,7 +271,7 @@ actor, err := client.Whoami(ctx)
 The built-in HTTP transport handles auth and path construction.
 For custom transports, implement `ledger.Provider` and use `ledger.NewClient(provider)`.
 
-### Testing
+#### Testing
 
 ```go
 import "github.com/traust-security/traust-sdk/go/v1/ledger/querytest"
@@ -293,7 +281,7 @@ provider := querytest.NewStaticProvider().
 client := ledger.NewClient(provider)
 ```
 
-## Storage SDK
+### Storage SDK
 
 Storage retains exact artifact evidence and its canonical relational projection in
 one SQLite or PostgreSQL transaction. PostgreSQL relations use the fixed
@@ -408,7 +396,7 @@ Typed reads use `BindingID` to guard the stored schema interpretation. Use
 `GetPayload(ctx, bindingID)` only when raw bytes without a type claim are intended.
 Scoped view reads require an explicit scope list.
 
-## Data-only usage
+### Data-only usage
 
 For consumers who just need types or validation without invoking skills:
 
@@ -418,7 +406,7 @@ For consumers who just need types or validation without invoking skills:
 | [`v1/enums`](v1/enums) | Generated shared vocabularies (severity, validity, verdicts, ...) |
 | [`v1/validate`](v1/validate) | Validate raw JSON bytes against an embedded v1 schema |
 
-## Regenerating types/enums/validate/storage
+### Regenerating the contracts-generated packages
 
 ```bash
 make generate     # verified pinned contracts commit → generated Go outputs

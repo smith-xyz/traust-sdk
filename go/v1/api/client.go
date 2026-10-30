@@ -1,9 +1,8 @@
 package api
 
-// Bindings over the generated client: bearer-token auth from a rotating
-// file, bounded retries on transient failures, typed problem errors, and
-// cursor pagination. The generated client.gen.go stays untouched; this file
-// is the hand-written surface consumers build against.
+// Bindings over the generated client: bearer-token auth, bounded retries on transient
+// failures, typed problem errors and cursor paging. calls.gen.go builds the `(T, error)` calls
+// and `…All` iterators on top of these.
 
 import (
 	"bytes"
@@ -12,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"os"
 	"strings"
@@ -39,6 +39,17 @@ func (s FileTokenSource) BearerToken(_ context.Context) (string, error) {
 		return "", fmt.Errorf("token file %s is empty", s.Path)
 	}
 	return token, nil
+}
+
+// StaticToken is a fixed bearer token, for scripts, local development and tests; services
+// use FileTokenSource so rotated tokens are picked up.
+type StaticToken string
+
+func (t StaticToken) BearerToken(_ context.Context) (string, error) {
+	if strings.TrimSpace(string(t)) == "" {
+		return "", errors.New("api: static token is empty")
+	}
+	return string(t), nil
 }
 
 // ClientConfig configures the bound client. BaseURL and Tokens are
@@ -153,9 +164,8 @@ func CheckResponse(statusCode int, body []byte, contentType string) error {
 	return out
 }
 
-// Decode returns a generated response's decoded body, or its *ProblemError when core refused:
-//
-//	order, err := api.Decode(resp.HTTPResponse, resp.Body, resp.JSON200)
+// Decode returns a generated response's decoded body, or its *ProblemError when core refused.
+// The generated calls use it.
 func Decode[T any](response *http.Response, body []byte, value *T) (*T, error) {
 	if err := CheckResponse(response.StatusCode, body, response.Header.Get("Content-Type")); err != nil {
 		return nil, err
@@ -207,53 +217,26 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// EachProduct calls fn for every product, page by page; a non-nil error stops the walk. limit is
-// the page size (1..1000).
-func (c *BoundClient) EachProduct(ctx context.Context, limit int, fn func(Product) error) error {
-	return each(ctx, fn, func(ctx context.Context, cursor *string) ([]Product, *string, error) {
-		response, err := c.ListProductsWithResponse(ctx, &ListProductsParams{Limit: &limit, Cursor: cursor})
-		if err != nil {
-			return nil, nil, err
-		}
-		page, err := Decode(response.HTTPResponse, response.Body, response.JSON200)
-		if err != nil {
-			return nil, nil, err
-		}
-		return page.Items, page.Next, nil
-	})
-}
-
-// EachRepository calls fn for every repository, the same way.
-func (c *BoundClient) EachRepository(ctx context.Context, limit int, fn func(Repository) error) error {
-	return each(ctx, fn, func(ctx context.Context, cursor *string) ([]Repository, *string, error) {
-		response, err := c.ListRepositoriesWithResponse(ctx, &ListRepositoriesParams{Limit: &limit, Cursor: cursor})
-		if err != nil {
-			return nil, nil, err
-		}
-		page, err := Decode(response.HTTPResponse, response.Body, response.JSON200)
-		if err != nil {
-			return nil, nil, err
-		}
-		return page.Items, page.Next, nil
-	})
-}
-
-// each follows a cursor-paged listing until its last page.
-func each[T any](ctx context.Context, fn func(T) error, page func(context.Context, *string) ([]T, *string, error)) error {
-	var cursor *string
-	for {
-		items, next, err := page(ctx, cursor)
-		if err != nil {
-			return err
-		}
-		for _, item := range items {
-			if err := fn(item); err != nil {
-				return err
+// pages iterates a cursor-paged listing, one fetch per page, until core returns no next cursor.
+func pages[T any](fetch func(cursor *string) ([]T, *string, error)) iter.Seq2[T, error] {
+	return func(yield func(T, error) bool) {
+		var cursor *string
+		for {
+			items, next, err := fetch(cursor)
+			if err != nil {
+				var zero T
+				yield(zero, err)
+				return
 			}
+			for _, item := range items {
+				if !yield(item, nil) {
+					return
+				}
+			}
+			if next == nil || *next == "" {
+				return
+			}
+			cursor = next
 		}
-		if next == nil || *next == "" {
-			return nil
-		}
-		cursor = next
 	}
 }

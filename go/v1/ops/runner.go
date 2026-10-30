@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"time"
 
@@ -124,14 +123,7 @@ func (r *Runner) claim(ctx context.Context) (*api.RunOrder, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
 	defer cancel()
 	assets := slices.Clone(r.config.Assets)
-	response, err := r.config.Client.ClaimWithResponse(ctx, api.ClaimRequest{Assets: &assets, LeaseSeconds: r.config.LeaseSeconds})
-	if err != nil {
-		return nil, fmt.Errorf("ops: claim: %w", err)
-	}
-	if response.StatusCode() == http.StatusNoContent {
-		return nil, nil
-	}
-	order, err := api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	order, err := r.config.Client.Claim(ctx, api.ClaimRequest{Assets: &assets, LeaseSeconds: r.config.LeaseSeconds})
 	if err != nil {
 		return nil, fmt.Errorf("ops: claim: %w", err)
 	}
@@ -143,11 +135,7 @@ func (r *Runner) claim(ctx context.Context) (*api.RunOrder, error) {
 func (r *Runner) pinned(ctx context.Context, l *lease) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.config.RequestTimeout)
 	defer cancel()
-	response, err := r.config.Client.GetOrderManifestWithResponse(ctx, l.id())
-	if err != nil {
-		return false, fmt.Errorf("ops: order %s manifest: %w", l.id(), err)
-	}
-	manifest, err := api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	manifest, err := r.config.Client.GetOrderManifest(ctx, l.id())
 	if err != nil {
 		return false, fmt.Errorf("ops: order %s manifest: %w", l.id(), err)
 	}

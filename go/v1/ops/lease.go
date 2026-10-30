@@ -79,11 +79,7 @@ func (l *lease) renew(ctx context.Context) error {
 		return err
 	}
 	defer cancel()
-	response, err := l.client.HeartbeatWithResponse(ctx, l.id(), api.LeaseRequest{LeaseSeconds: l.seconds})
-	if err != nil {
-		return &LeaseLostError{Err: err}
-	}
-	order, err := api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	order, err := l.client.Heartbeat(ctx, l.id(), api.LeaseRequest{LeaseSeconds: l.seconds})
 	if err == nil {
 		err = live(order)
 	}
@@ -168,11 +164,7 @@ func (l *lease) complete(ctx context.Context, result api.JobResult) (*api.RunOrd
 		return nil, err
 	}
 	defer cancel()
-	response, err := l.client.CompleteWithResponse(ctx, l.id(), api.CompleteRequest{Result: result})
-	if err != nil {
-		return nil, err
-	}
-	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	return l.client.Complete(ctx, l.id(), api.CompleteRequest{Result: result})
 }
 
 // snapshot is a copy of the lease's current view of the order.

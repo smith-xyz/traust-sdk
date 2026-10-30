@@ -10,11 +10,15 @@ All notable changes to the Go SDK are documented here.
 
 ### Added
 
+- Every operation is a generated `(T, error)` call on `BoundClient` (`client.GetRepository(ctx, id)`), and every paged listing an `…All` iterator (`for f, err := range client.ListFindingsAll(ctx, repoID, nil)`).
+- `apitest`: a fake core for testing code that uses the SDK.
+- `ops.ProcessExecutor` (no shell, process group killed on lease loss), `Pack.Pin()` for `Submit`, `Pack.Assets()`, `api.StaticToken`; runnable examples for `api` and `ops`.
 - Generated clients for core's consumer read surface and inventory writes: repository lookup by URL and refs by SHA, `RegisterRef`, `SetOwners`, findings list/summary/timeline, an order's assessments, remediation work items and inputs, verifications, impacts, exposure summary/timeline, feed statuses, validation attempts, and `GetInsight`.
 - `ops.Runner` claims and completes pinned fleet-wide pack commands through Core, with lease-loss cancellation and a pluggable executor.
 
 ### Breaking
 
+- The generated calls take the operation names, shadowing the raw `*http.Response` methods (still reachable as `client.ClientWithResponses.ClientInterface.X`); the `…WithResponse` methods keep the full response. `EachProduct` / `EachRepository` are replaced by `ListProductsAll` / `ListRepositoriesAll`.
 - Generated method and type names drop the path and method: `OnboardV1OnboardingPostWithResponse` → `OnboardWithResponse`, `ListProductsV1ProductsGetParams` → `ListProductsParams`. Rename call sites by deleting the `V1…Get`/`V1…Post` middle.
 
 ### Changed

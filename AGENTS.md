@@ -1,6 +1,6 @@
 # traust-sdk
 
-The Go framework for running traust work. A consumer (SCI, a worker, a CI job) writes an `Executor` and a little config; the SDK runs the lifecycle around it against traust-core's REST API. Go module under `go/`.
+The Go SDK for traust: it does the work for the user, like a cloud provider's SDK. Every core operation is a typed call, every listing an iterator, and the run lifecycle is the SDK's; a consumer (SCI, a worker, a CI job) writes an `Executor` and a little config. Go module under `go/`; the user guide is `go/README.md`.
 
 ## Using the SDK
 
@@ -8,10 +8,12 @@ One client for everything you ask traust; one runner for the work you do for it.
 
 ```go
 c, err := api.NewBoundClient(api.ClientConfig{BaseURL: coreURL, Tokens: api.FileTokenSource{Path: tokenPath}})
+repo, err := c.GetRepository(ctx, id)                         // every operation: (T, error)
+for f, err := range c.ListFindingsAll(ctx, repoID, nil) { … }  // every paged listing: an iterator
 pack, err := ops.LoadPack(packYAML)
 r, err := ops.NewRunner(ops.RunnerConfig{
-    Client: c, Pack: pack, Executor: myExecutor, Assets: []string{"ledger_audit"},
-    LeaseSeconds: 30, PollInterval: time.Second,
+    Client: c, Pack: pack, Executor: ops.ProcessExecutor{}, Assets: pack.Assets(),
+    LeaseSeconds: 300, PollInterval: 10 * time.Second,
 })
 err = r.Run(ctx)
 ```
@@ -21,8 +23,8 @@ err = r.Run(ctx)
 | onboard a product and its repositories | `c` | `PlanOnboarding` (dry run) → `Onboard` |
 | keep inventory current | `c` | `RegisterRef` (a commit and its branch), `SetOwners` (the teams a source reports; core stamps when ownership opens and closes) |
 | look up inventory | `c` | `ListRepositories` (by `url`), `ListRefs` (by `sha`), `ListProducts`, `ListOwners`, `ListProductsOf`, `ListOwnedRepositories` |
-| ask for a run (a person's token) | `c` | `Submit` with the pack version it must run under |
-| run queued pack commands | `ops.Runner` + your `Executor` | `Claim` → `GetOrderManifest` → your run → `Complete` (the runner calls these, you don't) |
+| ask for a run (a person's token) | `c` | `Submit` with `Config: &[]api.ConfigDigest{pack.Pin()}`, the pack version it must run under |
+| run queued pack commands | `ops.Runner` + `ops.ProcessExecutor` or your `Executor` | `Claim` → `GetOrderManifest` → your run → `Complete` (the runner calls these, you don't) |
 | run and record a dispatched order | `ops.RecordingRun` + your `Executor` | `Start` → `Prepare*` → your run → `Record*` → `Complete` (same) |
 | read what a run produced | `c` | `ListOrderAssessments` (what an order recorded), `GetAssessment`, `GetArtifact`, `GetArtifactContent`, `ListRepositoryAssessments` |
 | read findings | `c` | `ListFindings`, `SummarizeFindings` (counts by severity, CWE, validity, …), `FindingTimeline`, `GetFinding`, `ListDecisions`, `AdvisoriesFor` |
@@ -32,7 +34,8 @@ err = r.Run(ctx)
 | find exposure | `c` | `GetAdvisory`, `Affected`, `PackagesAffected`, `Dependents`, `Dependencies`, `ListImpacts`, `SummarizeExposure`, `ExposureTimeline`, `FeedStatuses` |
 | read validation | `c` | `ListValidationAttempts` |
 | show a dashboard, rollup or export | `c` | `GetInsight` (one call for every insight: findings-rollup, exposure, sla, sarif, …) |
-| react to changes | `feed` + your cursor store | `ReadFeed` |
+| react to changes | `c` | `ReadFeed` / `ReadFeedAll` |
+| test code that uses the SDK | `apitest` | a fake core: `apitest.New(t)`, `Handle`, `Client()`, `Requests()` |
 
 Counts, rollups and dashboards come from `SummarizeFindings`, `SummarizeExposure` and `GetInsight`; never compute them from listings.
 
@@ -76,19 +79,19 @@ Each step is one core endpoint. A step core doesn't serve is not a step: never s
 
 | Package | Owns | Consumer writes |
 |---|---|---|
-| `v1/api` | the client, types and enums generated from core's OpenAPI; auth, read retries, typed problem errors, one page iterator | a `TokenSource` |
-| `v1/ops` | the lease (heartbeat, lease loss, complete) and its two ways in: `Runner` (claim, pinned pack, the asset's command) and `RecordingRun` (start, prepare, record) | an `Executor`; the pack file |
-| `v1/feed` | reading `GET /v1/feed` once per event, resuming from a cursor | a cursor store |
+| `v1/api` | the client, types and enums generated from core's OpenAPI; the generated `(T, error)` calls and `…All` iterators; auth, read retries, typed problem errors | a `TokenSource` |
+| `v1/api/apitest` | a fake core for consumers' tests: canned responses, recorded requests | — |
+| `v1/ops` | the lease (heartbeat, lease loss, complete) and its two ways in: `Runner` (claim, pinned pack, the asset's command) and `RecordingRun` (start, prepare, record); `ProcessExecutor` | an `Executor` (or `ProcessExecutor`); the pack file |
 | `v1/<pkg>/<pkg>test` | test doubles for each extension point; the conformance suite every `Executor` passes against `traust serve` | — |
 
 Packages not in this table (`storage`, `ledger`, `skills`, `types`, `enums`, `validate`, the contracts generator in `internal/generate`) predate this shape: fix bugs, add nothing.
 
 ## Rules
 
-- **Every change is one of three things:** an extension point the SDK calls, a lifecycle step in `ops`, or a regenerated `v1/api`. Anything else is glue; don't add it. A missing endpoint is a traust-core change, not a workaround here
+- **Every change is one of four things:** an extension point the SDK calls, a lifecycle step in `ops`, a regenerated `v1/api`, or a helper that saves every consumer the same work (`ProcessExecutor`, `apitest`, a generated iterator). Anything else is glue; don't add it. A missing endpoint is a traust-core change, not a workaround here
 - **Core decides; the SDK enforces.** Authorization, ordering, budget, classification, identity, IDs and timestamps come from core; the SDK never derives, caches or defaults them. Approvals and decisions come from verified people through core; the runner's identity only claims, heartbeats, records and completes. The SDK's one local check is schema validation, which core re-checks
 - **Core's REST API is the only way in.** No database handle, DDL, contracts tables, URL building or path splicing: call the generated method
-- **Generated, never committed by hand.** Everything the SDK knows about core comes from core at `CORE_REF`: `make api-generate` builds its OpenAPI, generates `client.gen.go` and deletes the spec, and writes `v1/ops/pack.schema.json` from the contracts core validates packs with. Commit those two generated files and the pin, nothing else; there is no second contracts pin. Never edit `*.gen.go`; never hand-write a type or enum core already publishes; never wrap generated methods one-for-one
+- **Generated, never committed by hand.** Everything the SDK knows about core comes from core at `CORE_REF`: `make api-generate` builds its OpenAPI, generates `client.gen.go` and, from it, the `(T, error)` calls and `…All` iterators in `calls.gen.go` (`internal/generate/calls`), deletes the spec, and writes `v1/ops/pack.schema.json` from the contracts core validates packs with. Commit those generated files and the pin, nothing else; there is no second contracts pin. Never edit `*.gen.go`; never hand-write a type or enum core already publishes, or a method per endpoint: a better call shape is a change to the generator
 - **Fail closed.** No answer means no run: 5xx, timeout, network failure, malformed body, an unrecognised problem all stop with a typed error. Errors map on HTTP status and, where core sends one, the problem `code`; never on `detail` text. Retry only idempotent reads
 - **No fallbacks.** A missing or invalid dependency is a constructor error, never a default. Unknown is `nil`, never a zero value
 - **One config.** The consumer passes core URL, credential source and stage identity; nothing else. Library code never reads env vars or files. No settings that choose between behaviours

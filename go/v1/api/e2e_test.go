@@ -38,11 +38,11 @@ func TestE2ECallerIsVerified(t *testing.T) {
 
 func TestE2EPagingDecodesAnEmptyInventory(t *testing.T) {
 	var seen int
-	if err := e2eClient(t).EachRepository(context.Background(), 10, func(Repository) error {
+	for _, err := range e2eClient(t).ListRepositoriesAll(context.Background(), nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		seen++
-		return nil
-	}); err != nil {
-		t.Fatal(err)
 	}
 	if seen != 0 {
 		t.Fatalf("fresh server listed %d repositories", seen)

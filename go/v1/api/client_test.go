@@ -12,6 +12,17 @@ import (
 	"testing"
 )
 
+func products(client *BoundClient, limit int) ([]Product, error) {
+	var found []Product
+	for p, err := range client.ListProductsAll(context.Background(), &ListProductsParams{Limit: &limit}) {
+		if err != nil {
+			return found, err
+		}
+		found = append(found, p)
+	}
+	return found, nil
+}
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
@@ -40,7 +51,7 @@ func TestFileTokenSourceRotates(t *testing.T) {
 	}
 	for _, want := range []string{"first-token", "second-token"} {
 		writeFile(t, tokenPath, want)
-		if err := client.EachProduct(context.Background(), 1, func(Product) error { return nil }); err != nil {
+		if _, err := products(client, 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -51,7 +62,7 @@ func TestFileTokenSourceRotates(t *testing.T) {
 	}
 }
 
-func TestEachProductFollowsCursorAndReportsProblems(t *testing.T) {
+func TestListProductsAllFollowsCursorAndReportsProblems(t *testing.T) {
 	dir := t.TempDir()
 	tokenPath := filepath.Join(dir, "token")
 	writeFile(t, tokenPath, "t")
@@ -77,12 +88,13 @@ func TestEachProductFollowsCursorAndReportsProblems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var slugs []string
-	if err := client.EachProduct(context.Background(), 2, func(p Product) error {
-		slugs = append(slugs, p.Slug)
-		return nil
-	}); err != nil {
+	found, err := products(client, 2)
+	if err != nil {
 		t.Fatal(err)
+	}
+	var slugs []string
+	for _, p := range found {
+		slugs = append(slugs, p.Slug)
 	}
 	if len(slugs) != 3 || slugs[0] != "a" || slugs[2] != "c" {
 		t.Fatalf("walked %v, want [a b c]", slugs)
@@ -103,7 +115,7 @@ func TestProblemErrorCarriesTheDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = client.EachProduct(context.Background(), 10, func(Product) error { return nil })
+	_, err = products(client, 10)
 	var problemErr *ProblemError
 	if !errors.As(err, &problemErr) {
 		t.Fatalf("got %v (%T), want *ProblemError", err, err)
@@ -141,10 +153,11 @@ func TestRetryAbsorbsTransientFailures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var count int
-	if err := client.EachProduct(context.Background(), 10, func(Product) error { count++; return nil }); err != nil {
+	found, err := products(client, 10)
+	if err != nil {
 		t.Fatal(err)
 	}
+	count := len(found)
 	if count != 1 || atomic.LoadInt32(&calls) != 2 {
 		t.Fatalf("items=%d calls=%d, want 1 item over 2 calls", count, calls)
 	}
@@ -192,7 +205,7 @@ func TestCallerHTTPClientPolicySurvives(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = client.EachProduct(context.Background(), 10, func(Product) error { return nil })
+	_, err = products(client, 10)
 	if err == nil {
 		t.Fatal("302 surfaced as success; CheckRedirect was dropped")
 	}
