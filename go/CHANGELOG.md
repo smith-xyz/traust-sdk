@@ -10,6 +10,7 @@ All notable changes to the Go SDK are documented here.
 
 ### Added
 
+- Generated clients for core's consumer read surface and inventory writes: repository lookup by URL and refs by SHA, `RegisterRef`, `SetOwners`, findings list/summary/timeline, an order's assessments, remediation work items and inputs, verifications, impacts, exposure summary/timeline, feed statuses, validation attempts, and `GetInsight`.
 - `ops.Runner` claims and completes pinned fleet-wide pack commands through Core, with lease-loss cancellation and a pluggable executor.
 
 ### Breaking
