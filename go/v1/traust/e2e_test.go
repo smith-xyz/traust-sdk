@@ -1,6 +1,6 @@
 //go:build e2e
 
-package api
+package traust
 
 import (
 	"context"
@@ -13,13 +13,13 @@ import (
 )
 
 // Runs against traust-server built from core at CORE_REF; `make e2e` starts it.
-func e2eClient(t *testing.T) *BoundClient {
+func e2eClient(t *testing.T) *Client {
 	t.Helper()
 	url, tokens := os.Getenv("TRAUST_E2E_URL"), os.Getenv("TRAUST_E2E_TOKEN_FILE")
 	if url == "" || tokens == "" {
 		t.Fatal("TRAUST_E2E_URL and TRAUST_E2E_TOKEN_FILE are required; run make e2e")
 	}
-	c, err := NewBoundClient(ClientConfig{BaseURL: url, Tokens: FileTokenSource{Path: tokens}})
+	c, err := NewClient(Config{BaseURL: url, Tokens: FileTokenSource{Path: tokens}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,11 +38,11 @@ func TestE2ECallerIsVerified(t *testing.T) {
 
 func TestE2EPagingDecodesAnEmptyInventory(t *testing.T) {
 	var seen int
-	if err := e2eClient(t).EachRepository(context.Background(), 10, func(Repository) error {
+	for _, err := range e2eClient(t).ListRepositoriesAll(context.Background(), nil) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		seen++
-		return nil
-	}); err != nil {
-		t.Fatal(err)
 	}
 	if seen != 0 {
 		t.Fatalf("fresh server listed %d repositories", seen)
@@ -66,7 +66,7 @@ func TestE2EUnverifiedTokenIsUnauthorized(t *testing.T) {
 	if err := os.WriteFile(tokens, []byte("not-a-token"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, err := NewBoundClient(ClientConfig{BaseURL: os.Getenv("TRAUST_E2E_URL"), Tokens: FileTokenSource{Path: tokens}})
+	c, err := NewClient(Config{BaseURL: os.Getenv("TRAUST_E2E_URL"), Tokens: FileTokenSource{Path: tokens}})
 	if err != nil {
 		t.Fatal(err)
 	}

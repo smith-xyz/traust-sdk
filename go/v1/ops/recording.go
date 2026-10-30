@@ -10,40 +10,40 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // RecordingRequest selects exactly one generated request template. Payload must be empty: the
 // executor supplies it. RunOrderId and provenance RunId/OccurredAt may be unset or match the
 // server's order; source, artifact provenance, repository references and bindings are explicit.
 type RecordingRequest struct {
-	Assessment   *api.AssessmentRecordRequest `json:"assessment,omitempty"`
-	Triage       *api.TriageRecordBody        `json:"triage,omitempty"`
-	Validation   *api.RecordValidation        `json:"validation,omitempty"`
-	Verification *api.VerificationRecordBody  `json:"verification,omitempty"`
-	AssessmentID uuid.UUID                    `json:"assessment_id,omitempty"`
-	Input        json.RawMessage              `json:"input,omitempty"`
+	Assessment   *traust.AssessmentRecordRequest `json:"assessment,omitempty"`
+	Triage       *traust.TriageRecordBody        `json:"triage,omitempty"`
+	Validation   *traust.RecordValidation        `json:"validation,omitempty"`
+	Verification *traust.VerificationRecordBody  `json:"verification,omitempty"`
+	AssessmentID uuid.UUID                       `json:"assessment_id,omitempty"`
+	Input        json.RawMessage                 `json:"input,omitempty"`
 }
 
 // RecordingReceipt holds core's receipt for the one template that was recorded.
 type RecordingReceipt struct {
-	Assessment   *api.AssessmentRecordResult `json:"assessment,omitempty"`
-	Triage       *api.TriageRecordResult     `json:"triage,omitempty"`
-	Validation   *api.ValidationRecordResult `json:"validation,omitempty"`
-	Verification *api.Verification           `json:"verification,omitempty"`
+	Assessment   *traust.AssessmentRecordResult `json:"assessment,omitempty"`
+	Triage       *traust.TriageRecordResult     `json:"triage,omitempty"`
+	Validation   *traust.ValidationRecordResult `json:"validation,omitempty"`
+	Verification *traust.Verification           `json:"verification,omitempty"`
 }
 
 type RecordingResult struct {
-	Order   api.RunOrder     `json:"order"`
+	Order   traust.RunOrder  `json:"order"`
 	Receipt RecordingReceipt `json:"receipt"`
-	Result  api.JobResult    `json:"result"`
+	Result  traust.JobResult `json:"result"`
 }
 
 // RecordingRun starts one explicitly dispatched order, holds its lease while the executor runs,
 // records the executor's original bytes and completes the order. No POST is retried.
 type RecordingRun struct {
-	Client            *api.BoundClient
-	Start             api.StartRecordingRequest
+	Client            *traust.Client
+	Start             traust.StartRecordingRequest
 	Request           RecordingRequest
 	Executor          Executor
 	HeartbeatInterval time.Duration
@@ -68,7 +68,7 @@ func (run RecordingRun) Run(ctx context.Context) (*RecordingResult, error) {
 	if run.Request.Triage != nil {
 		input, err := run.prepareTriage(ctx, l)
 		if err != nil {
-			return run.fail(ctx, l, api.JobResult{}, err)
+			return run.fail(ctx, l, traust.JobResult{}, err)
 		}
 		execution = Execution{TriageInput: input}
 	}
@@ -89,7 +89,7 @@ func (run RecordingRun) Run(ctx context.Context) (*RecordingResult, error) {
 	}
 	receipt, err := run.record(ctx, l, produced.Payload)
 	if err != nil {
-		var refusal *api.ProblemError
+		var refusal *traust.ProblemError
 		if errors.As(err, &refusal) && refusal.StatusCode >= 400 && refusal.StatusCode < 500 {
 			return run.fail(ctx, l, produced.Result, err)
 		}
@@ -127,32 +127,32 @@ func (run RecordingRun) validate() error {
 	return nil
 }
 
-func (run RecordingRun) start(ctx context.Context, timeout time.Duration) (*api.RunOrder, error) {
+func (run RecordingRun) start(ctx context.Context, timeout time.Duration) (*traust.RunOrder, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	response, err := run.Client.StartWithResponse(ctx, run.Start)
+	order, err := run.Client.Start(ctx, run.Start)
 	if err != nil {
 		return nil, fmt.Errorf("ops: start order: %w", err)
 	}
-	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	return order, nil
 }
 
-func (run RecordingRun) prepareTriage(ctx context.Context, l *lease) (*api.TriageInput, error) {
+func (run RecordingRun) prepareTriage(ctx context.Context, l *lease) (*traust.TriageInput, error) {
 	ctx, cancel, err := l.call(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer cancel()
-	response, err := run.Client.PrepareTriageWithResponse(ctx, run.Request.AssessmentID)
+	input, err := run.Client.PrepareTriage(ctx, run.Request.AssessmentID)
 	if err != nil {
 		return nil, fmt.Errorf("ops: prepare triage: %w", err)
 	}
-	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+	return input, nil
 }
 
 // fail completes the order failed while it is still held, keeping the executor's result.
-func (run RecordingRun) fail(ctx context.Context, l *lease, result api.JobResult, cause error) (*RecordingResult, error) {
-	result.Outcome = api.OutcomeFailed
+func (run RecordingRun) fail(ctx context.Context, l *lease, result traust.JobResult, cause error) (*RecordingResult, error) {
+	result.Outcome = traust.OutcomeFailed
 	completed, err := l.complete(ctx, result)
 	return &RecordingResult{Order: l.latest(completed), Result: result}, errors.Join(cause, err)
 }

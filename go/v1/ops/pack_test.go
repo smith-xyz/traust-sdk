@@ -50,3 +50,18 @@ func TestCommandResolvesRunID(t *testing.T) {
 		t.Fatalf("resolved %v", got)
 	}
 }
+
+func TestPackPinsOrdersAndListsItsAssets(t *testing.T) {
+	raw := []byte("pack: p\nassets:\n  b:\n    run: [tool]\n  a:\n    run: [tool]\n")
+	pack, err := LoadPack(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := pack.Pin()
+	if pin.Name != "pack:p" || pin.Digest != pack.digest || len(pin.Digest) != 64 {
+		t.Fatalf("pin %+v", pin)
+	}
+	if got := pack.Assets(); !slices.Equal(got, []string{"a", "b"}) {
+		t.Fatalf("assets %v", got)
+	}
+}

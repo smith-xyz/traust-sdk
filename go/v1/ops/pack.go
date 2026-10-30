@@ -7,11 +7,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 	"gopkg.in/yaml.v3"
 )
 
@@ -84,6 +87,13 @@ func LoadPack(raw []byte) (*Pack, error) {
 
 // ref is the name core records the pack's digest under in an order's manifest.
 func (p *Pack) ref() string { return "pack:" + p.name }
+
+// Pin is the pack version an order must run under: pass it in Submit's config so runners with
+// this exact pack, and only those, run the order.
+func (p *Pack) Pin() traust.ConfigDigest { return traust.ConfigDigest{Name: p.ref(), Digest: p.digest} }
+
+// Assets are the assets the pack declares, sorted.
+func (p *Pack) Assets() []string { return slices.Sorted(maps.Keys(p.assets)) }
 
 // command returns the asset's argv if a fleet-wide runner can run it: no partitions, model or
 // params, and "{run_id}" as a whole argument is its only placeholder.

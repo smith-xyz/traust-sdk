@@ -1,9 +1,8 @@
-package api
+package traust
 
-// Bindings over the generated client: bearer-token auth from a rotating
-// file, bounded retries on transient failures, typed problem errors, and
-// cursor pagination. The generated client.gen.go stays untouched; this file
-// is the hand-written surface consumers build against.
+// Bindings over the generated client: bearer-token auth, bounded retries on transient
+// failures, typed problem errors and cursor paging. calls.gen.go builds the `(T, error)` calls
+// and `…All` iterators on top of these.
 
 import (
 	"bytes"
@@ -12,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"os"
 	"strings"
@@ -41,9 +41,19 @@ func (s FileTokenSource) BearerToken(_ context.Context) (string, error) {
 	return token, nil
 }
 
-// ClientConfig configures the bound client. BaseURL and Tokens are
-// required; the rest have defaults.
-type ClientConfig struct {
+// StaticToken is a fixed bearer token, for scripts, local development and tests; services
+// use FileTokenSource so rotated tokens are picked up.
+type StaticToken string
+
+func (t StaticToken) BearerToken(_ context.Context) (string, error) {
+	if strings.TrimSpace(string(t)) == "" {
+		return "", errors.New("traust: static token is empty")
+	}
+	return string(t), nil
+}
+
+// Config configures a Client. BaseURL and Tokens are required; the rest have defaults.
+type Config struct {
 	BaseURL string
 	Tokens  TokenSource
 
@@ -53,21 +63,22 @@ type ClientConfig struct {
 	Now        func() time.Time // clock for tests; default time.Now
 }
 
-// BoundClient is the generated client with auth, retries and typed errors bound.
-type BoundClient struct {
+// Client is traust-core's client: every operation as a `(T, error)` call and every paged listing
+// as an `…All` iterator, with auth, retries and typed errors.
+type Client struct {
 	*ClientWithResponses
 }
 
-// NewBoundClient validates the configuration and wires the generated client.
-func NewBoundClient(cfg ClientConfig) (*BoundClient, error) {
+// NewClient validates cfg and connects to traust-core.
+func NewClient(cfg Config) (*Client, error) {
 	if cfg.BaseURL == "" {
-		return nil, errors.New("api: BaseURL is required")
+		return nil, errors.New("traust: BaseURL is required")
 	}
 	if cfg.Tokens == nil {
-		return nil, errors.New("api: Tokens is required")
+		return nil, errors.New("traust: Tokens is required")
 	}
 	if cfg.Retries < 0 {
-		return nil, fmt.Errorf("api: Retries must not be negative, got %d", cfg.Retries)
+		return nil, fmt.Errorf("traust: Retries must not be negative, got %d", cfg.Retries)
 	}
 	if cfg.Retries == 0 {
 		cfg.Retries = 2
@@ -97,16 +108,16 @@ func NewBoundClient(cfg ClientConfig) (*BoundClient, error) {
 	editor := func(ctx context.Context, req *http.Request) error {
 		token, err := cfg.Tokens.BearerToken(ctx)
 		if err != nil {
-			return fmt.Errorf("api: bearer token: %w", err)
+			return fmt.Errorf("traust: bearer token: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		return nil
 	}
 	generated, err := NewClientWithResponses(cfg.BaseURL, WithRequestEditorFn(editor), WithHTTPClient(httpClient))
 	if err != nil {
-		return nil, fmt.Errorf("api: building client: %w", err)
+		return nil, fmt.Errorf("traust: building client: %w", err)
 	}
-	return &BoundClient{ClientWithResponses: generated}, nil
+	return &Client{ClientWithResponses: generated}, nil
 }
 
 // ProblemError reports a non-retryable failed response. Problem carries the
@@ -153,9 +164,8 @@ func CheckResponse(statusCode int, body []byte, contentType string) error {
 	return out
 }
 
-// Decode returns a generated response's decoded body, or its *ProblemError when core refused:
-//
-//	order, err := api.Decode(resp.HTTPResponse, resp.Body, resp.JSON200)
+// Decode returns a generated response's decoded body, or its *ProblemError when core refused.
+// The generated calls use it.
 func Decode[T any](response *http.Response, body []byte, value *T) (*T, error) {
 	if err := CheckResponse(response.StatusCode, body, response.Header.Get("Content-Type")); err != nil {
 		return nil, err
@@ -207,53 +217,26 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// EachProduct calls fn for every product, page by page; a non-nil error stops the walk. limit is
-// the page size (1..1000).
-func (c *BoundClient) EachProduct(ctx context.Context, limit int, fn func(Product) error) error {
-	return each(ctx, fn, func(ctx context.Context, cursor *string) ([]Product, *string, error) {
-		response, err := c.ListProductsWithResponse(ctx, &ListProductsParams{Limit: &limit, Cursor: cursor})
-		if err != nil {
-			return nil, nil, err
-		}
-		page, err := Decode(response.HTTPResponse, response.Body, response.JSON200)
-		if err != nil {
-			return nil, nil, err
-		}
-		return page.Items, page.Next, nil
-	})
-}
-
-// EachRepository calls fn for every repository, the same way.
-func (c *BoundClient) EachRepository(ctx context.Context, limit int, fn func(Repository) error) error {
-	return each(ctx, fn, func(ctx context.Context, cursor *string) ([]Repository, *string, error) {
-		response, err := c.ListRepositoriesWithResponse(ctx, &ListRepositoriesParams{Limit: &limit, Cursor: cursor})
-		if err != nil {
-			return nil, nil, err
-		}
-		page, err := Decode(response.HTTPResponse, response.Body, response.JSON200)
-		if err != nil {
-			return nil, nil, err
-		}
-		return page.Items, page.Next, nil
-	})
-}
-
-// each follows a cursor-paged listing until its last page.
-func each[T any](ctx context.Context, fn func(T) error, page func(context.Context, *string) ([]T, *string, error)) error {
-	var cursor *string
-	for {
-		items, next, err := page(ctx, cursor)
-		if err != nil {
-			return err
-		}
-		for _, item := range items {
-			if err := fn(item); err != nil {
-				return err
+// pages iterates a cursor-paged listing, one fetch per page, until core returns no next cursor.
+func pages[T any](fetch func(cursor *string) ([]T, *string, error)) iter.Seq2[T, error] {
+	return func(yield func(T, error) bool) {
+		var cursor *string
+		for {
+			items, next, err := fetch(cursor)
+			if err != nil {
+				var zero T
+				yield(zero, err)
+				return
 			}
+			for _, item := range items {
+				if !yield(item, nil) {
+					return
+				}
+			}
+			if next == nil || *next == "" {
+				return
+			}
+			cursor = next
 		}
-		if next == nil || *next == "" {
-			return nil
-		}
-		cursor = next
 	}
 }

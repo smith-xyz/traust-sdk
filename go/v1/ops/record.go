@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/traust-security/traust-sdk/go/v1/api"
+	"github.com/traust-security/traust-sdk/go/v1/traust"
 )
 
 // record posts the executor's bytes through the run's one template.
@@ -25,51 +25,35 @@ func (run RecordingRun) record(ctx context.Context, l *lease, raw []byte) (Recor
 		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
 			return receipt, err
 		}
-		response, err := run.Client.RecordAssessmentWithResponse(ctx, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Assessment, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+		receipt.Assessment, err = run.Client.RecordAssessment(ctx, body)
 		return receipt, err
 	case request.Triage != nil:
 		body := *request.Triage
 		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
 			return receipt, err
 		}
-		response, err := run.Client.RecordTriageWithResponse(ctx, request.AssessmentID, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Triage, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+		receipt.Triage, err = run.Client.RecordTriage(ctx, request.AssessmentID, body)
 		return receipt, err
 	case request.Validation != nil:
 		body := *request.Validation
 		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
 			return receipt, err
 		}
-		response, err := run.Client.RecordValidationWithResponse(ctx, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Validation, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+		receipt.Validation, err = run.Client.RecordValidation(ctx, body)
 		return receipt, err
 	case request.Verification != nil:
 		body := *request.Verification
 		if err := l.stamp(&body.RunOrderId, &body.Provenance, &body.Payload, payload); err != nil {
 			return receipt, err
 		}
-		response, err := run.Client.RecordVerificationWithResponse(ctx, body)
-		if err != nil {
-			return receipt, err
-		}
-		receipt.Verification, err = api.Decode(response.HTTPResponse, response.Body, response.JSON200)
+		receipt.Verification, err = run.Client.RecordVerification(ctx, body)
 		return receipt, err
 	}
 	return receipt, errors.New("ops: recording run has no request template")
 }
 
 // stamp binds a template to the held order: its id and start time are the record's run identity.
-func (l *lease) stamp(runOrderID *uuid.UUID, provenance *api.Provenance, payload *string, raw string) error {
+func (l *lease) stamp(runOrderID *uuid.UUID, provenance *traust.Provenance, payload *string, raw string) error {
 	id, started := l.id(), *l.origin.StartedAt
 	switch {
 	case *runOrderID != uuid.Nil && *runOrderID != id:
@@ -85,7 +69,7 @@ func (l *lease) stamp(runOrderID *uuid.UUID, provenance *api.Provenance, payload
 	return nil
 }
 
-func (request RecordingRequest) template() (string, api.Provenance) {
+func (request RecordingRequest) template() (string, traust.Provenance) {
 	switch {
 	case request.Assessment != nil:
 		return request.Assessment.Payload, request.Assessment.Provenance
@@ -96,5 +80,5 @@ func (request RecordingRequest) template() (string, api.Provenance) {
 	case request.Verification != nil:
 		return request.Verification.Payload, request.Verification.Provenance
 	}
-	return "", api.Provenance{}
+	return "", traust.Provenance{}
 }
