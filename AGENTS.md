@@ -19,15 +19,22 @@ err = r.Run(ctx)
 | I want to… | Use | Core operations |
 |---|---|---|
 | onboard a product and its repositories | `c` | `PlanOnboarding` (dry run) → `Onboard` |
-| browse inventory | `c` | `ListProducts`, `ListRepositories`, `ListRefs`, `ListOwners`, `ListProductsOf` |
+| keep inventory current | `c` | `RegisterRef` (a commit and its branch), `SetOwners` (the teams a source reports; core stamps when ownership opens and closes) |
+| look up inventory | `c` | `ListRepositories` (by `url`), `ListRefs` (by `sha`), `ListProducts`, `ListOwners`, `ListProductsOf`, `ListOwnedRepositories` |
 | ask for a run (a person's token) | `c` | `Submit` with the pack version it must run under |
 | run queued pack commands | `ops.Runner` + your `Executor` | `Claim` → `GetOrderManifest` → your run → `Complete` (the runner calls these, you don't) |
 | run and record a dispatched order | `ops.RecordingRun` + your `Executor` | `Start` → `Prepare*` → your run → `Record*` → `Complete` (same) |
-| read what a run produced | `c` | `ListRepositoryAssessments`, `GetAssessment`, `GetArtifact`, `GetArtifactContent` |
-| work findings (a person's token) | `c` | `ReviewQueue`, `GetFinding`, `Decide`, `ListDecisions`, `Restate` |
+| read what a run produced | `c` | `ListOrderAssessments` (what an order recorded), `GetAssessment`, `GetArtifact`, `GetArtifactContent`, `ListRepositoryAssessments` |
+| read findings | `c` | `ListFindings`, `SummarizeFindings` (counts by severity, CWE, validity, …), `FindingTimeline`, `GetFinding`, `ListDecisions`, `AdvisoriesFor` |
+| work findings (a person's token) | `c` | `ReviewQueue`, `Decide`, `Restate` |
+| follow remediation | `c` | `ListWorkItems`, `PrepareRemediation`, `PrepareVerification`, `ListVerifications` |
 | check the ledger | `c` | `ListLayers`, `ListEvents`, `VerifyLayer`, `Checkpoint`; core writes ledger events when records and decisions land, you never append them |
-| find exposure | `c` | `GetAdvisory`, `Affected`, `PackagesAffected`, `Dependents`, `Dependencies` |
+| find exposure | `c` | `GetAdvisory`, `Affected`, `PackagesAffected`, `Dependents`, `Dependencies`, `ListImpacts`, `SummarizeExposure`, `ExposureTimeline`, `FeedStatuses` |
+| read validation | `c` | `ListValidationAttempts` |
+| show a dashboard, rollup or export | `c` | `GetInsight` (one call for every insight: findings-rollup, exposure, sla, sarif, …) |
 | react to changes | `feed` + your cursor store | `ReadFeed` |
+
+Counts, rollups and dashboards come from `SummarizeFindings`, `SummarizeExposure` and `GetInsight`; never compute them from listings.
 
 Method names are core's operation ids. A long or unclear name is fixed in core's route, never by a wrapper here.
 
