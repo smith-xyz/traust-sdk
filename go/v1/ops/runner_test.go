@@ -53,6 +53,7 @@ type queuedServer struct {
 	pack             *Pack
 	empty            bool
 	wrongDigest      bool
+	manifest         *api.OrderManifest
 	malformed        bool
 	heartbeatStatus  int
 	claimStatus      int
@@ -91,7 +92,7 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 			return
 		}
 		_ = json.NewEncoder(w).Encode(server.order)
-	case strings.HasSuffix(request.URL.Path, "/content"):
+	case strings.HasSuffix(request.URL.Path, "/manifest"):
 		server.events = append(server.events, "manifest")
 		if server.manifestDelay > 0 {
 			delay, canceled := server.manifestDelay, server.manifestCanceled
@@ -118,17 +119,18 @@ func (server *queuedServer) ServeHTTP(w http.ResponseWriter, request *http.Reque
 			return
 		}
 		if server.malformed {
-			_, _ = w.Write([]byte(`{"artifact":"wrong"}`))
+			_, _ = w.Write([]byte(`{"config":`))
+			return
+		}
+		if server.manifest != nil {
+			_ = json.NewEncoder(w).Encode(server.manifest)
 			return
 		}
 		digest := server.pack.digest
 		if server.wrongDigest {
 			digest = strings.Repeat("0", 64)
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"artifact": "run-manifest",
-			"config":   []map[string]string{{"name": "pack:security", "digest": digest}},
-		})
+		_ = json.NewEncoder(w).Encode(api.OrderManifest{Config: &[]api.ConfigDigest{{Name: "pack:security", Digest: digest}}})
 	case strings.HasSuffix(request.URL.Path, "/heartbeat"):
 		server.events = append(server.events, "heartbeat")
 		server.heartbeatCalls++
@@ -523,6 +525,39 @@ func TestQueuedRunnerCompletesFailedAfterInvalidExecution(t *testing.T) {
 			assertQueuedLifecycle(t, events, 2)
 			if result.Reason == nil || *result.Reason != "runner-crashed" {
 				t.Fatalf("events=%v result=%+v", events, result)
+			}
+		})
+	}
+}
+
+func TestQueuedRunnerRefusesAnOrderNotPinnedToExactlyItsPack(t *testing.T) {
+	pinned := func(digests ...string) *api.OrderManifest {
+		config := []api.ConfigDigest{{Name: "pack:other", Digest: strings.Repeat("1", 64)}}
+		for _, digest := range digests {
+			config = append(config, api.ConfigDigest{Name: "pack:security", Digest: digest})
+		}
+		return &api.OrderManifest{Config: &config}
+	}
+	for _, tc := range []struct {
+		name     string
+		manifest func(pack string) *api.OrderManifest
+	}{
+		{"no config", func(string) *api.OrderManifest { return &api.OrderManifest{} }},
+		{"another pack only", func(string) *api.OrderManifest { return pinned() }},
+		{"this pack twice", func(pack string) *api.OrderManifest { return pinned(pack, pack) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runner, server := queuedRunner(t, executorFunc(func(context.Context, Execution) (ProducedReport, error) {
+				t.Fatal("executor ran an order not pinned to its pack")
+				return ProducedReport{}, nil
+			}))
+			server.manifest = tc.manifest(server.pack.digest)
+			order, err := runner.RunOnce(context.Background())
+			if err != nil || order == nil || order.State != api.RunOrderStateRefused {
+				t.Fatalf("order=%+v err=%v", order, err)
+			}
+			if _, result := server.snapshot(); result.Reason == nil || *result.Reason != api.RunOrderReasonBadRequest {
+				t.Fatalf("result=%+v", result)
 			}
 		})
 	}

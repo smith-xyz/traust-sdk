@@ -19,6 +19,9 @@ All notable changes to the Go SDK are documented here.
 ### Changed
 
 - `make api-generate` builds core's OpenAPI at `CORE_REF` and deletes it; the spec is no longer committed.
+- `JobResult.Reason` is `*api.RunOrderReason` (core's closed vocabulary, `api.RunOrderReason*` constants), not free text.
+- `api.Decode` returns a generated response's body or its `*ProblemError`; `ops.LoadPack` validates against the pack schema from core at `CORE_REF`.
+- `ops.RecordingRun` completes failed, without recording, when the executor returns an unknown outcome.
 
 ## [0.26.0]
 

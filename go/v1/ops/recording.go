@@ -1,9 +1,7 @@
-// Package ops owns order leases and native recording lifecycles.
-// Core selects and authorizes work; consumers supply an Executor.
 package ops
 
 import (
-	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,31 +13,9 @@ import (
 	"github.com/traust-security/traust-sdk/go/v1/api"
 )
 
-// Executor performs the dispatched work. On context cancellation it MUST stop
-// actual work (including subprocess descendants), wait for it to stop, and return.
-type Executor interface {
-	Execute(context.Context, Execution) (ProducedReport, error)
-}
-
-// Execution contains only native server context, never authentication material.
-type Execution struct {
-	Order       api.RunOrder     `json:"order"`
-	TriageInput *api.TriageInput `json:"triage_input,omitempty"`
-	Input       json.RawMessage  `json:"input,omitempty"`
-	Argv        []string         `json:"argv,omitempty"`
-}
-
-// ProducedReport carries an outcome and optional native report bytes.
-// RecordingRun sends Payload to record doors; queued runs submit only Result.
-type ProducedReport struct {
-	Payload []byte
-	Result  api.JobResult
-}
-
-// RecordingRequest selects exactly one generated request template. Payload must
-// be empty; the executor supplies it. RunOrderId and provenance RunId/OccurredAt
-// may be unset or match the server's immutable order ID/start time. Source,
-// artifact provenance, repository references and bindings are explicit inputs.
+// RecordingRequest selects exactly one generated request template. Payload must be empty: the
+// executor supplies it. RunOrderId and provenance RunId/OccurredAt may be unset or match the
+// server's order; source, artifact provenance, repository references and bindings are explicit.
 type RecordingRequest struct {
 	Assessment   *api.AssessmentRecordRequest `json:"assessment,omitempty"`
 	Triage       *api.TriageRecordBody        `json:"triage,omitempty"`
@@ -49,7 +25,7 @@ type RecordingRequest struct {
 	Input        json.RawMessage              `json:"input,omitempty"`
 }
 
-// RecordingReceipt wraps native receipts without translating their IDs or data.
+// RecordingReceipt holds core's receipt for the one template that was recorded.
 type RecordingReceipt struct {
 	Assessment   *api.AssessmentRecordResult `json:"assessment,omitempty"`
 	Triage       *api.TriageRecordResult     `json:"triage,omitempty"`
@@ -63,9 +39,8 @@ type RecordingResult struct {
 	Result  api.JobResult    `json:"result"`
 }
 
-// RecordingRun starts one explicitly dispatched order, maintains its lease while
-// executing, records original bytes, and completes the owned order. There are no
-// POST retries. The caller supplies a BoundClient (normally with FileTokenSource).
+// RecordingRun starts one explicitly dispatched order, holds its lease while the executor runs,
+// records the executor's original bytes and completes the order. No POST is retried.
 type RecordingRun struct {
 	Client            *api.BoundClient
 	Start             api.StartRecordingRequest
@@ -75,283 +50,109 @@ type RecordingRun struct {
 	RequestTimeout    time.Duration
 }
 
-// LeaseLostError means no recording/completion may follow. Its cause retains
-// typed SDK problem details without requiring consumers to infer ownership policy.
-type LeaseLostError struct{ Err error }
-
-func (e *LeaseLostError) Error() string { return "recording run lost its lease" }
-func (e *LeaseLostError) Unwrap() error { return e.Err }
-
 func (run RecordingRun) Run(ctx context.Context) (*RecordingResult, error) {
 	if err := run.validate(); err != nil {
 		return nil, err
 	}
-	if run.RequestTimeout == 0 {
-		run.RequestTimeout = 60 * time.Second
-	}
-	if run.HeartbeatInterval == 0 {
-		run.HeartbeatInterval = time.Duration(run.Start.LeaseSeconds) * time.Second / 3
-	}
-	requestCtx, cancel := context.WithTimeout(ctx, run.RequestTimeout)
-	response, err := run.Client.StartWithResponse(requestCtx, run.Start)
-	cancel()
+	timeout := cmp.Or(run.RequestTimeout, defaultRequestTimeout)
+	order, err := run.start(ctx, timeout)
 	if err != nil {
 		return nil, err
 	}
-	order, err := nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+	interval := cmp.Or(run.HeartbeatInterval, leaseDuration(run.Start.LeaseSeconds)/3)
+	l, err := hold(run.Client, order, run.Start.LeaseSeconds, interval, timeout)
 	if err != nil {
 		return nil, err
 	}
-	if err := usableOrder(order); err != nil {
-		return nil, &LeaseLostError{Err: err}
-	}
-	// Retain this original server snapshot. Heartbeats must never replace the
-	// provenance origin with their own timestamps or any consumer clock value.
-	original := *order
-	var input *api.TriageInput
+	execution := Execution{Input: run.Request.Input}
 	if run.Request.Triage != nil {
-		requestCtx, cancel = run.ownedContext(ctx, order)
-		prepared, prepareErr := run.Client.PrepareTriageWithResponse(requestCtx, run.Request.AssessmentID)
-		cancel()
-		if prepareErr == nil {
-			input, prepareErr = nativeResponse(prepared.StatusCode(), prepared.Body, prepared.JSON200)
+		input, err := run.prepareTriage(ctx, l)
+		if err != nil {
+			return run.fail(ctx, l, api.JobResult{}, err)
 		}
-		if prepareErr != nil {
-			return run.finishFailure(ctx, original, order, api.JobResult{}, prepareErr)
-		}
+		execution = Execution{TriageInput: input}
 	}
-	execution := Execution{Order: original, TriageInput: input}
-	if run.Request.Triage == nil {
-		execution.Input = run.Request.Input
+	produced, err := l.run(ctx, run.Executor, execution)
+	switch {
+	case lost(err) || ctx.Err() != nil:
+		return &RecordingResult{Order: *l.snapshot(), Result: produced.Result}, err
+	case err != nil:
+		return run.fail(ctx, l, produced.Result, err)
+	case !utf8.Valid(produced.Payload):
+		return run.fail(ctx, l, produced.Result, errors.New("ops: executor report is not valid UTF-8"))
 	}
-	produced, executeErr := run.execute(ctx, original, order, execution)
-	if executeErr != nil {
-		var lost *LeaseLostError
-		if errors.As(executeErr, &lost) || ctx.Err() != nil {
-			return &RecordingResult{Order: *order, Result: produced.Result}, executeErr
-		}
-		return run.finishFailure(ctx, original, order, produced.Result, executeErr)
+	if err := checkOutcome(produced.Result); err != nil {
+		return run.fail(ctx, l, produced.Result, err)
 	}
-	if !utf8.Valid(produced.Payload) {
-		return run.finishFailure(ctx, original, order, produced.Result, errors.New("executor report is not valid UTF-8"))
+	if err := l.renew(ctx); err != nil {
+		return &RecordingResult{Order: *l.snapshot(), Result: produced.Result}, err
 	}
-	if produced.Result.Outcome == "" {
-		return run.finishFailure(ctx, original, order, produced.Result, errors.New("executor did not supply a native outcome"))
-	}
-	// Serialize lease checks and all final mutations. A heartbeat failure is
-	// terminal even if it might have been transient; no ambiguous POST is retried.
-	order, err = run.heartbeat(ctx, original, order)
-	if err != nil {
-		return &RecordingResult{Order: original, Result: produced.Result}, err
-	}
-	receipt, err := run.record(ctx, original, order, produced.Payload)
+	receipt, err := run.record(ctx, l, produced.Payload)
 	if err != nil {
 		var refusal *api.ProblemError
 		if errors.As(err, &refusal) && refusal.StatusCode >= 400 && refusal.StatusCode < 500 {
-			return run.finishFailure(ctx, original, order, produced.Result, err)
+			return run.fail(ctx, l, produced.Result, err)
 		}
-		// A transport, decoding or server error may follow a committed write.
-		// Preserve the run identity for reconciliation; never complete it failed.
-		return &RecordingResult{Order: *order, Receipt: receipt, Result: produced.Result}, err
+		// A transport or server error may follow a committed write: keep the order for
+		// reconciliation and never complete it.
+		return &RecordingResult{Order: *l.snapshot(), Receipt: receipt, Result: produced.Result}, err
 	}
-	order, err = run.heartbeat(ctx, original, order)
-	if err != nil {
-		return &RecordingResult{Order: original, Receipt: receipt, Result: produced.Result}, err
-	}
-	completed, err := run.complete(ctx, order, produced.Result)
-	return &RecordingResult{Order: valueOrOriginal(completed, original), Receipt: receipt, Result: produced.Result}, err
+	completed, err := l.complete(ctx, produced.Result)
+	return &RecordingResult{Order: l.latest(completed), Receipt: receipt, Result: produced.Result}, err
 }
 
 func (run RecordingRun) validate() error {
 	if run.Client == nil || run.Executor == nil {
-		return errors.New("recording run requires a bound client and executor")
+		return errors.New("ops: recording run needs a Client and an Executor")
 	}
-	if run.Start.LeaseSeconds <= 0 || run.RequestTimeout < 0 || run.HeartbeatInterval < 0 || (run.HeartbeatInterval != 0 && run.HeartbeatInterval >= time.Duration(run.Start.LeaseSeconds)*time.Second) {
-		return errors.New("recording run requires positive bounded lease/request/heartbeat durations")
+	lease := leaseDuration(run.Start.LeaseSeconds)
+	if run.Start.LeaseSeconds <= 0 || run.RequestTimeout < 0 || run.HeartbeatInterval < 0 || run.HeartbeatInterval >= lease {
+		return errors.New("ops: recording run needs a positive lease and a heartbeat shorter than it")
 	}
-	count := 0
-	for _, configured := range []bool{run.Request.Assessment != nil, run.Request.Triage != nil, run.Request.Validation != nil, run.Request.Verification != nil} {
-		if configured {
-			count++
+	templates := 0
+	for _, set := range []bool{run.Request.Assessment != nil, run.Request.Triage != nil, run.Request.Validation != nil, run.Request.Verification != nil} {
+		if set {
+			templates++
 		}
 	}
-	if count != 1 {
-		return errors.New("recording run requires exactly one native request template")
+	if templates != 1 {
+		return errors.New("ops: recording run needs exactly one request template")
 	}
 	if run.Request.Triage != nil && run.Request.AssessmentID == uuid.Nil {
-		return errors.New("triage recording requires the native source assessment UUID")
+		return errors.New("ops: triage recording needs the source assessment id")
 	}
-	payload, provenance := run.Request.templateInput()
-	if payload != "" || provenance.Source == "" {
-		return errors.New("recording run requires an empty payload template and explicit native provenance source")
-	}
-	return nil
-}
-
-func usableOrder(order *api.RunOrder) error {
-	if order == nil || order.State != api.RunOrderStateLeased || order.Id == nil || *order.Id == uuid.Nil || order.StartedAt == nil || order.StartedAt.IsZero() || order.LeaseExpiresAt == nil || !order.LeaseExpiresAt.After(time.Now()) {
-		return errors.New("Core did not return a concrete live order lease and provenance origin")
+	if payload, provenance := run.Request.template(); payload != "" || provenance.Source == "" {
+		return errors.New("ops: request template needs an empty payload and an explicit provenance source")
 	}
 	return nil
 }
 
-func (run RecordingRun) ownedContext(ctx context.Context, order *api.RunOrder) (context.Context, context.CancelFunc) {
-	deadline := time.Now().Add(run.RequestTimeout)
-	if order.LeaseExpiresAt.Before(deadline) {
-		deadline = *order.LeaseExpiresAt
-	}
-	return context.WithDeadline(ctx, deadline)
-}
-
-func (run RecordingRun) heartbeat(ctx context.Context, original api.RunOrder, current *api.RunOrder) (*api.RunOrder, error) {
-	if err := usableOrder(current); err != nil {
-		return nil, &LeaseLostError{Err: err}
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, &LeaseLostError{Err: err}
-	}
-	requestCtx, cancel := run.ownedContext(ctx, current)
+func (run RecordingRun) start(ctx context.Context, timeout time.Duration) (*api.RunOrder, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	response, err := run.Client.HeartbeatWithResponse(requestCtx, *original.Id, api.LeaseRequest{LeaseSeconds: run.Start.LeaseSeconds})
+	response, err := run.Client.StartWithResponse(ctx, run.Start)
 	if err != nil {
-		return nil, &LeaseLostError{Err: err}
+		return nil, fmt.Errorf("ops: start order: %w", err)
 	}
-	order, err := nativeResponse(response.StatusCode(), response.Body, response.JSON200)
-	if err == nil {
-		err = usableOrder(order)
-	}
-	if err == nil && (*order.Id != *original.Id || !order.StartedAt.Equal(*original.StartedAt)) {
-		err = errors.New("heartbeat changed immutable server run provenance")
-	}
-	if err != nil {
-		return nil, &LeaseLostError{Err: err}
-	}
-	return order, nil
+	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 }
 
-func (run RecordingRun) execute(ctx context.Context, original api.RunOrder, current *api.RunOrder, execution Execution) (ProducedReport, error) {
-	return superviseLease(ctx, run, original, current, func(workCtx context.Context) (ProducedReport, error) {
-		executionOrder := original
-		// Native generated models use pointers; the executor must not mutate lease identity.
-		id, started, expiresAt := *original.Id, *original.StartedAt, *original.LeaseExpiresAt
-		executionOrder.Id, executionOrder.StartedAt, executionOrder.LeaseExpiresAt = &id, &started, &expiresAt
-		execution.Order = executionOrder
-		return run.Executor.Execute(workCtx, execution)
-	})
-}
-
-func superviseLease[T any](ctx context.Context, run RecordingRun, original api.RunOrder, current *api.RunOrder, work func(context.Context) (T, error)) (T, error) {
-	var zero T
-	if err := usableOrder(current); err != nil {
-		return zero, &LeaseLostError{Err: err}
-	}
-	if err := ctx.Err(); err != nil {
-		return zero, &LeaseLostError{Err: err}
-	}
-	workCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	type workResult struct {
-		value T
-		err   error
-	}
-	done := make(chan workResult, 1)
-	go func() {
-		value, err := work(workCtx)
-		done <- workResult{value: value, err: err}
-	}()
-	ticker := time.NewTicker(run.HeartbeatInterval)
-	defer ticker.Stop()
-	expires := time.NewTimer(time.Until(*current.LeaseExpiresAt))
-	defer expires.Stop()
-	stop := func(cause error) (T, error) {
-		cancel()
-		<-done // Work, including executor descendants, has stopped before return.
-		return zero, cause
-	}
-	for {
-		select {
-		case <-ctx.Done():
-			return stop(&LeaseLostError{Err: ctx.Err()})
-		case <-expires.C:
-			return stop(&LeaseLostError{Err: errors.New("order lease expired")})
-		case <-ticker.C:
-			updated, err := run.heartbeat(ctx, original, current)
-			if err != nil {
-				return stop(err)
-			}
-			*current = *updated
-			expires.Reset(time.Until(*current.LeaseExpiresAt))
-		case result := <-done:
-			if ctx.Err() != nil || !current.LeaseExpiresAt.After(time.Now()) {
-				return zero, &LeaseLostError{Err: errors.New("work ended without a live lease")}
-			}
-			return result.value, result.err
-		}
-	}
-}
-
-func (run RecordingRun) finishFailure(ctx context.Context, original api.RunOrder, current *api.RunOrder, result api.JobResult, cause error) (*RecordingResult, error) {
-	owned, err := run.heartbeat(ctx, original, current)
-	if err != nil {
-		return &RecordingResult{Order: valueOrOriginal(current, original), Result: result}, errors.Join(cause, err)
-	}
-	result.Outcome = api.OutcomeFailed
-	completed, completeErr := run.complete(ctx, owned, result)
-	return &RecordingResult{Order: valueOrOriginal(completed, original), Result: result}, errors.Join(cause, completeErr)
-}
-
-func (run RecordingRun) complete(ctx context.Context, order *api.RunOrder, result api.JobResult) (*api.RunOrder, error) {
-	if err := usableOrder(order); err != nil {
-		return nil, &LeaseLostError{Err: err}
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, &LeaseLostError{Err: err}
-	}
-	requestCtx, cancel := run.ownedContext(ctx, order)
-	defer cancel()
-	response, err := run.Client.CompleteWithResponse(requestCtx, *order.Id, api.CompleteRequest{Result: result})
+func (run RecordingRun) prepareTriage(ctx context.Context, l *lease) (*api.TriageInput, error) {
+	ctx, cancel, err := l.call(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return nativeResponse(response.StatusCode(), response.Body, response.JSON200)
+	defer cancel()
+	response, err := run.Client.PrepareTriageWithResponse(ctx, run.Request.AssessmentID)
+	if err != nil {
+		return nil, fmt.Errorf("ops: prepare triage: %w", err)
+	}
+	return api.Decode(response.HTTPResponse, response.Body, response.JSON200)
 }
 
-func valueOrOriginal(order *api.RunOrder, original api.RunOrder) api.RunOrder {
-	if order != nil {
-		return *order
-	}
-	return original
-}
-
-func nativeResponse[T any](status int, raw []byte, receipt *T) (*T, error) {
-	if status < 200 || status >= 300 {
-		failure := &api.ProblemError{StatusCode: status, Body: string(raw)}
-		var problem api.Problem
-		if json.Unmarshal(raw, &problem) == nil && (problem.Title != "" || problem.Type != "" || problem.Status != 0) {
-			failure.Problem = &problem
-		}
-		return nil, failure
-	}
-	if status != 200 || receipt == nil || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		return nil, fmt.Errorf("Core returned HTTP %d without a concrete native JSON200 response", status)
-	}
-	return receipt, nil
-}
-
-func bindProvenance(order api.RunOrder, requestOrder uuid.UUID, provenance api.Provenance) (api.Provenance, error) {
-	if requestOrder != uuid.Nil && requestOrder != *order.Id {
-		return api.Provenance{}, errors.New("request template run_order_id conflicts with the server order")
-	}
-	if provenance.RunId != uuid.Nil && provenance.RunId != *order.Id {
-		return api.Provenance{}, errors.New("request provenance run_id conflicts with the server order")
-	}
-	if !provenance.OccurredAt.IsZero() && !provenance.OccurredAt.Equal(*order.StartedAt) {
-		return api.Provenance{}, errors.New("request provenance occurred_at conflicts with the server start time")
-	}
-	if provenance.Source == "" {
-		return api.Provenance{}, errors.New("request template requires an explicit native provenance source")
-	}
-	provenance.RunId = *order.Id
-	provenance.OccurredAt = *order.StartedAt
-	return provenance, nil
+// fail completes the order failed while it is still held, keeping the executor's result.
+func (run RecordingRun) fail(ctx context.Context, l *lease, result api.JobResult, cause error) (*RecordingResult, error) {
+	result.Outcome = api.OutcomeFailed
+	completed, err := l.complete(ctx, result)
+	return &RecordingResult{Order: l.latest(completed), Result: result}, errors.Join(cause, err)
 }

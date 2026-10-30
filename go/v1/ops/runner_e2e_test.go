@@ -5,7 +5,6 @@ package ops
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -18,122 +17,77 @@ import (
 	"github.com/traust-security/traust-sdk/go/v1/api"
 )
 
+// Runs against traust-server built from core at CORE_REF; `make e2e` starts it.
+func e2eClient(t *testing.T, tokens string) *api.BoundClient {
+	t.Helper()
+	url, path := os.Getenv("TRAUST_E2E_URL"), os.Getenv(tokens)
+	if url == "" || path == "" {
+		t.Fatalf("TRAUST_E2E_URL and %s are required; run make e2e", tokens)
+	}
+	client, err := api.NewBoundClient(api.ClientConfig{BaseURL: url, Tokens: api.FileTokenSource{Path: path}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return client
+}
+
+// processGroupCommand runs argv without a shell; cancel kills the whole process group, so a lost
+// lease stops descendants too.
 func processGroupCommand(ctx context.Context, name string, args ...string) *exec.Cmd {
-	command := exec.CommandContext(ctx, name, args...)
-	// A lost lease must stop descendants as well as the command process.
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	command.Cancel = func() error { return syscall.Kill(-command.Process.Pid, syscall.SIGKILL) }
-	return command
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
+	return cmd
 }
 
-func TestE2ERunnerLedgerAudit(t *testing.T) {
-	packBytes, err := os.ReadFile(os.Getenv("TRAUST_E2E_PACK"))
+type processExecutor struct{}
+
+func (processExecutor) Execute(ctx context.Context, execution Execution) (ProducedReport, error) {
+	output, err := processGroupCommand(ctx, execution.Argv[0], execution.Argv[1:]...).Output()
+	if err != nil {
+		return ProducedReport{}, err
+	}
+	return ProducedReport{Payload: output, Result: api.JobResult{Outcome: api.OutcomeSucceeded}}, nil
+}
+
+func TestE2ERunnerRunsASubmittedPackCommand(t *testing.T) {
+	raw, err := os.ReadFile("testdata/local-command.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
-	pack, err := LoadPack(packBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	client, err := api.NewBoundClient(api.ClientConfig{
-		BaseURL: os.Getenv("TRAUST_E2E_URL"),
-		Tokens:  api.FileTokenSource{Path: os.Getenv("TRAUST_E2E_TOKEN_FILE")},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	python, configHome := os.Getenv("TRAUST_E2E_PYTHON"), os.Getenv("TRAUST_E2E_CONFIG_HOME")
-	if python == "" || configHome == "" {
-		t.Fatal("e2e requires a Traust Python executable and temporary config home")
-	}
-	executor := executorFunc(func(ctx context.Context, execution Execution) (ProducedReport, error) {
-		if len(execution.Argv) == 0 || execution.Argv[0] != "python3" {
-			return ProducedReport{}, errors.New("unexpected pack command")
-		}
-		command := processGroupCommand(ctx, python, execution.Argv[1:]...)
-		command.Env = []string{
-			"PATH=" + os.Getenv("PATH"),
-			"PYTHONPATH=" + os.Getenv("TRAUST_E2E_PYTHONPATH"),
-			"TRAUST_CONFIG_HOME=" + configHome,
-			"HOME=" + os.Getenv("HOME"),
-		}
-		output, err := command.Output()
-		var exit *exec.ExitError
-		if err != nil && !errors.As(err, &exit) {
-			return ProducedReport{}, err
-		}
-		var result api.JobResult
-		if err := json.Unmarshal(output, &result); err != nil {
-			return ProducedReport{}, err
-		}
-		return ProducedReport{Payload: output, Result: result}, nil
-	})
-	runner, err := NewRunner(RunnerConfig{
-		Client: client, Pack: pack, Executor: executor, Assets: []string{"ledger_audit"},
-		LeaseSeconds: 30, HeartbeatInterval: 5 * time.Second, RequestTimeout: 10 * time.Second, PollInterval: time.Second,
-	})
+	pack, err := LoadPack(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	order, err := runner.RunOnce(ctx)
-	if err != nil || order == nil || order.State != api.RunOrderStateSucceeded {
-		t.Fatalf("completed order=%+v err=%v", order, err)
-	}
-	if idle, err := runner.RunOnce(ctx); err != nil || idle != nil {
-		t.Fatalf("empty queue order=%+v err=%v", idle, err)
-	}
-	if !strings.HasPrefix(order.RequestedBy, "human:") {
-		t.Fatalf("order lost its planning principal: %q", order.RequestedBy)
-	}
-}
 
-func TestE2ERunnerLocalCommand(t *testing.T) {
-	packBytes, err := os.ReadFile("testdata/local-command.yaml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pack, err := LoadPack(packBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	client, err := api.NewBoundClient(api.ClientConfig{
-		BaseURL: os.Getenv("TRAUST_E2E_URL"),
-		Tokens:  api.FileTokenSource{Path: os.Getenv("TRAUST_E2E_TOKEN_FILE")},
+	person := e2eClient(t, "TRAUST_E2E_TOKEN_FILE")
+	submitted, err := person.SubmitWithResponse(ctx, api.SubmitRequest{
+		Order:  api.OrderRequest{Asset: "command_result", Priority: 1},
+		Config: &[]api.ConfigDigest{{Name: pack.ref(), Digest: pack.digest}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	executor := executorFunc(func(ctx context.Context, execution Execution) (ProducedReport, error) {
-		if len(execution.Argv) != 4 || execution.Argv[0] != "python3" || execution.Argv[1] != "-c" || execution.Argv[3] != execution.Order.Id.String() {
-			return ProducedReport{}, errors.New("unexpected resolved command")
-		}
-		command := processGroupCommand(ctx, execution.Argv[0], execution.Argv[1:]...)
-		output, err := command.Output()
-		if err != nil {
-			return ProducedReport{}, err
-		}
-		if string(output) != "completed\n" {
-			return ProducedReport{}, errors.New("unexpected command output")
-		}
-		return ProducedReport{Payload: output, Result: api.JobResult{Outcome: api.OutcomeSucceeded}}, nil
-	})
+	want, err := api.Decode(submitted.HTTPResponse, submitted.Body, submitted.JSON200)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	runner, err := NewRunner(RunnerConfig{
-		Client: client, Pack: pack, Executor: executor, Assets: []string{"command_result"},
-		LeaseSeconds: 30, HeartbeatInterval: 5 * time.Second, RequestTimeout: 10 * time.Second, PollInterval: time.Second,
+		Client: e2eClient(t, "TRAUST_E2E_RUNNER_TOKEN_FILE"), Pack: pack, Executor: processExecutor{},
+		Assets: []string{"command_result"}, LeaseSeconds: 30, PollInterval: time.Second,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
 	order, err := runner.RunOnce(ctx)
-	if err != nil || order == nil || order.State != api.RunOrderStateSucceeded {
-		t.Fatalf("completed order=%+v err=%v", order, err)
+	if err != nil || order == nil || *order.Id != *want.Id || order.State != api.RunOrderStateSucceeded {
+		t.Fatalf("order=%+v err=%v", order, err)
 	}
 	if idle, err := runner.RunOnce(ctx); err != nil || idle != nil {
-		t.Fatalf("empty queue order=%+v err=%v", idle, err)
+		t.Fatalf("drained queue returned order=%+v err=%v", idle, err)
 	}
 }
 

@@ -137,8 +137,12 @@ func (e *ProblemError) Error() string {
 	return fmt.Sprintf("traust-core: %d: %s", e.StatusCode, body)
 }
 
-// problemFromResponse builds the error for a non-2xx generated response.
-func problemFromResponse(statusCode int, body []byte, contentType string) *ProblemError {
+// CheckResponse returns nil for a 2xx response, otherwise its *ProblemError: the RFC 7807
+// document when the server sent one, else the raw body.
+func CheckResponse(statusCode int, body []byte, contentType string) error {
+	if statusCode >= 200 && statusCode < 300 {
+		return nil
+	}
 	out := &ProblemError{StatusCode: statusCode, Body: string(body)}
 	if strings.Contains(contentType, "application/problem+json") || bytes.HasPrefix(bytes.TrimSpace(body), []byte("{")) {
 		var problem Problem
@@ -149,23 +153,17 @@ func problemFromResponse(statusCode int, body []byte, contentType string) *Probl
 	return out
 }
 
-// checkResponse turns a failed generated response into a *ProblemError.
-// The generated types expose StatusCode() as a method and Body as a field.
-func checkResponse(statusCode int, body []byte, contentType string) error {
-	if statusCode >= 200 && statusCode < 300 {
-		return nil
-	}
-	return problemFromResponse(statusCode, body, contentType)
-}
-
-// CheckResponse turns a failed generated response into a *ProblemError: nil
-// for 2xx, otherwise the RFC 7807 document when the server sent one (or a
-// ProblemError carrying the raw body when it did not). Consumers call it
-// with the generated response's fields:
+// Decode returns a generated response's decoded body, or its *ProblemError when core refused:
 //
-//	CheckResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type"))
-func CheckResponse(statusCode int, body []byte, contentType string) error {
-	return checkResponse(statusCode, body, contentType)
+//	order, err := api.Decode(resp.HTTPResponse, resp.Body, resp.JSON200)
+func Decode[T any](response *http.Response, body []byte, value *T) (*T, error) {
+	if err := CheckResponse(response.StatusCode, body, response.Header.Get("Content-Type")); err != nil {
+		return nil, err
+	}
+	if value == nil || bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+		return nil, fmt.Errorf("traust-core: HTTP %d without a JSON body", response.StatusCode)
+	}
+	return value, nil
 }
 
 // retryTransport retries idempotent requests (GET/HEAD) on 429 and
@@ -209,62 +207,53 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// EachProduct walks the product listing page by page, following the cursor,
-// calling fn for every product; a non-nil error stops the walk. One request
-// page size is limit (1..1000; core clamps).
+// EachProduct calls fn for every product, page by page; a non-nil error stops the walk. limit is
+// the page size (1..1000).
 func (c *BoundClient) EachProduct(ctx context.Context, limit int, fn func(Product) error) error {
-	var cursor *string
-	for {
-		resp, err := c.ListProductsWithResponse(ctx, &ListProductsParams{
-			Limit:  &limit,
-			Cursor: cursor,
-		})
+	return each(ctx, fn, func(ctx context.Context, cursor *string) ([]Product, *string, error) {
+		response, err := c.ListProductsWithResponse(ctx, &ListProductsParams{Limit: &limit, Cursor: cursor})
 		if err != nil {
-			return err
+			return nil, nil, err
 		}
-		if err := checkResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type")); err != nil {
-			return err
+		page, err := Decode(response.HTTPResponse, response.Body, response.JSON200)
+		if err != nil {
+			return nil, nil, err
 		}
-		if resp.JSON200 == nil {
-			return problemFromResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type"))
-		}
-		for _, item := range resp.JSON200.Items {
-			if err := fn(item); err != nil {
-				return err
-			}
-		}
-		if resp.JSON200.Next == nil || *resp.JSON200.Next == "" {
-			return nil
-		}
-		cursor = resp.JSON200.Next
-	}
+		return page.Items, page.Next, nil
+	})
 }
 
-// EachRepository walks the repository listing the same way.
+// EachRepository calls fn for every repository, the same way.
 func (c *BoundClient) EachRepository(ctx context.Context, limit int, fn func(Repository) error) error {
+	return each(ctx, fn, func(ctx context.Context, cursor *string) ([]Repository, *string, error) {
+		response, err := c.ListRepositoriesWithResponse(ctx, &ListRepositoriesParams{Limit: &limit, Cursor: cursor})
+		if err != nil {
+			return nil, nil, err
+		}
+		page, err := Decode(response.HTTPResponse, response.Body, response.JSON200)
+		if err != nil {
+			return nil, nil, err
+		}
+		return page.Items, page.Next, nil
+	})
+}
+
+// each follows a cursor-paged listing until its last page.
+func each[T any](ctx context.Context, fn func(T) error, page func(context.Context, *string) ([]T, *string, error)) error {
 	var cursor *string
 	for {
-		resp, err := c.ListRepositoriesWithResponse(ctx, &ListRepositoriesParams{
-			Limit:  &limit,
-			Cursor: cursor,
-		})
+		items, next, err := page(ctx, cursor)
 		if err != nil {
 			return err
 		}
-		if err := checkResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type")); err != nil {
-			return err
-		}
-		if resp.JSON200 == nil {
-			return problemFromResponse(resp.StatusCode(), resp.Body, resp.HTTPResponse.Header.Get("Content-Type"))
-		}
-		for _, item := range resp.JSON200.Items {
+		for _, item := range items {
 			if err := fn(item); err != nil {
 				return err
 			}
 		}
-		if resp.JSON200.Next == nil || *resp.JSON200.Next == "" {
+		if next == nil || *next == "" {
 			return nil
 		}
-		cursor = resp.JSON200.Next
+		cursor = next
 	}
 }
